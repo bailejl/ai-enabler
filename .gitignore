@@ -51,6 +51,7 @@ graphify-out/
 # dev-team workflow runtime artifacts (.claude/-scoped + .dev-team-reports/, #1406) v2 (regeneratable; not deliverables — issues #1101, #1377, #1406, #1412)
 .claude/memory/
 .claude/metrics/
+.claude/code-intelligence-turn-state.json*
 .claude/plans/
 /memory/
 /reports/
