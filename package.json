@@ -1,5 +1,5 @@
 {
-  "name": "vsm-central",
+  "name": "ai-enabler",
   "version": "1.0.0",
   "description": "",
   "scripts": {
@@ -16,16 +16,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bailejl/vsm-central.git"
+    "url": "git+https://github.com/bailejl/ai-enabler.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/bailejl/vsm-central/issues"
+    "url": "https://github.com/bailejl/ai-enabler/issues"
   },
-  "homepage": "https://github.com/bailejl/vsm-central#readme",
+  "homepage": "https://github.com/bailejl/ai-enabler#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.0",
