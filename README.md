@@ -7,8 +7,9 @@ know where they stand. The intent is to improve the delivery environment so AI a
 
 ## Status
 
-Early scaffold. None of the goals above are built yet. `src/` holds one starter function (`add` in
-`src/index.js`), and no UI framework is chosen. The only end-to-end test is a skipped placeholder.
+Early scaffold. The UI is React with [React Flow](https://reactflow.dev) (`@xyflow/react`), served
+by Vite. It shows a starter value stream (Idea to Production) on a canvas you can pan, zoom, and
+drag nodes around on. None of the analysis goals above are built yet.
 
 ## Prerequisites
 
@@ -29,6 +30,9 @@ npx playwright install chromium
 
 | Task                | Command                 |
 | ------------------- | ----------------------- |
+| Dev server (:3000)  | `npm run dev`           |
+| Production build    | `npm run build`         |
+| Preview build       | `npm run preview`       |
 | Unit tests          | `npm test`              |
 | Unit tests (watch)  | `npm run test:watch`    |
 | Coverage            | `npm run test:coverage` |
@@ -40,13 +44,19 @@ npx playwright install chromium
 | Check formatting    | `npm run format:check`  |
 | Mutation testing    | `npx stryker run`       |
 
-Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.js`,
-excluding test files.
+Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
+excluding test files, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
+the e2e tests cover it.
 
 ## Project layout
 
-- `src/` - application code. Unit tests sit next to the code as `*.test.js`.
-- `e2e/` - Playwright end-to-end tests. They target `http://localhost:3000`.
+- `index.html`, `src/main.jsx` - app entry point.
+- `src/App.jsx` - the React Flow canvas.
+- `src/flow/` - value stream data and logic, kept as plain functions so it can be unit tested.
+- Unit tests sit next to the code as `*.test.js` or `*.test.jsx`.
+- `e2e/` - Playwright end-to-end tests. Playwright starts the dev server on
+  `http://localhost:3000` itself.
+- `vite.config.js` - Vite dev server and build settings.
 - `vitest.config.js` - unit test and coverage settings.
 - `playwright.config.js` - Playwright settings (Chromium only).
 - `stryker.config.mjs` - mutation testing settings.
@@ -73,7 +83,7 @@ The repo ships two Husky hooks.
 
 - `.husky/pre-commit` refreshes the Repowise index if `repowise` is installed, and stages the
   regenerated `.claude/CLAUDE.md` and `.github/copilot-instructions.md` unless they had unstaged
-  edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript files, Prettier on JSON,
+  edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript and JSX files, Prettier on JSON,
   Markdown, and YAML.
 - `.husky/pre-push` runs `npm test` and `npm run test:e2e`.
 
