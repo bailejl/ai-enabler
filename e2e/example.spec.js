@@ -11,6 +11,8 @@ test('value stream canvas shows the starter stages and links', async ({ page }) 
   await expect(page.getByText('Production', { exact: true })).toBeVisible()
 })
 
+const nodeByLabel = (page, label) => page.locator('.react-flow__node').filter({ hasText: label })
+
 const DRAG_DX = 80
 const DRAG_DY = 120
 
@@ -30,9 +32,8 @@ const settledBox = async (locator) => {
 
 test('a stage can be dragged without moving its neighbours', async ({ page }) => {
   await page.goto('/')
-  const nodeByLabel = (label) => page.locator('.react-flow__node').filter({ hasText: label })
-  const dragged = nodeByLabel('Build')
-  const neighbour = nodeByLabel('Plan')
+  const dragged = nodeByLabel(page, 'Build')
+  const neighbour = nodeByLabel(page, 'Plan')
   const before = await settledBox(dragged)
   const neighbourBefore = await settledBox(neighbour)
 
@@ -59,9 +60,8 @@ test('two stages can be connected by dragging between handles', async ({ page })
   await page.goto('/')
   const edges = page.locator('.react-flow__edge')
   await expect(edges).toHaveCount(initialEdges.length)
-  const nodeByLabel = (label) => page.locator('.react-flow__node').filter({ hasText: label })
-  const source = nodeByLabel('Idea').locator('.react-flow__handle.source')
-  const target = nodeByLabel('Production').locator('.react-flow__handle.target')
+  const source = nodeByLabel(page, 'Idea').locator('.react-flow__handle.source')
+  const target = nodeByLabel(page, 'Production').locator('.react-flow__handle.target')
   await source.dragTo(target)
   await expect(edges).toHaveCount(initialEdges.length + 1)
 })
