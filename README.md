@@ -12,8 +12,8 @@ Early scaffold. None of the goals above are built yet. `src/` holds one starter 
 
 ## Prerequisites
 
-- Node.js `>=24.11.0` (set in `engines` in `package.json`). `.nvmrc` says `24`, so `nvm use` picks
-  a Node 24 release.
+- Node.js `>=24.11.0` (set in `engines` in `package.json`). `.nvmrc` pins `24.11.0`, so `nvm use`
+  picks a matching release.
 - npm.
 
 ## Setup
@@ -69,11 +69,17 @@ More detail is in `.claude/CLAUDE.md`.
 
 ## Git hooks
 
-Husky runs two hooks.
+The repo ships two Husky hooks.
 
-- `.husky/pre-commit` refreshes the Repowise index if `repowise` is installed. It then runs
-  `lint-staged`: oxlint and Prettier on JavaScript files, Prettier on JSON, Markdown, and YAML.
+- `.husky/pre-commit` refreshes the Repowise index if `repowise` is installed, and stages the
+  regenerated `.claude/CLAUDE.md` and `.github/copilot-instructions.md` unless they had unstaged
+  edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript files, Prettier on JSON,
+  Markdown, and YAML.
 - `.husky/pre-push` runs `npm test` and `npm run test:e2e`.
+
+If Graphify is installed, it adds local `post-checkout`, `post-commit`, `post-merge`, and
+`post-rewrite` hooks in `.husky/` that rebuild `graphify-out/`. They are gitignored, so they only
+exist on machines where `graphify hook install` was run.
 
 ## AI tooling (optional)
 
