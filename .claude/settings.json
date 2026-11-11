@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard read",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard compact",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$CLAUDE_PROJECT_DIR\" ] || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *..*|*/node_modules/*) exit 0;; \"$CLAUDE_PROJECT_DIR\"/*) ;; *) exit 0;; esac; cd \"$CLAUDE_PROJECT_DIR\" || exit 0; case \"$f\" in *.js|*.mjs|*.cjs) npx --no-install oxlint --fix \"$f\" >/dev/null 2>&1;; esac; case \"$f\" in *.js|*.mjs|*.cjs|*.json|*.md|*.yml|*.yaml) npx --no-install prettier --write \"$f\" >/dev/null 2>&1;; esac; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "40"
+  }
+}
