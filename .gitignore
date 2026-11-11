@@ -39,6 +39,7 @@ npm-debug.log*
 
 # graphify / repowise machine-specific outputs and generated git hooks
 graphify-out/
+/.repowise/
 .husky/post-commit
 .husky/post-checkout
 .husky/post-merge
@@ -51,12 +52,10 @@ graphify-out/
 .claude/memory/
 .claude/metrics/
 .claude/plans/
-/.dev-team-reports/*
-!/.dev-team-reports/test-improve/
-memory/
-reports/
-metrics/
-plans/
+/memory/
+/reports/
+/metrics/
+/plans/
 .pr-review-passed
 
 # Stryker
