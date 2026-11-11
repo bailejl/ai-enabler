@@ -1,0 +1,7 @@
+{
+  "codegraph": {"init_accepted": true},
+  "repowise": {"install_accepted": true},
+  "graphify": {"install_accepted": true, "enrichment_skipped_no_key": true, "code_only_build": true},
+  "mcp_hygiene": {"gitignore": "added"},
+  "last_run": {"stack": ["javascript"], "all_slots_bound": true, "capability_tools_resolved": true, "checked_at": "2026-11-11T08:20:00Z"}
+}

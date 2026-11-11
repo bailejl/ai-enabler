@@ -1,0 +1,8 @@
+# Tool-managed files (dev-team, Repowise, Graphify) — don't reformat
+.claude/
+.github/copilot-instructions.md
+.repowise/
+.codegraph/
+graphify-out/
+CLAUDE.md
+package-lock.json

@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# dev-team plugin: shared human-invoked report output (/review-agent,
+# /code-review, /triage) — local-only, regenerated per run. Anchored
+# deny-all + re-included tracked exception for /test-improve's
+# git-tracked report data/ sibling directory (issue #1412). The
+# re-include must stay directory-level (test-improve/), not narrowed to
+# e.g. */data/ — git never re-includes a path whose parent directory is
+# itself excluded, so a narrower exception would silently match nothing.
+/.dev-team-reports/*
+!/.dev-team-reports/test-improve/
+
+# graphify / repowise machine-specific outputs and generated git hooks
+graphify-out/
+.husky/post-commit
+.husky/post-checkout
+.husky/post-merge
+.husky/post-rewrite
+
+# dev-team hygiene — machine-specific MCP config (absolute-path pollution — issues #1376, #1416)
+.mcp.json
+
+# dev-team workflow runtime artifacts (.claude/-scoped + .dev-team-reports/, #1406) v2 (regeneratable; not deliverables — issues #1101, #1377, #1406, #1412)
+.claude/memory/
+.claude/metrics/
+.claude/plans/
+/.dev-team-reports/*
+!/.dev-team-reports/test-improve/
+memory/
+reports/
+metrics/
+plans/
+.pr-review-passed
+
+# Stryker
+.stryker-tmp/

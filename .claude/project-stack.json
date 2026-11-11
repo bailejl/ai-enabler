@@ -1,0 +1,11 @@
+{
+  "detected": "2026-11-11",
+  "stacks": ["javascript", "node"],
+  "frameworks": ["vitest", "playwright"],
+  "packageManager": "npm",
+  "hasDocker": false,
+  "indicators": {
+    "package.json": true,
+    "tsconfig.json": false
+  }
+}
