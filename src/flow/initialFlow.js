@@ -1,17 +1,25 @@
 /**
  * Starter value stream: the stages from idea to production, left to right.
+ * Ids are stable slugs so reordering or inserting stages does not change identity.
  */
-const STAGES = ['Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production']
+const STAGES = [
+  { id: 'idea', label: 'Idea' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'build', label: 'Build' },
+  { id: 'test', label: 'Test' },
+  { id: 'deploy', label: 'Deploy' },
+  { id: 'production', label: 'Production' },
+]
 
-const STAGE_SPACING = 200
+export const STAGE_SPACING = 200
 
 /**
- * @param {string[]} stages
+ * @param {{ id: string, label: string }[]} stages
  * @returns {{ id: string, position: { x: number, y: number }, data: { label: string } }[]}
  */
 export const toNodes = (stages) =>
-  stages.map((label, i) => ({
-    id: `stage-${i}`,
+  stages.map(({ id, label }, i) => ({
+    id,
     position: { x: i * STAGE_SPACING, y: 0 },
     data: { label },
   }))
@@ -23,11 +31,10 @@ export const toNodes = (stages) =>
  * @returns {{ id: string, source: string, target: string }[]}
  */
 export const toEdges = (nodes) =>
-  nodes.slice(1).map((node, i) => ({
-    id: `${nodes[i].id}->${node.id}`,
-    source: nodes[i].id,
-    target: node.id,
-  }))
+  nodes.slice(1).map((target, i) => {
+    const source = nodes[i]
+    return { id: `${source.id}->${target.id}`, source: source.id, target: target.id }
+  })
 
 export const initialNodes = toNodes(STAGES)
 export const initialEdges = toEdges(initialNodes)

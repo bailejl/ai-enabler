@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { toNodes, toEdges, initialNodes, initialEdges } from './initialFlow.js'
+import { STAGE_SPACING, toNodes, toEdges, initialNodes, initialEdges } from './initialFlow.js'
 
 describe('toNodes', () => {
-  it('lays stages out left to right with labels', () => {
-    expect(toNodes(['A', 'B'])).toEqual([
-      { id: 'stage-0', position: { x: 0, y: 0 }, data: { label: 'A' } },
-      { id: 'stage-1', position: { x: 200, y: 0 }, data: { label: 'B' } },
+  it('lays stages out left to right, one spacing apart, keeping ids and labels', () => {
+    expect(
+      toNodes([
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ]),
+    ).toEqual([
+      { id: 'a', position: { x: 0, y: 0 }, data: { label: 'A' } },
+      { id: 'b', position: { x: STAGE_SPACING, y: 0 }, data: { label: 'B' } },
     ])
   })
 
@@ -25,10 +30,14 @@ describe('toEdges', () => {
   it('returns no edges for a single node', () => {
     expect(toEdges([{ id: 'a' }])).toEqual([])
   })
+
+  it('returns no edges for no nodes', () => {
+    expect(toEdges([])).toEqual([])
+  })
 })
 
 describe('initial flow', () => {
-  it('runs from Idea to Production with one edge per gap', () => {
+  it('runs from Idea to Production in order', () => {
     expect(initialNodes.map((n) => n.data.label)).toEqual([
       'Idea',
       'Plan',
@@ -37,6 +46,15 @@ describe('initial flow', () => {
       'Deploy',
       'Production',
     ])
-    expect(initialEdges).toHaveLength(initialNodes.length - 1)
+  })
+
+  it('links each stage to the next', () => {
+    expect(initialEdges.map((e) => [e.source, e.target])).toEqual([
+      ['idea', 'plan'],
+      ['plan', 'build'],
+      ['build', 'test'],
+      ['test', 'deploy'],
+      ['deploy', 'production'],
+    ])
   })
 })

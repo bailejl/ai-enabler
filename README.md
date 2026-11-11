@@ -45,14 +45,15 @@ npx playwright install chromium
 | Mutation testing    | `npx stryker run`       |
 
 Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
-excluding test files and `src/main.jsx`.
+excluding test files, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
+the e2e tests cover it.
 
 ## Project layout
 
 - `index.html`, `src/main.jsx` - app entry point.
 - `src/App.jsx` - the React Flow canvas.
 - `src/flow/` - value stream data and logic, kept as plain functions so it can be unit tested.
-- Unit tests sit next to the code as `*.test.js`.
+- Unit tests sit next to the code as `*.test.js` or `*.test.jsx`.
 - `e2e/` - Playwright end-to-end tests. Playwright starts the dev server on
   `http://localhost:3000` itself.
 - `vite.config.js` - Vite dev server and build settings.
