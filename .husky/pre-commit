@@ -1,1 +1,14 @@
+# Refresh the Repowise index and stage its generated files, so the commit
+# carries them instead of leaving the tree dirty. Skipped if repowise isn't
+# installed. Files with unstaged edits beforehand are left alone.
+if command -v repowise >/dev/null 2>&1; then
+  stage=""
+  for f in .claude/CLAUDE.md .github/copilot-instructions.md; do
+    git diff --quiet -- "$f" && stage="$stage $f"
+  done
+  repowise update --no-workspace --working-tree . >/dev/null 2>&1 \
+    || echo "pre-commit: repowise update failed; continuing" >&2
+  [ -n "$stage" ] && git add -- $stage
+fi
+
 npx lint-staged
