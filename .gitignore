@@ -61,3 +61,7 @@ plans/
 
 # Stryker
 .stryker-tmp/
+
+# Playwright
+test-results/
+playwright-report/
