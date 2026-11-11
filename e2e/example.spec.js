@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 
-// Placeholder: enable once the app serves on baseURL (see playwright.config.js).
-test.fixme('homepage loads', async ({ page }) => {
+test('value stream canvas shows the starter stages', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveTitle(/.+/)
+  await expect(page).toHaveTitle('ai-enabler')
+  await expect(page.locator('.react-flow__node')).toHaveCount(6)
+  await expect(page.getByText('Idea', { exact: true })).toBeVisible()
+  await expect(page.getByText('Production', { exact: true })).toBeVisible()
 })

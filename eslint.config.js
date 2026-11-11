@@ -1,13 +1,17 @@
 import js from '@eslint/js'
 import prettier from 'eslint-config-prettier'
 import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   js.configs.recommended,
   prettier,
+  reactHooks.configs.flat.recommended,
   {
+    files: ['**/*.{js,jsx,mjs,cjs}'],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
+      parserOptions: { ecmaFeatures: { jsx: true } },
     },
     rules: {
       // Functional style: no classes
@@ -39,6 +43,16 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', 'dist/', 'build/', 'coverage/'],
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'build/',
+      'coverage/',
+      'reports/',
+      '.stryker-tmp/',
+      'test-results/',
+      'playwright-report/',
+      'graphify-out/',
+    ],
   },
 ]
