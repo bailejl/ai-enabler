@@ -13,7 +13,7 @@
 - Prettier: 2-space, single quotes, no semicolons, trailing commas, 100-char width.
 - Linter: oxlint (fast, day-to-day); ESLint flat config as the deep pass.
 - Unit tests: Vitest, colocated as `src/**/*.test.js`. E2E: Playwright in `e2e/`.
-- Git hooks (Husky): pre-commit runs lint-staged (oxlint --fix, then prettier); pre-push runs unit + e2e tests.
+- Git hooks (Husky): pre-commit runs lint-staged (JS: oxlint --fix, then prettier; json/md/yaml: prettier); pre-push runs unit + e2e tests.
 
 ### Commands
 | Task | Command |
