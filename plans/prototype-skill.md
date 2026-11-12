@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-11
 **Branch**: feat/prototype-skill
-**Status**: approved
+**Status**: implemented
 **Gherkin persistence**: plan-file-only
 
 ## Goal
@@ -685,10 +685,10 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
 
 ## Pre-PR Quality Gate
 
-- [ ] All tests pass
-- [ ] Linter passes
-- [ ] `/code-review` passes
-- [ ] Documentation updated
+- [x] All tests pass
+- [x] Linter passes
+- [x] `/code-review` passes
+- [x] Documentation updated
 - [x] Dry-run checklist all pass
 
 ## Skipped (low value)
@@ -716,6 +716,9 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
 - Both guards check ref names, not commits. `git push origin HEAD:feat/x` or `<sha>:feat/x` from a
   proto branch may publish prototype commits under another name. Accepted, same class as the
   evasions above.
+- A `HUSKY=0` with a redirect glued on (`HUSKY=0>/dev/null git push ...`), `env`/`command`/`time`
+  options before git (`env -i git push`), or `HUSKY=0` set in an earlier Bash call can still pass
+  the Claude guard. Accepted after the round-4 review cap.
 
 ### Deviations recorded at build
 
