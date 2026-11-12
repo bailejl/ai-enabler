@@ -37,8 +37,8 @@ The graduate step:
 7. Asks you to confirm, then pushes `feat/<name>` and opens a GitHub issue with `gh issue create`.
    The issue body holds the full handoff text and links to the screenshots on `feat/<name>`. The
    issue gets the `prototype` label.
-8. Prints the next command: `/dev-team:specs <issue-url>`, or `/dev-team:ship` for that issue. If
-   you decline the push, it prints `/dev-team:specs docs/prototypes/<name>.md` instead.
+8. Prints the next command: `/dev-team:specs <issue-url>`. If you decline the push, it prints
+   `/dev-team:specs docs/prototypes/<name>.md` instead.
 
 `/dev-team:specs` accepts a GitHub issue URL or a readable `.md` path and runs in validate mode. That mode critiques the
 handoff, resolves its ambiguities with you, and produces the intent, architecture notes, and
@@ -97,6 +97,14 @@ random port.
   branches yourself.
 - **Normal commit hooks still run on `proto/*`.** lint-staged and Repowise are fast, so prototype
   commits stay formatted and the guard stays simple. Trade-off: about a second per commit.
+- **A Claude Code `PreToolUse` guard blocks `--no-verify`, `HUSKY=0`, and `proto/*` pushes.** It
+  stops Claude only; a push you type yourself still meets the git hook. It fails open on unusable
+  hook input. It accepts the evasions in the plan Risks: `bash -c`, `$(...)`, `xargs`, `sudo`,
+  `git -c core.hooksPath=...`, shell aliases, and quoted refs or flags. It also accepts `HEAD` and
+  SHA refspecs, which name no branch. Trade-off: it stops accidents, not intent.
+- **A `SKIP_REPOWISE=1` switch in `.husky/pre-commit` skips the Repowise refresh.** Graduate uses
+  it so the handoff commit holds only handoff files. Without it, Repowise adds
+  `.claude/CLAUDE.md` and graduate's handoff-only checks fail. Trade-off: the index lags one commit.
 - **The skill skips quality gates only on `proto/*` branches.** The skill states this explicitly.
   Any other branch keeps the full process.
 - **The handoff is a plain Markdown file that `/specs` validate mode reads.** Trade-off: it relies on
@@ -120,6 +128,8 @@ In scope:
 
 - `.claude/skills/prototype/SKILL.md` with `start`, iterate, and `graduate`.
 - The `proto/*` refusal in `.husky/pre-push`.
+- The Claude Code `PreToolUse` guard: `.claude/settings.json` and `scripts/claude-push-guard*.js`.
+- The `SKIP_REPOWISE` switch in `.husky/pre-commit`.
 - The handoff template, inside the skill.
 - The `dev:prototype` script in `package.json` (Vite on port 3001, `strictPort`).
 - The advisory agent offer at graduate.

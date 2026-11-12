@@ -174,7 +174,16 @@ describe('pushGuardMessage', () => {
 
 const CLI_PATH = fileURLToPath(new URL('./proto-push-guard-cli.js', import.meta.url))
 const PRE_PUSH_PATH = fileURLToPath(new URL('../.husky/pre-push', import.meta.url))
-const runCli = (input) => spawnSync(process.execPath, [CLI_PATH], { input, encoding: 'utf8' })
+const TIMEOUT_MS = 5000
+const runCli = (input) => {
+  const result = spawnSync(process.execPath, [CLI_PATH], {
+    input,
+    encoding: 'utf8',
+    timeout: TIMEOUT_MS,
+  })
+  expect(result.error).toBeUndefined()
+  return result
+}
 
 describe('proto-push-guard CLI', () => {
   test('refuses a proto ref with exit 1 and names it on stderr', () => {

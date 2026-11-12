@@ -16,8 +16,9 @@ refuses and points to `/prototype start <name>`.
 
 - Prototype branches are `proto/<name>`. They stay on this machine. Never push one.
 - The `proto/` prefix is hardcoded in this skill, its references, `README.md`,
-  `.claude/CLAUDE.md`, and both push guards (`PROTO_PREFIX` in `scripts/proto-push-guard.js`).
-  If you change it, change all of them.
+  `.claude/CLAUDE.md`, and the push guards. The prefix lives in `scripts/proto-push-guard.js`
+  (`PROTO_PREFIX` and `isProtoRef`); `scripts/claude-push-guard.js` reuses `isProtoRef`. If you
+  change it, change all of them.
 - On a `proto/*` branch only, skip tests, plans, review agents, and `/pr`.
 - The Husky commit hooks still run. Never use `--no-verify`. If a hook fails, fix the cause and
   commit again.

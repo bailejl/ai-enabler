@@ -106,9 +106,11 @@ write a spec.
 
 Prototype branches are meant to stay local. Two guards block pushes of them:
 
-- `scripts/proto-push-guard.js` runs in `.husky/pre-push` and refuses to push any `proto/*` ref.
-- `scripts/claude-push-guard.js` runs as a Claude Code `PreToolUse` hook. It blocks `--no-verify`
-  pushes and pushes of `proto/*` refs.
+- `.husky/pre-push` runs `scripts/proto-push-guard-cli.js`, which calls `scripts/proto-push-guard.js`.
+  It refuses to push any `proto/*` ref.
+- A Claude Code `PreToolUse` hook runs `scripts/claude-push-guard-cli.js`, which calls
+  `scripts/claude-push-guard.js`. It blocks `--no-verify` and `HUSKY=0` pushes and pushes of
+  `proto/*` refs.
 
 ## AI tooling (optional)
 

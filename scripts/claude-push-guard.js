@@ -3,6 +3,8 @@ import { isProtoRef } from './proto-push-guard.js'
 // git accepts any unambiguous abbreviation of a long option, so match a truncated prefix.
 const NO_VERIFY_PREFIX = '--no-ver'
 const REPO_OPTION = '--repo'
+const HUSKY_DISABLE = 'HUSKY=0'
+const EXPORT_COMMAND = 'export'
 const DELETE_FLAGS = ['--delete', '-d']
 const GIT_BINARY = 'git'
 const PUSH_COMMAND = 'push'
@@ -45,9 +47,10 @@ const SEGMENT_SEPARATOR_PATTERN = /&&|\|\||\|&|[|;&\n]/
 // One left-to-right scan; at each position the first alternative that matches wins, so quotes and
 // $(( )) hide any `<<` or `#` inside them and only a heredoc opener or comment outside them counts.
 // Alternatives: line continuation, escaped char, comment (`#` starting a word), $'ANSI-C',
-// 'single', "double", $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD
-// (not <<<) with the rest of its line (`rest`) kept and its body removed through the terminator
-// line, or to the end if unterminated.
+// 'single', "double", fd redirection (`redirect`: 2>&1, >&2, &>, &>>; their `&` is not a
+// separator), $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<;
+// WORD is any run of characters bash allows) with the rest of its line (`rest`) kept and its body
+// removed through the terminator line, or to the end if unterminated.
 const TOKEN_PATTERN = new RegExp(
   [
     String.raw`\\\n`,
@@ -56,8 +59,9 @@ const TOKEN_PATTERN = new RegExp(
     String.raw`\$'(?:[^'\\]|\\[\s\S])*'`,
     String.raw`'[^']*'`,
     String.raw`"(?:[^"\\]|\\[\s\S])*"`,
+    String.raw`(?<redirect>\d*>&-?\d*|\d*<&-?\d*|&>>?)`,
     String.raw`\$\(\([\s\S]*?\)\)`,
-    String.raw`(?<!<)<<(?!<)-?[ \t]*(?<quote>['"]?)\\?(?<word>\w+)\k<quote>(?<rest>[^\n]*)` +
+    String.raw`(?<!<)<<(?!<)-?[ \t]*(?<quote>['"]?)\\?(?<word>[^\s'"<>|&;()]+)\k<quote>(?<rest>[^\n]*)` +
       String.raw`(?:\n(?:[\s\S]*?\n)?[ \t]*\k<word>[ \t]*(?=\n|$)|[\s\S]*$)`,
   ].join('|'),
   'g',
@@ -65,12 +69,14 @@ const TOKEN_PATTERN = new RegExp(
 
 const STAY_LOCAL_HINT = 'Prototype branches stay local; use /prototype graduate.'
 const NO_VERIFY_REASON = `Blocked: git push --no-verify skips the proto push guard. ${STAY_LOCAL_HINT}`
+const HUSKY_REASON = `Blocked: HUSKY=0 skips the proto push guard. ${STAY_LOCAL_HINT}`
 const protoRefReason = (ref) =>
   `Blocked: this push would leak the prototype branch ${ref}. ${STAY_LOCAL_HINT}`
 
 const replaceToken = (token, ...captures) => {
-  const { rest } = captures.at(-1)
+  const { rest, redirect } = captures.at(-1)
   if (rest !== undefined) return stripNonCommandText(rest)
+  if (redirect !== undefined) return ' '
   if (token.startsWith('\\')) return token === '\\\n' ? ' ' : ''
   if (token.startsWith('#')) return ' '
   return QUOTED_PLACEHOLDER
@@ -95,7 +101,7 @@ const wordsOf = (segment) =>
     .map(trimGrouping)
     .filter((word) => word !== '')
 
-const dropFrom = (words, isLeading) => {
+const dropLeadingWhile = (words, isLeading) => {
   const start = words.findIndex((word, index) => !isLeading(word, index, words))
   return start === -1 ? [] : words.slice(start)
 }
@@ -103,19 +109,18 @@ const dropFrom = (words, isLeading) => {
 const isShellPrefixWord = (word) =>
   ASSIGNMENT_PATTERN.test(word) || SHELL_PREFIX_WORDS.includes(word)
 
-const skipShellPrefix = (words) => dropFrom(words, isShellPrefixWord)
+const skipShellPrefix = (words) => dropLeadingWhile(words, isShellPrefixWord)
 
 const isGit = (word) => word?.split('/').at(-1) === GIT_BINARY
 
 // Any option is skipped; an option that takes its value as a separate word also skips that word.
-const isGitGlobalOption = (word, index, words) =>
+const isGitGlobalOptionOrValue = (word, index, words) =>
   word.startsWith(OPTION_PREFIX) || GIT_VALUE_OPTIONS.includes(words[index - 1])
 
-const skipGitGlobalOptions = (words) => dropFrom(words, isGitGlobalOption)
+const skipGitGlobalOptions = (words) => dropLeadingWhile(words, isGitGlobalOptionOrValue)
 
-// Words after `git push` when the segment is a plain push, else null.
-const argsAfterPush = (segment) => {
-  const afterPrefix = skipShellPrefix(wordsOf(segment))
+// Words after `git push` when the words (past any prefix) are a plain push, else null.
+const argsAfterPush = (afterPrefix) => {
   if (!isGit(afterPrefix[0])) return null
   const afterOptions = skipGitGlobalOptions(afterPrefix.slice(1))
   return afterOptions[0] === PUSH_COMMAND ? afterOptions.slice(1) : null
@@ -150,9 +155,18 @@ const findProtoRef = (args) => {
     .find((protoRef) => protoRef !== undefined)
 }
 
+const exportsHuskyDisable = (words) =>
+  words[0] === EXPORT_COMMAND && words.slice(1).includes(HUSKY_DISABLE)
+
 const segmentReason = (segment) => {
-  const args = argsAfterPush(segment)
+  const words = wordsOf(segment)
+  if (exportsHuskyDisable(words)) return HUSKY_REASON
+  const afterPrefix = skipShellPrefix(words)
+  const args = argsAfterPush(afterPrefix)
   if (args === null) return null
+  if (words.slice(0, words.length - afterPrefix.length).includes(HUSKY_DISABLE)) {
+    return HUSKY_REASON
+  }
   if (usesNoVerify(args)) return NO_VERIFY_REASON
   const protoRef = findProtoRef(args)
   return protoRef === undefined ? null : protoRefReason(protoRef)

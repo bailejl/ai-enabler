@@ -42,6 +42,24 @@ describe('blockReason: --no-verify', () => {
     '/usr/bin/git push --no-verify',
     "# don't push yet\ngit push --no-verify\necho 'done'",
     "echo $'it\\'s'; git push --no-verify; echo 'x'",
+    'git push 2>&1 --no-verify origin x',
+    'git push &>/dev/null --no-verify',
+    'git push &>>log --no-verify',
+    'git push >&2 --no-verify',
+    'cat <<END-X\nhi\nEND-X\ngit push --no-verify origin main',
+    'git --work-tree x push --no-verify',
+    'git --namespace x push --no-verify',
+    'git --config-env x push --no-verify',
+    'git --super-prefix x push --no-verify',
+    'git --exec-path x push --no-verify',
+    'if false; then true; else git push --no-verify; fi',
+    'if false; then true; elif git push --no-verify; then true; fi',
+    'while git push --no-verify; do true; done',
+    'until git push --no-verify; do true; done',
+    'command git push --no-verify',
+    'exec git push --no-verify',
+    'nohup git push --no-verify',
+    'if git push --no-verify; then true; fi',
   ])('blocks %j naming --no-verify', (command) => {
     expect(blockReason(command)).toContain('--no-verify')
   })
@@ -54,6 +72,12 @@ describe('blockReason: --no-verify', () => {
     'git commit --no-verify -m wip',
     'git push --no-thin origin feat/a',
     'git push origin feat/canvas-zoom',
+    'git push origin feat/a 2>&1',
+    'git push origin feat/a >&2',
+    'git push origin feat/a &>/dev/null',
+    'echo push --no-verify',
+    'svn push --no-verify',
+    'x-A=1 git push --no-verify',
     'git  push   origin   feat/a',
     'ls',
     '',
@@ -83,6 +107,12 @@ describe('blockReason: proto refspecs', () => {
     ['git push "origin" proto/x', 'proto/x'],
     ['/usr/bin/git push origin proto/x', 'proto/x'],
     ['git push -o -d origin proto/x', 'proto/x'],
+    ['git push --push-option -d origin proto/x', 'proto/x'],
+    ['git push --receive-pack -d origin proto/x', 'proto/x'],
+    ['git push --exec -d origin proto/x', 'proto/x'],
+    ['git push 2>&1 origin proto/x', 'proto/x'],
+    ['git push origin feat/a proto/x', 'proto/x'],
+    ['(git push origin proto/x)', 'proto/x'],
     ['git push origin :proto/old proto/new', 'proto/new'],
     ['git push origin feat/a && git push origin proto/z', 'proto/z'],
     ['{ git push origin proto/x; }', 'proto/x'],
@@ -113,6 +143,32 @@ describe('blockReason: proto refspecs', () => {
   })
 })
 
+describe('blockReason: HUSKY=0', () => {
+  test.each([
+    'HUSKY=0 git push origin feat/a',
+    'FOO=1 HUSKY=0 git push origin feat/a',
+    'env HUSKY=0 git push origin feat/a',
+    'export HUSKY=0',
+    'export FOO=1 HUSKY=0',
+    'export HUSKY=0; git push origin feat/a',
+  ])('blocks %j naming HUSKY=0', (command) => {
+    const reason = blockReason(command)
+    expect(reason).toContain('HUSKY=0')
+    expect(reason).toContain(GRADUATE_HINT)
+  })
+
+  test.each([
+    'HUSKY=1 git push origin feat/a',
+    'git push origin HUSKY=0',
+    'HUSKY=0 npm test',
+    'export HUSKY=1',
+    'export FOO=1',
+    'echo HUSKY=0',
+  ])('allows %j', (command) => {
+    expect(blockReason(command)).toBeNull()
+  })
+})
+
 describe('blockReason: text that only mentions a push', () => {
   test.each([
     'echo "a && git push --no-verify"',
@@ -121,6 +177,7 @@ describe('blockReason: text that only mentions a push', () => {
     "echo 'git push origin proto/x'",
     'echo "say \\"hi\\"; git push --no-verify"',
     'echo a\\;git push --no-verify',
+    'echo "a" "; git push --no-verify"',
     '# git push --no-verify',
     'echo a#b',
   ])('allows %j', (command) => {

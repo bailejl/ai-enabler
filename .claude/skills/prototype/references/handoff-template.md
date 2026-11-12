@@ -52,7 +52,8 @@ Graduate fills this in and writes it to `docs/prototypes/<feat_name>.md`. Keep a
 
 ### Fill-in rules
 
-- A section with nothing to say reads "Not run" or "See Open questions".
+- A section with nothing to say reads "None" or "See Open questions". "Not run" is for declined
+  agents only.
 - One line per agent in "UX and a11y notes". Use `<agent>: Not run` when the user declined it.
   Use `<agent>: Did not complete` when it errored, timed out, or returned nothing.
 - Every screenshot has an image line and a one-line text description.
