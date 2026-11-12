@@ -20,7 +20,8 @@ refuses and points to `/prototype start <name>`.
   (`PROTO_PREFIX` and `isProtoRef`); `scripts/claude-push-guard.js` reuses `isProtoRef`. If you
   change it, change all of them.
 - On a `proto/*` branch only, skip tests, plans, review agents, and `/pr`.
-- The Husky commit hooks still run. Never use `--no-verify`. If a hook fails, fix the cause and
+- The Husky commit hooks still run. Graduate's handoff-only commits set `SKIP_REPOWISE=1` to skip
+  only the Repowise step (see `references/graduate.md`). Never use `--no-verify`. If a hook fails, fix the cause and
   commit again.
 - On any other branch, do not skip the process. Say so and point to `/prototype start <name>`.
 
