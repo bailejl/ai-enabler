@@ -28,21 +28,22 @@ npx playwright install chromium
 
 ## Commands
 
-| Task                | Command                 |
-| ------------------- | ----------------------- |
-| Dev server (:3000)  | `npm run dev`           |
-| Production build    | `npm run build`         |
-| Preview build       | `npm run preview`       |
-| Unit tests          | `npm test`              |
-| Unit tests (watch)  | `npm run test:watch`    |
-| Coverage            | `npm run test:coverage` |
-| E2E tests           | `npm run test:e2e`      |
-| Lint                | `npm run lint`          |
-| Lint (deep, ESLint) | `npm run lint:deep`     |
-| Lint fix            | `npm run lint:fix`      |
-| Format              | `npm run format`        |
-| Check formatting    | `npm run format:check`  |
-| Mutation testing    | `npx stryker run`       |
+| Task                     | Command                 |
+| ------------------------ | ----------------------- |
+| Dev server (:3000)       | `npm run dev`           |
+| Prototype server (:3001) | `npm run dev:prototype` |
+| Production build         | `npm run build`         |
+| Preview build            | `npm run preview`       |
+| Unit tests               | `npm test`              |
+| Unit tests (watch)       | `npm run test:watch`    |
+| Coverage                 | `npm run test:coverage` |
+| E2E tests                | `npm run test:e2e`      |
+| Lint                     | `npm run lint`          |
+| Lint (deep, ESLint)      | `npm run lint:deep`     |
+| Lint fix                 | `npm run lint:fix`      |
+| Format                   | `npm run format`        |
+| Check formatting         | `npm run format:check`  |
+| Mutation testing         | `npx stryker run`       |
 
 Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
 excluding test files, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
@@ -90,6 +91,23 @@ The repo ships two Husky hooks.
 If Graphify is installed, it adds local `post-checkout`, `post-commit`, `post-merge`, and
 `post-rewrite` hooks in `.husky/` that rebuild `graphify-out/`. They are gitignored, so they only
 exist on machines where `graphify hook install` was run.
+
+## Prototyping
+
+Use the `/prototype` Claude Code skill (`.claude/skills/prototype`) to try a UI idea fast, before you
+write a spec.
+
+- `/prototype start <name>` creates the local branch `proto/<name>` from `main` and starts the
+  prototype server. On `proto/*` branches only, Claude skips tests and review.
+- `/prototype graduate` writes a handoff under `docs/prototypes/`, commits it on `feat/<name>`, and
+  can open a GitHub issue for `/dev-team:specs`.
+- `npm run dev:prototype` serves on port 3001. `npm run dev` stays on port 3000.
+
+Prototype branches never leave your machine. Two guards enforce this:
+
+- `scripts/proto-push-guard.js` runs in `.husky/pre-push` and refuses to push any `proto/*` ref.
+- `scripts/claude-push-guard.js` runs as a Claude Code `PreToolUse` hook. It blocks `--no-verify`
+  pushes and pushes of `proto/*` refs.
 
 ## AI tooling (optional)
 
