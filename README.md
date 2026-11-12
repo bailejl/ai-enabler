@@ -45,8 +45,8 @@ npx playwright install chromium
 | Check formatting         | `npm run format:check`  |
 | Mutation testing         | `npx stryker run`       |
 
-Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
-excluding test files, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
+Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}` and `scripts/**/*.js`,
+excluding test files, `scripts/**/*-cli.js`, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
 the e2e tests cover it.
 
 ## Project layout
@@ -63,6 +63,7 @@ the e2e tests cover it.
 - `stryker.config.mjs` - mutation testing settings.
 - `eslint.config.js` - deep lint rules.
 - `prettier.config.js` - formatting rules.
+- `scripts/` - Node tooling (push guards), with colocated `*.test.js`.
 - `.husky/` - Git hooks.
 - `.claude/` - Claude Code settings, project instructions, and agent files.
 
@@ -86,7 +87,7 @@ The repo ships two Husky hooks.
   regenerated `.claude/CLAUDE.md` and `.github/copilot-instructions.md` unless they had unstaged
   edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript and JSX files, Prettier on JSON,
   Markdown, and YAML.
-- `.husky/pre-push` runs `npm test` and `npm run test:e2e`.
+- `.husky/pre-push` runs the proto push guard, then `npm test` and `npm run test:e2e`.
 
 If Graphify is installed, it adds local `post-checkout`, `post-commit`, `post-merge`, and
 `post-rewrite` hooks in `.husky/` that rebuild `graphify-out/`. They are gitignored, so they only
