@@ -57,4 +57,4 @@ Use this on a `proto/*` branch, for `/prototype` or any UI request.
 
 ## graduate
 
-Follow `references/graduate.md`. If that file does not exist yet, say so and stop.
+Follow `references/graduate.md`.
