@@ -31,15 +31,17 @@ has three parts.
    - has open questions about what to build that a running UI would answer.
 
    Never offer it for bug fixes, `scripts/`-only work, config or doc changes, or when a
-   `docs/prototypes/<name>.md` handoff already exists for the feature. Recommend an answer, as the
+   `docs/prototypes/<name>.md` handoff already exists for the feature (the current `feat/<name>`
+   branch adds it relative to `main`). Recommend an answer, as the
    process does for other decisions. If you decline, continue and do not ask again in that
    session.
 
 3. **Handoff as input.** When a handoff exists on the current `feat/*` branch, entry points read
    it as primary input: its decisions, screenshots, and dropped approaches.
 
-Also replace the existing one-line "Prototyping" bullet with a pointer to the new section, so the
-rules live in one place.
+Also add a pointer from the existing one-line "Prototyping" bullet to the new section, so the
+rules live in one place. (Changed in planning from "replace": the bullet keeps its push-guard facts,
+which the prototype-skill acceptance criteria require.)
 
 ```mermaid
 flowchart LR
@@ -72,20 +74,21 @@ flowchart LR
 
 ## Open questions
 
-- Do plugin subagents dispatched by the orchestrator get the project `CLAUDE.md`? Expected yes.
-  Confirm during build by dispatching one and asking it to describe the prototype path. (architect)
-- How do we verify the offer fires? Proposal: a manual acceptance check with two prompts, one
-  UI-shaped and vague (offer expected) and one `scripts/` bug fix (no offer expected). No
-  automated test, since this is prompt content, not code. (human)
-- CLAUDE.md size: the section must stay short (about 20 lines) so it does not bloat every session.
-  (human)
+All resolved during planning and build; see `plans/prototype-awareness.md`.
+
+- Do plugin subagents get the project `CLAUDE.md`? Yes, but only the copy loaded when the session
+  started. A session that edits `CLAUDE.md` must verify the change in a fresh session.
+- How do we verify the offer fires? Manual checks in fresh sessions (plan AC6–AC8), run twice
+  each. No automated test, since this is prompt content, not code.
+- CLAUDE.md size: the plan caps the section at 25 lines (AC1); it shipped at about 10.
 
 ## Scope boundaries
 
 In scope:
 
-- A new `### Prototype path` section in `.claude/CLAUDE.md`, and the replaced bullet.
-- A link from the prototype skill's `SKILL.md` to that section, if it helps.
+- A new `### Prototype path` section in `.claude/CLAUDE.md`, and a pointer from the existing
+  Prototyping bullet.
+- A link from the prototype skill's `SKILL.md` to that section (dropped in planning as low value).
 
 Out of scope:
 
