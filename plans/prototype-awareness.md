@@ -181,15 +181,37 @@ Each command prints only `PASS-if-nothing-above` on success; any other line name
 - AC4 run: `S=$(sed -n '/^### Prototype path$/,/^### Commands$/p' .claude/CLAUDE.md); for p in 'primary input' 're-ask|ask again'; do echo "$S" | grep -qiE -- "$p" || echo "missing: $p"; done; echo PASS-if-nothing-above`
 - AC5 run: `grep -qE '^- Prototyping:.*proto-push-guard.*claude-push-guard.*Prototype path' .claude/CLAUDE.md || echo 'bullet missing guards or pointer'; grep -q '^### Prototype path$' .claude/CLAUDE.md || echo 'missing heading'; for t in /prototype dev:prototype proto-push-guard claude-push-guard; do grep -q -- "$t" .claude/CLAUDE.md || echo "missing $t"; done; for p in '(git pre-push)' '(Claude Code PreToolUse)' 'keep proto branches local'; do grep -E '^- Prototyping:' .claude/CLAUDE.md | grep -qF -- "$p" || echo "bullet missing: $p"; done; echo PASS-if-nothing-above`
 
+## Verification results (Step 1.2)
+
+All runs used fresh headless sessions (`claude -p`). AC6 and AC8 ran with
+`--agent dev-team:orchestrator` and file tools disabled. AC7 ran with Write and
+Edit disabled.
+
+- Round 0: four orchestrator subagents dispatched from the build session failed AC6 and AC8. Cause: subagents in a running session see the `CLAUDE.md` loaded at session start, which predates the edit. A fresh session is required for verification.
+- Round 1: AC6 passed in 2 of 2 runs. AC8 failed in 2 of 2 runs: they omitted "not merged", and one also omitted "handoff feeds specs". The wording was tightened.
+- Round 2: AC6 2/2 and AC8 1/2. Run 2 omitted "handoff feeds specs". The user approved a second rewording, beyond the plan's limit of one.
+- Round 3, the final text (`2e1b86b`):
+
+| Check                                                   | Run 1                       | Run 2                                 |
+| ------------------------------------------------------- | --------------------------- | ------------------------------------- |
+| AC6 orchestrator: where /prototype fits                 | pass                        | pass                                  |
+| AC8 orchestrator: end-to-end, unprompted                | pass                        | pass                                  |
+| P1 vague UI design-doc: offer and recommendation        | pass (x2, decline sessions) | pass (x2, accept sessions)            |
+| P2 scripts bug fix: no offer                            | pass                        | pass                                  |
+| P3 clear UI change: no offer                            | pass                        | pass (said "No prototype offer here") |
+| P4 decline, then /dev-team:specs: no repeat, proceeds   | pass                        | pass                                  |
+| P5 handoff on feat/*: no offer, no drag-handle question | pass                        | pass                                  |
+| P6 accept: stops, points to /prototype start            | pass                        | pass                                  |
+
 ## Build Progress
 
 ### Slices (grouped by wave)
 
 #### Wave 1
 
-- [ ] Slice 1: Prototype path section in CLAUDE.md
+- [x] Slice 1: Prototype path section in CLAUDE.md
   - [x] Step 1.1: Add the Prototype path section and repoint the convention bullet
-  - [ ] Step 1.2: Verify that agents follow the section
+  - [x] Step 1.2: Verify that agents follow the section
 
 ## Plan Review Summary
 
