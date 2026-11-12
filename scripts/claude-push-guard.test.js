@@ -186,6 +186,10 @@ describe('blockReason: leading redirections', () => {
     '<in git push --no-verify',
     '&>out git push --no-verify',
     '2> err git push --no-verify',
+    '>&log git push --no-verify',
+    '>& log git push --no-verify',
+    '>|log git push --no-verify',
+    '2>&1 git push --no-verify',
   ])('blocks %j naming --no-verify', (command) => {
     expect(blockReason(command)).toContain('--no-verify')
   })
@@ -193,16 +197,22 @@ describe('blockReason: leading redirections', () => {
   test.each([
     ['> log git push origin proto/x', 'proto/x'],
     ['2>/dev/null git push origin proto/x', 'proto/x'],
+    ['>& log git push origin proto/x', 'proto/x'],
   ])('blocks %j naming the ref', (command, ref) => {
     expect(blockReason(command)).toContain(`branch ${ref}.`)
   })
 
-  test.each(['2>/dev/null git push origin feat/a', '> log git push origin feat/a', '>log ls'])(
-    'allows %j',
-    (command) => {
-      expect(blockReason(command)).toBeNull()
-    },
-  )
+  test.each([
+    '2>/dev/null git push origin feat/a',
+    '> log git push origin feat/a',
+    '>log ls',
+    '>&log git push origin feat/a',
+    '>|log git push origin feat/a',
+    'ls >| out',
+    'git push origin feat/a 2>&1',
+  ])('allows %j', (command) => {
+    expect(blockReason(command)).toBeNull()
+  })
 })
 
 describe('blockReason: text that only mentions a push', () => {

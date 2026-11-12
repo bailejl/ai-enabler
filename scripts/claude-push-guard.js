@@ -41,6 +41,8 @@ const QUOTED_PLACEHOLDER = 'Q'
 
 const WHITESPACE_PATTERN = /\s+/
 const ASSIGNMENT_PATTERN = /^[A-Za-z_]\w*=/
+// Dropped from a redirection so its `&` or `|` is not a separator; the operator itself stays.
+const CONTROL_CHARS_PATTERN = /[&|]/g
 const REDIRECT_PATTERN = /^\d*[<>]/
 const STANDALONE_REDIRECT_PATTERN = /^\d*[<>]+$/
 const SEGMENT_SEPARATOR_PATTERN = /&&|\|\||\|&|[|;&\n]/
@@ -48,9 +50,9 @@ const SEGMENT_SEPARATOR_PATTERN = /&&|\|\||\|&|[|;&\n]/
 // One left-to-right scan; at each position the first alternative that matches wins, so quotes and
 // $(( )) hide any `<<` or `#` inside them and only a heredoc opener or comment outside them counts.
 // Alternatives: line continuation, escaped char, comment (`#` starting a word), $'ANSI-C',
-// 'single', "double", fd redirection (`redirect`: 2>&1, >&2, &>, &>>; their `&` is not a
-// separator; `&>file` becomes `>file`), $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<;
-// WORD is any run of characters bash allows) with the rest of its line (`rest`) kept and its body
+// 'single', "double", redirection (`redirect`: 2>&1, >&2, >&file, &>, &>>, >|), $((arithmetic)),
+// then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<; WORD is any run of characters
+// bash allows) with the rest of its line (`rest`) kept and its body
 // removed through the terminator line, or to the end if unterminated.
 const TOKEN_PATTERN = new RegExp(
   [
@@ -60,7 +62,7 @@ const TOKEN_PATTERN = new RegExp(
     String.raw`\$'(?:[^'\\]|\\[\s\S])*'`,
     String.raw`'[^']*'`,
     String.raw`"(?:[^"\\]|\\[\s\S])*"`,
-    String.raw`(?<redirect>\d*>&-?\d*|\d*<&-?\d*|&>>?)`,
+    String.raw`(?<redirect>\d*>(?:&-?\d*|\|)|\d*<&-?\d*|&>>?)`,
     String.raw`\$\(\([\s\S]*?\)\)`,
     String.raw`(?<!<)<<(?!<)-?[ \t]*(?<quote>['"]?)\\?(?<word>[^\s'"<>|&;()]+)\k<quote>(?<rest>[^\n]*)` +
       String.raw`(?:\n(?:[\s\S]*?\n)?[ \t]*\k<word>[ \t]*(?=\n|$)|[\s\S]*$)`,
@@ -77,7 +79,7 @@ const protoRefReason = (ref) =>
 const replaceToken = (token, ...captures) => {
   const { rest, redirect } = captures.at(-1)
   if (rest !== undefined) return stripNonCommandText(rest)
-  if (redirect !== undefined) return redirect.startsWith('&') ? redirect.slice(1) : ' '
+  if (redirect !== undefined) return redirect.replace(CONTROL_CHARS_PATTERN, '')
   if (token.startsWith('\\')) return token === '\\\n' ? ' ' : ''
   if (token.startsWith('#')) return ' '
   return QUOTED_PLACEHOLDER
