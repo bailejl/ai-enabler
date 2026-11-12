@@ -36,7 +36,7 @@ Run all four checks first, in this order. Change nothing until they all pass.
 Then:
 
 1. If `proto/<name>` exists, ask whether to resume it.
-   - Yes: `git switch proto/<name>`.
+   - Yes: `git switch proto/<name>`, then go to step 3 to restart the server.
    - No: ask for another name and start over at check 1.
 2. Otherwise, run `git switch -c proto/<name> main`. Use local `main`. Do not fetch.
 3. Run `npm run dev:prototype` in the background (`run_in_background`).
@@ -50,7 +50,7 @@ Use this on a `proto/*` branch, for `/prototype` or any UI request.
 
 1. Edit the code directly.
 2. Check it in the browser with the Playwright MCP tools: navigate to `http://localhost:3001`,
-   take a screenshot, and read the console messages.
+   take a screenshot, and read `mcp__playwright__browser_console_messages`.
 3. A step works when the page renders with no console errors. Fix errors before you commit.
 4. Commit each working step. The subject is `<what>: <why>`. The body records any approach you
    tried and dropped, and why.
