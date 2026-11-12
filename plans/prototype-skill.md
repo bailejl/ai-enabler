@@ -3,6 +3,7 @@
 **Created**: 2026-11-11
 **Branch**: feat/prototype-skill
 **Status**: implemented
+**Examination**: not-applicable
 **Gherkin persistence**: plan-file-only
 
 ## Goal
