@@ -12,9 +12,9 @@ Before each step, print `Graduate step n of 9: <title>`.
 4. Screenshots
 5. Branch and handoff
 6. Stop the server
-7. Preview (Step 3.4)
-8. Push and issue (Step 3.4)
-9. Wrap up (Step 3.4)
+7. Preview
+8. Push and issue
+9. Wrap up
 
 ## Entry
 
@@ -81,14 +81,51 @@ For each pid, run `ps -o command= -p <pid>` and `lsof -a -p <pid> -d cwd -Fn`. S
 with `kill <pid>` only if the command is Vite and the working directory is this repo
 (`git rev-parse --show-toplevel`). Otherwise show the command and ask before stopping it.
 
-## 7. Preview (Step 3.4)
+## 7. Preview
 
-Not written yet. Stop and say so.
+Show:
 
-## 8. Push and issue (Step 3.4)
+- Handoff path: `docs/prototypes/<name>.md`
+- Branch: `feat/<name>`
+- Issue title: `Prototype handoff: <name>`
+- Label: `prototype`
 
-Not written yet. Stop and say so.
+Ask: push, edit, or decline.
 
-## 9. Wrap up (Step 3.4)
+- Push: go to step 8.
+- Edit: apply the change to the handoff, stage `docs/prototypes/<name>.md` and
+  `docs/prototypes/<name>/`, run `git commit --amend --no-edit`, and show the preview again.
+- Decline: go to step 9. The commit stays local.
 
-Not written yet. Stop and say so.
+## 8. Push and issue
+
+Stop at the first failure and go to step 9 with a failure. Keep the commit.
+
+1. Run `gh auth status`.
+2. Run `gh label list --search prototype`. If `prototype` is missing, run
+   `gh label create prototype --color 5319e7 --description "Prototype handoff"`.
+3. Run `git push -u origin feat/<name>`. Push only that branch. Never push a `proto/*` ref.
+4. Get the SHA with `git rev-parse HEAD` and the repo with
+   `gh repo view --json nameWithOwner -q .nameWithOwner`.
+5. Copy the handoff to a file in the session scratchpad. In the copy, rewrite each image link
+   `<name>/<file>.png` to
+   `https://github.com/<owner>/<repo>/blob/<sha>/docs/prototypes/<name>/<file>.png?raw=true`.
+6. Find an open issue with the exact title:
+   `gh issue list --state open --label prototype --search "in:title \"Prototype handoff: <name>\"" --json number,title,url`.
+   Keep only results whose title equals `Prototype handoff: <name>`.
+   - One exists: run `gh issue edit <number> --body-file <copy>` and use its URL.
+   - None: run
+     `gh issue create --title "Prototype handoff: <name>" --label prototype --body-file <copy>`
+     and use the URL it prints.
+
+## 9. Wrap up
+
+On success, print `/dev-team:specs <issue-url>`.
+
+On decline or failure, show the error if there is one. Then print both:
+
+- `/prototype graduate`, to retry from `feat/<name>`.
+- `/dev-team:specs docs/prototypes/<name>.md`, to use the local file.
+
+On every path, name the current branch (`git branch --show-current`). Remind the user that
+`proto/<name>` is kept for them to delete.
