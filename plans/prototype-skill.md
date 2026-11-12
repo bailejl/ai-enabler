@@ -21,70 +21,19 @@ prototypes, automatic cleanup of `proto/*` branches, and any value stream featur
 
 ## Acceptance Criteria
 
-- [ ] AC1: A push that runs the pre-push hook is refused when its local ref or its remote ref is
-      `refs/heads/proto/*`, except a delete. The refusal happens before tests run. The message
-      names every such ref, says why, and points to `/prototype graduate`. Pushes that skip the
-      hook (`--no-verify`) are out of scope for this criterion; AC13 covers them for Claude.
-- [ ] AC2: A push with no `refs/heads/proto/*` ref (for example `prototype-notes`,
-      `feat/proto/x`, or a tag) passes the guard silently with exit 0.
-- [ ] AC3: `npm run dev:prototype` serves on port 3001 and exits non-zero if 3001 is taken.
-      `npm run dev` stays on port 3000. `strictPort: true` already exists in `vite.config.js`.
-- [ ] AC4: `/prototype start <name>` checks, before it changes anything: the name matches
-      `^[a-z0-9]+(-[a-z0-9]+)*$`; `git status --porcelain` is empty; the Playwright MCP tools
-      (`mcp__playwright__browser_navigate`, `mcp__playwright__browser_take_screenshot`) are
-      available; and port 3001 is free. If port 3001 is taken, the skill shows the process
-      command and offers to stop it, and does not report the prototype as running. On success it
-      creates `proto/<name>` from local `main` (no fetch), starts `npm run dev:prototype` in the
-      background, and reports `http://localhost:3001` only after `curl -sf` succeeds. An unknown
-      subcommand prints the usage line and changes nothing.
-- [ ] AC5: If `proto/<name>` already exists, start asks whether to resume it. Yes switches to it
-      and restarts the server; no asks for another name.
-- [ ] AC6: On a `proto/*` branch, the skill edits directly with no tests, plan, or review agents.
-      A working step is a change that renders without console errors in a Playwright check. Each
-      working step is committed with the subject `<what>: <why>`, and the body records any
-      approach tried and abandoned. If a commit hook fails, the skill fixes the cause and commits
-      again; it never uses `--no-verify`. On any other branch, the skill refuses to skip the
-      process and points to `/prototype start`.
-- [ ] AC7: `/prototype graduate` runs these checks before it changes anything: on `proto/<name>`
-      (or on a `feat/<name>` that holds only a committed handoff, in which case it resumes at the
-      push); clean tree; non-empty diff against `main`; `feat/<name>` absent or handoff-only (else
-      it asks for another name); prototype server answering (else it starts it). A failed check
-      stops graduate with no branch or file created.
-- [ ] AC8: Graduate asks one question naming `ui-ux-designer`, `a11y-review`, and
-      `exploratory-testing`, default yes; the reply can drop agents by name. A declined agent is
-      recorded as "Not run". An agent that errors, times out, or returns nothing is recorded as
-      "<agent>: Did not complete". No agent outcome blocks graduate. The interview is prefilled
-      from the diff and commit messages, asks only about gaps, and sends "skip" or "unsure"
-      answers to Open questions.
-- [ ] AC9: Graduate creates `feat/<name>` from local `main`. `git diff --name-only main...feat/<name>`
-      lists only `docs/prototypes/<name>.md` and `docs/prototypes/<name>/*.png`. The handoff has
-      all nine template headings; a section with no content says "None" or points to Open
-      questions. Each screenshot is referenced as `<name>/<file>.png` with a one-line text
-      description. Graduate stops the server by port, but only when the process is Vite from this
-      repo; otherwise it shows the process and asks.
-- [ ] AC10: Before any push, graduate previews the handoff path, branch, issue title, and label.
-      An edit at the preview amends the handoff commit. The issue title is
-      `Prototype handoff: <name>`; an open issue with that exact title is reused, not duplicated.
-      The `prototype` label is created if missing. Only `feat/<name>` is pushed. Screenshot links
-      in the issue are blob URLs pinned to the commit SHA. On decline or a GitHub failure, the
-      commit stays and the skill prints `/prototype graduate` (retry) and
-      `/dev-team:specs docs/prototypes/<name>.md`. On success it prints
-      `/dev-team:specs <issue-url>`. Every run ends by naming the current branch and reminding you
-      that `proto/<name>` is kept for you to delete.
-- [ ] AC11: `/dev-team:specs docs/prototypes/smoke.md` selects validate mode and produces Intent,
-      Architecture, and Acceptance Criteria from the handoff without refusing it. If it refuses,
-      the build stops and escalates, because plugin changes are out of scope.
-- [ ] AC12: `README.md` and `.claude/CLAUDE.md` each contain `/prototype`, `dev:prototype`,
-      `proto-push-guard`, and `claude-push-guard`. A grep confirms presence; `/code-review` reads
-      the entries for accuracy.
-- [ ] AC13: A Claude Code `PreToolUse` hook exits 2 with a reason on stderr for any Bash command
-      with a plain `git push` segment that has a word starting with `--no-ver`, or a refspec with a
-      `proto/` branch on either side (bare, `+`-prefixed, or `refs/heads/`-qualified), unless that
-      refspec is a delete. A non-delete proto refspec in the same command still blocks. Any
-      segment with an unquoted `HUSKY=0` word also blocks (added at build review). Every other command, and unusable hook input, exits 0 with no
-      output. Non-goals (not blocked):
-      `bash -c`, `$(...)`, `xargs`, `sudo`, `git -c core.hooksPath=...`, shell aliases, and quoted
-      refs or flags.
+- [ ] AC1: A push that runs the pre-push hook is refused when its local ref or its remote ref is `refs/heads/proto/*`, except a delete. The refusal happens before tests run. The message names every such ref, says why, and points to `/prototype graduate`. Pushes that skip the hook (`--no-verify`) are out of scope for this criterion; AC13 covers them for Claude.
+- [ ] AC2: A push with no `refs/heads/proto/*` ref (for example `prototype-notes`, `feat/proto/x`, or a tag) passes the guard silently with exit 0.
+- [ ] AC3: `npm run dev:prototype` serves on port 3001 and exits non-zero if 3001 is taken. `npm run dev` stays on port 3000. `strictPort: true` already exists in `vite.config.js`.
+- [ ] AC4: `/prototype start <name>` checks, before it changes anything: the name matches `^[a-z0-9]+(-[a-z0-9]+)*$`; `git status --porcelain` is empty; the Playwright MCP tools (`mcp__playwright__browser_navigate`, `mcp__playwright__browser_take_screenshot`) are available; and port 3001 is free. If port 3001 is taken, the skill shows the process command and offers to stop it, and does not report the prototype as running. On success it creates `proto/<name>` from local `main` (no fetch), starts `npm run dev:prototype` in the background, and reports `http://localhost:3001` only after `curl -sf` succeeds. An unknown subcommand prints the usage line and changes nothing.
+- [ ] AC5: If `proto/<name>` already exists, start asks whether to resume it. Yes switches to it and restarts the server; no asks for another name.
+- [ ] AC6: On a `proto/*` branch, the skill edits directly with no tests, plan, or review agents. A working step is a change that renders without console errors in a Playwright check. Each working step is committed with the subject `<what>: <why>`, and the body records any approach tried and abandoned. If a commit hook fails, the skill fixes the cause and commits again; it never uses `--no-verify`. On any other branch, the skill refuses to skip the process and points to `/prototype start`.
+- [ ] AC7: `/prototype graduate` runs these checks before it changes anything: on `proto/<name>` (or on a `feat/<name>` that holds only a committed handoff, in which case it resumes at the push); clean tree; non-empty diff against `main`; `feat/<name>` absent or handoff-only (else it asks for another name); prototype server answering (else it starts it). A failed check stops graduate with no branch or file created.
+- [ ] AC8: Graduate asks one question naming `ui-ux-designer`, `a11y-review`, and `exploratory-testing`, default yes; the reply can drop agents by name. A declined agent is recorded as "Not run". An agent that errors, times out, or returns nothing is recorded as "<agent>: Did not complete". No agent outcome blocks graduate. The interview is prefilled from the diff and commit messages, asks only about gaps, and sends "skip" or "unsure" answers to Open questions.
+- [ ] AC9: Graduate creates `feat/<name>` from local `main`. `git diff --name-only main...feat/<name>` lists only `docs/prototypes/<name>.md` and `docs/prototypes/<name>/*.png`. The handoff has all nine template headings; a section with no content says "None" or points to Open questions. Each screenshot is referenced as `<name>/<file>.png` with a one-line text description. Graduate stops the server by port, but only when the process is Vite from this repo; otherwise it shows the process and asks.
+- [ ] AC10: Before any push, graduate previews the handoff path, branch, issue title, and label. An edit at the preview amends the handoff commit. The issue title is `Prototype handoff: <name>`; an open issue with that exact title is reused, not duplicated. The `prototype` label is created if missing. Only `feat/<name>` is pushed. Screenshot links in the issue are blob URLs pinned to the commit SHA. On decline or a GitHub failure, the commit stays and the skill prints `/prototype graduate` (retry) and `/dev-team:specs docs/prototypes/<name>.md`. On success it prints `/dev-team:specs <issue-url>`. Every run ends by naming the current branch and reminding you that `proto/<name>` is kept for you to delete.
+- [ ] AC11: `/dev-team:specs docs/prototypes/smoke.md` selects validate mode and produces Intent, Architecture, and Acceptance Criteria from the handoff without refusing it. If it refuses, the build stops and escalates, because plugin changes are out of scope.
+- [ ] AC12: `README.md` and `.claude/CLAUDE.md` each contain `/prototype`, `dev:prototype`, `proto-push-guard`, and `claude-push-guard`. A grep confirms presence; `/code-review` reads the entries for accuracy.
+- [ ] AC13: A Claude Code `PreToolUse` hook exits 2 with a reason on stderr for any Bash command with a plain `git push` segment that has a word starting with `--no-ver`, or a refspec with a `proto/` branch on either side (bare, `+`-prefixed, or `refs/heads/`-qualified), unless that refspec is a delete. A non-delete proto refspec in the same command still blocks. Any segment with an unquoted `HUSKY=0` word also blocks (added at build review). Every other command, and unusable hook input, exits 0 with no output. Non-goals (not blocked): `bash -c`, `$(...)`, `xargs`, `sudo`, `git -c core.hooksPath=...`, shell aliases, and quoted refs or flags.
 
 ## Slices
 
@@ -690,6 +639,12 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
 - [x] `/code-review` passes
 - [x] Documentation updated
 - [x] Dry-run checklist all pass
+- AC1 run: `printf 'refs/heads/proto/x 1111111111111111111111111111111111111111 refs/heads/proto/x 0000000000000000000000000000000000000000\n' | node scripts/proto-push-guard-cli.js; echo "exit=$?"`
+- AC2 run: `printf 'refs/heads/prototype-notes 1111111111111111111111111111111111111111 refs/heads/feat/proto/x 0000000000000000000000000000000000000000\n' | node scripts/proto-push-guard-cli.js; echo "exit=$?"`
+- AC3 run: `npm run dev:prototype > /dev/null 2>&1 & sleep 5; curl -sf -o /dev/null http://localhost:3001 && echo 'first: up on 3001'; npm run dev:prototype > /dev/null 2>&1; echo "second exit=$?"; grep -n strictPort vite.config.js; lsof -ti tcp:3001 -sTCP:LISTEN | xargs kill`
+- AC12 run: `for t in dev:prototype /prototype proto-push-guard claude-push-guard; do echo "[$t]"; grep -l -- "$t" README.md .claude/CLAUDE.md; done`
+- AC13 run: `printf '{"tool_input":{"command":"git push --no-verify"}}' | node scripts/claude-push-guard-cli.js; echo "blocked exit=$?"; printf '{"tool_input":{"command":"git status"}}' | node scripts/claude-push-guard-cli.js; echo "allowed exit=$?"; printf 'not json' | node scripts/claude-push-guard-cli.js; echo "bad-input exit=$?"`
+- Unit tests run: `npm test`
 
 ## Skipped (low value)
 
