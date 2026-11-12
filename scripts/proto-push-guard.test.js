@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { findProtoRefs, isProtoRef, refusalMessage } from './proto-push-guard.js'
+import { findProtoRefs, isProtoRef, pushGuardMessage, refusalMessage } from './proto-push-guard.js'
 
 describe('isProtoRef', () => {
   test.each([
@@ -34,8 +34,8 @@ describe('isProtoRef', () => {
 const SHA = '1111111111111111111111111111111111111111'
 const OTHER_SHA = '2222222222222222222222222222222222222222'
 const NULL_SHA = '0000000000000000000000000000000000000000'
-const pushLine = (localRef, remoteRef, localSha = SHA) =>
-  `${localRef} ${localSha} ${remoteRef} ${OTHER_SHA}`
+const pushLine = (localRef, remoteRef, localSha = SHA, remoteSha = OTHER_SHA) =>
+  `${localRef} ${localSha} ${remoteRef} ${remoteSha}`
 
 describe('findProtoRefs', () => {
   test('finds the local proto ref', () => {
@@ -88,6 +88,16 @@ describe('findProtoRefs', () => {
     ['refs/tags/proto/v1'],
   ])('finds nothing when pushing %s', (ref) => {
     expect(findProtoRefs(pushLine(ref, ref))).toEqual([])
+  })
+
+  test('refuses the first push of a new proto branch', () => {
+    const input = pushLine('refs/heads/proto/new', 'refs/heads/proto/new', SHA, NULL_SHA)
+    expect(findProtoRefs(input)).toEqual(['refs/heads/proto/new'])
+  })
+
+  test('finds a proto line with surrounding spaces and a trailing carriage return', () => {
+    const input = `  ${pushLine('refs/heads/proto/b', 'refs/heads/proto/b')}  \r\n`
+    expect(findProtoRefs(input)).toEqual(['refs/heads/proto/b'])
   })
 
   test('ignores a delete of a proto branch', () => {
@@ -144,6 +154,24 @@ describe('refusalMessage', () => {
   })
 })
 
+describe('pushGuardMessage', () => {
+  test('returns the refusal message naming the proto refs', () => {
+    const input = pushLine('refs/heads/proto/b', 'refs/heads/proto/b')
+    expect(pushGuardMessage(input)).toBe(refusalMessage(['refs/heads/proto/b']))
+  })
+
+  test.each([[''], [pushLine('refs/heads/feat/a', 'refs/heads/feat/a')]])(
+    'returns null when no proto ref is pushed: %j',
+    (input) => {
+      expect(pushGuardMessage(input)).toBeNull()
+    },
+  )
+
+  test('returns null for a delete of a proto branch', () => {
+    expect(pushGuardMessage(pushLine('(delete)', 'refs/heads/proto/old', NULL_SHA))).toBeNull()
+  })
+})
+
 const CLI_PATH = fileURLToPath(new URL('./proto-push-guard-cli.js', import.meta.url))
 const PRE_PUSH_PATH = fileURLToPath(new URL('../.husky/pre-push', import.meta.url))
 const runCli = (input) => spawnSync(process.execPath, [CLI_PATH], { input, encoding: 'utf8' })
@@ -174,9 +202,10 @@ describe('.husky/pre-push', () => {
     .filter((line) => line !== '' && !line.startsWith('#'))
 
   test('runs the guard before npm test', () => {
-    const guardIndex = commands.indexOf('node scripts/proto-push-guard-cli.js')
+    const guardIndex = commands.findIndex((line) => /proto-push-guard-cli\.js/.test(line))
     const testIndex = commands.indexOf('npm test')
-    expect(guardIndex).toBeGreaterThanOrEqual(0)
+    expect(guardIndex, 'guard command missing from .husky/pre-push').toBeGreaterThanOrEqual(0)
+    expect(testIndex, '`npm test` missing from .husky/pre-push').toBeGreaterThanOrEqual(0)
     expect(guardIndex).toBeLessThan(testIndex)
   })
 })

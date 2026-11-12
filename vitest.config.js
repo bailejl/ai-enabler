@@ -15,7 +15,8 @@ export default mergeConfig(
           'src/main.jsx',
           'src/App.jsx',
           'scripts/**/*.test.js',
-          'scripts/proto-push-guard-cli.js',
+          // CLI wrappers are thin stdin/exit shells covered by spawn tests
+          'scripts/**/*-cli.js',
         ],
       },
     },

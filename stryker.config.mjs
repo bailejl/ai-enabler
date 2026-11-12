@@ -11,6 +11,7 @@ export default {
     '!src/App.jsx',
     'scripts/**/*.js',
     '!scripts/**/*.test.js',
-    '!scripts/proto-push-guard-cli.js',
+    // CLI wrappers are thin stdin/exit shells covered by spawn tests
+    '!scripts/**/*-cli.js',
   ],
 }

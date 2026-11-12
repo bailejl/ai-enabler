@@ -1,4 +1,4 @@
-// Keep in sync with .claude/skills/prototype
+// The /prototype skill (.claude/skills/prototype) hardcodes this branch prefix; change both together.
 export const PROTO_PREFIX = 'refs/heads/proto/'
 
 const HEADS_PREFIX = 'refs/heads/'
@@ -13,7 +13,7 @@ export const isProtoRef = (ref) => {
   return name.startsWith(PROTO_PREFIX) || name.startsWith(SHORT_PROTO_PREFIX)
 }
 
-const protoRefsOfLine = (line) => {
+const findProtoRefsInLine = (line) => {
   const fields = line.trim().split(/\s+/)
   if (fields.length !== REF_FIELD_COUNT) return []
   const [localRef, localSha, remoteRef] = fields
@@ -21,11 +21,16 @@ const protoRefsOfLine = (line) => {
   return [localRef, remoteRef].filter(isProtoRef)
 }
 
-export const findProtoRefs = (input) => [...new Set(input.split('\n').flatMap(protoRefsOfLine))]
+export const findProtoRefs = (input) => [...new Set(input.split('\n').flatMap(findProtoRefsInLine))]
 
-export const refusalMessage = (refs) =>
+export const refusalMessage = (protoRefs) =>
   [
     'Push refused: prototype branches stay local.',
-    ...refs.map((ref) => `  - ${ref}`),
+    ...protoRefs.map((ref) => `  - ${ref}`),
     'To share a prototype, run /prototype graduate.',
   ].join('\n')
+
+export const pushGuardMessage = (input) => {
+  const protoRefs = findProtoRefs(input)
+  return protoRefs.length > 0 ? refusalMessage(protoRefs) : null
+}
