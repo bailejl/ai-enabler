@@ -4,24 +4,56 @@ import { isProtoRef } from './proto-push-guard.js'
 const NO_VERIFY_PREFIX = '--no-ver'
 const REPO_OPTION = '--repo'
 const DELETE_FLAGS = ['--delete', '-d']
-const GIT_VALUE_OPTIONS = ['-C', '-c']
+const GIT_BINARY = 'git'
+const PUSH_COMMAND = 'push'
+const GIT_VALUE_OPTIONS = [
+  '-C',
+  '-c',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--config-env',
+  '--super-prefix',
+  '--exec-path',
+]
+const PUSH_VALUE_OPTIONS = ['-o', '--push-option', '--receive-pack', '--exec', REPO_OPTION]
+const SHELL_PREFIX_WORDS = [
+  'if',
+  'then',
+  'do',
+  'else',
+  'elif',
+  'while',
+  'until',
+  'time',
+  'command',
+  'exec',
+  'nohup',
+  'env',
+]
 const OPTION_PREFIX = '-'
 const REFSPEC_SEPARATOR = ':'
+const GROUP_OPENERS = '({!'
+const GROUP_CLOSERS = ')}'
+// Stands in for a quoted string so it keeps its word slot (FOO="a b" stays an assignment).
+const QUOTED_PLACEHOLDER = 'Q'
 
 const WHITESPACE_PATTERN = /\s+/
 const ASSIGNMENT_PATTERN = /^[A-Za-z_]\w*=/
 const SEGMENT_SEPARATOR_PATTERN = /&&|\|\||\|&|[|;&\n]/
-const GROUPING_PATTERN = /^[\s({!]+|[\s)}]+$/g
 
 // One left-to-right scan; at each position the first alternative that matches wins, so quotes and
-// $(( )) hide any `<<` inside them and only a heredoc opener outside them starts a heredoc.
-// Alternatives: line continuation, escaped char, 'single', "double", $((arithmetic)), then
-// <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<) with the rest of its line (`rest`)
-// kept and its body removed through the terminator line, or to the end if unterminated.
+// $(( )) hide any `<<` or `#` inside them and only a heredoc opener or comment outside them counts.
+// Alternatives: line continuation, escaped char, comment (`#` starting a word), $'ANSI-C',
+// 'single', "double", $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD
+// (not <<<) with the rest of its line (`rest`) kept and its body removed through the terminator
+// line, or to the end if unterminated.
 const TOKEN_PATTERN = new RegExp(
   [
     String.raw`\\\n`,
     String.raw`\\[\s\S]`,
+    String.raw`(?<=^|[\s;&|()])#[^\n]*`,
+    String.raw`\$'(?:[^'\\]|\\[\s\S])*'`,
     String.raw`'[^']*'`,
     String.raw`"(?:[^"\\]|\\[\s\S])*"`,
     String.raw`\$\(\([\s\S]*?\)\)`,
@@ -41,62 +73,83 @@ const protoRefReason = (ref) =>
 const replaceToken = (token, ...captures) => {
   const { rest } = captures.at(-1)
   if (rest !== undefined) return stripNonCommandText(rest)
-  return token.startsWith('\\') && token !== '\\\n' ? '' : ' '
+  if (token.startsWith('\\')) return token === '\\\n' ? ' ' : ''
+  if (token.startsWith('#')) return ' '
+  return QUOTED_PLACEHOLDER
 }
 
 const stripNonCommandText = (command) => command.replace(TOKEN_PATTERN, replaceToken)
 
 const splitSegments = (command) => command.split(SEGMENT_SEPARATOR_PATTERN)
 
-const wordsOf = (segment) => segment.replace(GROUPING_PATTERN, '').split(WHITESPACE_PATTERN)
+// Drops leading ( { ! and trailing ) } from a word with linear scans.
+const trimGrouping = (word) => {
+  const chars = [...word]
+  const start = chars.findIndex((char) => !GROUP_OPENERS.includes(char))
+  const end = chars.findLastIndex((char) => !GROUP_CLOSERS.includes(char))
+  return start === -1 ? '' : chars.slice(start, end + 1).join('')
+}
+
+const wordsOf = (segment) =>
+  segment
+    .trim()
+    .split(WHITESPACE_PATTERN)
+    .map(trimGrouping)
+    .filter((word) => word !== '')
 
 const dropFrom = (words, isLeading) => {
   const start = words.findIndex((word, index) => !isLeading(word, index))
   return start === -1 ? [] : words.slice(start)
 }
 
-const skipAssignments = (words) => dropFrom(words, (word) => ASSIGNMENT_PATTERN.test(word))
+const skipShellPrefix = (words) =>
+  dropFrom(words, (word) => ASSIGNMENT_PATTERN.test(word) || SHELL_PREFIX_WORDS.includes(word))
 
+const isGit = (word) => word?.split('/').at(-1) === GIT_BINARY
+
+// Any option is skipped; an option that takes its value as a separate word also skips that word.
 const skipGitGlobalOptions = (words) =>
   dropFrom(
     words,
-    (word, index) =>
-      GIT_VALUE_OPTIONS.includes(word) || GIT_VALUE_OPTIONS.includes(words[index - 1]),
+    (word, index) => word.startsWith(OPTION_PREFIX) || GIT_VALUE_OPTIONS.includes(words[index - 1]),
   )
 
 // Words after `git push` when the segment is a plain push, else null.
 const argsAfterPush = (segment) => {
-  const afterEnv = skipAssignments(wordsOf(segment))
-  if (afterEnv[0] !== 'git') return null
-  const afterOptions = skipGitGlobalOptions(afterEnv.slice(1))
-  return afterOptions[0] === 'push' ? afterOptions.slice(1) : null
+  const afterPrefix = skipShellPrefix(wordsOf(segment))
+  if (!isGit(afterPrefix[0])) return null
+  const afterOptions = skipGitGlobalOptions(afterPrefix.slice(1))
+  return afterOptions[0] === PUSH_COMMAND ? afterOptions.slice(1) : null
 }
 
 const usesNoVerify = (args) => args.some((arg) => arg.startsWith(NO_VERIFY_PREFIX))
+
+const withoutOptionValues = (args) =>
+  args.filter((_arg, index) => !PUSH_VALUE_OPTIONS.includes(args[index - 1]))
 
 const isDeleteMode = (args) => args.some((arg) => DELETE_FLAGS.includes(arg))
 
 const namesRepoOption = (arg) => arg === REPO_OPTION || arg.startsWith(`${REPO_OPTION}=`)
 
-// The first positional word is the remote, unless --repo names it; refspecs follow.
-const refspecsOf = (args) => {
-  const positional = args.filter(
-    (arg, index) => !arg.startsWith(OPTION_PREFIX) && args[index - 1] !== REPO_OPTION,
-  )
-  return args.some(namesRepoOption) ? positional : positional.slice(1)
+// The first positional word is the remote, unless --repo names it; refspecs follow. git lets a
+// positional argument override --repo; the guard treats them all as refspecs and errs safe.
+const refspecsOf = (args, hasRepoOption) => {
+  const positional = args.filter((arg) => !arg.startsWith(OPTION_PREFIX))
+  return hasRepoOption ? positional : positional.slice(1)
 }
 
 const isDeleteRefspec = (refspec) => refspec.startsWith(REFSPEC_SEPARATOR)
 
 const protoRefIn = (refspec) => refspec.split(REFSPEC_SEPARATOR).find(isProtoRef)
 
-const findProtoRef = (args) =>
-  isDeleteMode(args)
-    ? undefined
-    : refspecsOf(args)
-        .filter((refspec) => !isDeleteRefspec(refspec))
-        .map(protoRefIn)
-        .find((protoRef) => protoRef !== undefined)
+const findProtoRef = (args) => {
+  const operands = withoutOptionValues(args)
+  if (isDeleteMode(operands)) return undefined
+  return refspecsOf(operands, args.some(namesRepoOption))
+    .filter((refspec) => !isDeleteRefspec(refspec))
+    .map(protoRefIn)
+    .find((protoRef) => protoRef !== undefined)
+}
 
 const segmentReason = (segment) => {
   const args = argsAfterPush(segment)

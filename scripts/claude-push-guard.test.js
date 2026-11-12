@@ -26,6 +26,18 @@ describe('blockReason: --no-verify', () => {
     'git  push   --no-verify',
     'git\tpush\t--no-verify',
     'git push --no-verify origin proto/x',
+    'git --no-pager push --no-verify',
+    'git -P push --no-verify',
+    'git --git-dir=.git push --no-verify',
+    'git -C "/Users/x/repo" push --no-verify',
+    'git -c "core.sshCommand=ssh -i k" push --no-verify',
+    'for b in a; do git push --no-verify; done',
+    'if true; then git push --no-verify; fi',
+    'time git push --no-verify',
+    'env A=1 git push --no-verify',
+    '/usr/bin/git push --no-verify',
+    "# don't push yet\ngit push --no-verify\necho 'done'",
+    "echo $'it\\'s'; git push --no-verify; echo 'x'",
   ])('blocks %j naming --no-verify', (command) => {
     expect(blockReason(command)).toContain('--no-verify')
   })
@@ -60,8 +72,13 @@ describe('blockReason: proto refspecs', () => {
     ['git push origin  proto/x', 'proto/x'],
     ['git push -u origin proto/x', 'proto/x'],
     ['git push --force origin proto/x', 'proto/x'],
+    // git lets a positional argument override --repo; the guard blocks anyway (errs safe).
     ['git push --repo=origin proto/x', 'proto/x'],
     ['git push --repo origin proto/x', 'proto/x'],
+    ['git --git-dir .git push origin proto/x', 'proto/x'],
+    ['git push "origin" proto/x', 'proto/x'],
+    ['/usr/bin/git push origin proto/x', 'proto/x'],
+    ['git push -o -d origin proto/x', 'proto/x'],
     ['git push origin :proto/old proto/new', 'proto/new'],
     ['git push origin feat/a && git push origin proto/z', 'proto/z'],
     ['{ git push origin proto/x; }', 'proto/x'],
@@ -82,6 +99,7 @@ describe('blockReason: proto refspecs', () => {
     'git push -d origin proto/old',
     'git push origin :proto/old',
     'git push --repo=origin :proto/old',
+    'git push -o x --delete origin proto/old',
     'git push origin',
     'git push',
     'git push proto/x',
@@ -99,6 +117,8 @@ describe('blockReason: text that only mentions a push', () => {
     "echo 'git push origin proto/x'",
     'echo "say \\"hi\\"; git push --no-verify"',
     'echo a\\;git push --no-verify',
+    '# git push --no-verify',
+    'echo a#b',
   ])('allows %j', (command) => {
     expect(blockReason(command)).toBeNull()
   })
@@ -126,6 +146,14 @@ describe('blockReason: text that only mentions a push', () => {
     "echo don\\'t\ngit push --no-verify",
   ])('still checks the real commands in %j', (command) => {
     expect(blockReason(command)).toContain('--no-verify')
+  })
+})
+
+describe('blockReason: pathological input', () => {
+  test('handles a very long run of closing parentheses in linear time', () => {
+    const started = Date.now()
+    expect(blockReason(`echo ${')'.repeat(100000)}x`)).toBeNull()
+    expect(Date.now() - started).toBeLessThan(1000)
   })
 })
 
