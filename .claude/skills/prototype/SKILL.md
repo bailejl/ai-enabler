@@ -8,13 +8,16 @@ argument-hint: start <name> | graduate
 
 Usage: /prototype start <name> | /prototype graduate
 
-If the subcommand is missing or unknown, print the usage line above. Change nothing.
+If the first word is not `start` or `graduate`, print the usage line above. Change nothing. A bare
+`/prototype` is not unknown: on a `proto/*` branch it iterates (see Iterate); elsewhere it
+refuses and points to `/prototype start <name>`.
 
 ## Rules
 
 - Prototype branches are `proto/<name>`. They stay on this machine. Never push one.
-- The `proto/` prefix is hardcoded here. If you change it, change `PROTO_PREFIX` in
-  `scripts/proto-push-guard.js` too.
+- The `proto/` prefix is hardcoded in this skill, its references, `README.md`,
+  `.claude/CLAUDE.md`, and both push guards (`PROTO_PREFIX` in `scripts/proto-push-guard.js`).
+  If you change it, change all of them.
 - On a `proto/*` branch only, skip tests, plans, review agents, and `/pr`.
 - The Husky commit hooks still run. Never use `--no-verify`. If a hook fails, fix the cause and
   commit again.
@@ -29,9 +32,10 @@ Run all four checks first, in this order. Change nothing until they all pass.
 3. The Playwright MCP tools `mcp__playwright__browser_navigate` and
    `mcp__playwright__browser_take_screenshot` are available. If not, tell the user to install
    Playwright MCP.
-4. Port 3001 is free: `lsof -ti tcp:3001` prints nothing. If it prints a pid, show
-   `ps -o command= -p <pid>` and offer to stop that process. If the user declines, stop. Do not
-   report the prototype as running.
+4. Port 3001 is free: `lsof -ti tcp:3001 -sTCP:LISTEN` prints nothing. If it prints a pid, show
+   `ps -o command= -p <pid>` and offer to stop that process.
+   - Yes: `kill <pid>`, run check 4 again, then continue.
+   - No: stop. Do not report the prototype as running.
 
 Then:
 

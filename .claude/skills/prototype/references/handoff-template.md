@@ -56,3 +56,4 @@ Graduate fills this in and writes it to `docs/prototypes/<name>.md`. Keep all ni
 - One line per agent in "UX and a11y notes". Use `<agent>: Not run` when the user declined it.
   Use `<agent>: Did not complete` when it errored, timed out, or returned nothing.
 - Every screenshot has an image line and a one-line text description.
+- Scrub it: no absolute paths, environment values, or credentials.

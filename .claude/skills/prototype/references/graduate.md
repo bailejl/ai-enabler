@@ -16,41 +16,72 @@ Before each step, print `Graduate step n of 9: <title>`.
 8. Push and issue
 9. Wrap up
 
+## Names
+
+- `proto_name` is the prototype's name. It never changes. Use it for `proto/<proto_name>` and the
+  handoff's Reference section.
+- `feat_name` defaults to `proto_name`. Use it for `feat/<feat_name>`,
+  `docs/prototypes/<feat_name>.md`, the screenshot directory, the commit message, and the issue
+  title.
+- Both must match `^[a-z0-9]+(-[a-z0-9]+)*$`. Check each name taken from a branch, and each
+  replacement the user gives. If one fails, stop or ask again.
+
+## Commands used more than once
+
+Handoff-only check: `git diff --name-only main...<branch>` is not empty and lists only
+`docs/prototypes/<feat_name>.md` and `docs/prototypes/<feat_name>/*.png`.
+
+Clean-tree check: `git status --porcelain` is empty. If not, ask the user to commit or discard
+first.
+
+Commits: run `SKIP_REPOWISE=1 git commit ...` so the pre-commit hook does not add Repowise files to
+a handoff-only commit. Never use `--no-verify`.
+
+Listeners: `lsof -ti tcp:3001 -sTCP:LISTEN` prints the pids.
+
+This repo's Vite: a pid whose `ps -o command= -p <pid>` contains `vite`, and whose cwd equals
+`git rev-parse --show-toplevel`. Get the cwd from `lsof -a -p <pid> -d cwd -Fn` and strip the
+leading `n`.
+
 ## Entry
 
-`<name>` is the part of the branch name after `proto/` or `feat/`.
-
-- On `proto/<name>`: start at step 1.
-- On `feat/<name>`: run `git diff --name-only main..HEAD`. If it is not empty and lists only
-  `docs/prototypes/<name>.md` and `docs/prototypes/<name>/*.png`, the handoff is already
-  committed. Skip to step 7.
+- On `proto/<proto_name>`: check the name, set `feat_name` to `proto_name`, and start at step 1.
+- On `feat/<feat_name>`: check the name, then run the handoff-only check against `HEAD`.
+  - Pass: this is a graduated handoff. Run the clean-tree check, then step 6, then step 7. Read
+    `proto_name` from the handoff's Reference section.
+  - Fail: stop. Say this is not a graduated handoff branch, and show `git status`.
 - Anywhere else, including `main`: stop and say to run on a `proto/*` branch.
 
 ## 1. Preflight
 
 Run these checks in order. Change nothing until all pass. Stop at the first failure.
 
-1. `git status --porcelain` is empty. If not, ask the user to commit or discard first.
+1. Run the clean-tree check.
 2. `git diff main...HEAD` is not empty. If it is, say there is nothing to graduate.
-3. `feat/<name>` is absent. If it exists and `git diff --name-only main..feat/<name>` lists only
-   handoff files, ask whether to reuse it (switch to it and skip to step 7). If it holds anything
-   else, ask for another name for `feat/<name>` and the handoff. The prototype branch keeps its
-   name.
-4. `curl -sf http://localhost:3001` answers. If not, run `npm run dev:prototype` in the
-   background and poll `curl -sf` for up to about 30 seconds. If it never answers, stop and
-   show the server output.
+3. `feat/<feat_name>` is absent. If it exists, run the handoff-only check against
+   `feat/<feat_name>`.
+   - Pass: ask whether to reuse it. Yes: `git switch feat/<feat_name>`, then step 6, then step 7.
+   - Fail, or the user says no: ask for another `feat_name`, check it, and run this check again.
+4. The server is up.
+   - Nothing is listening: run `npm run dev:prototype` in the background. Poll
+     `curl -sf http://localhost:3001` for up to about 30 seconds. If it never answers, stop and
+     show the server output.
+   - A pid is listening and it is this repo's Vite: use it.
+   - A pid is listening and it is not: show its command and ask whether to stop it. Yes: `kill` it
+     and start the server as above. No: stop.
 
 ## 2. Advisory agents
 
 Ask one question: "Run ui-ux-designer, a11y-review, and exploratory-testing against the
 prototype? Default is yes. Reply with agent names to drop, or 'no' for none."
 
-Run each accepted one as `dev-team:<agent>` and give it `http://localhost:3001` and
-`git diff main...HEAD`. Run them in parallel. Use a subagent for an agent and the Skill tool for
-a skill.
+Run the accepted ones in parallel. Give each `http://localhost:3001` and `git diff main...HEAD`.
 
-Record a declined agent as "Not run". Record an agent that errors, times out, or returns nothing as
-"<agent>: Did not complete". No outcome blocks graduate.
+- `dev-team:ui-ux-designer` and `dev-team:a11y-review`: run as subagents.
+- `dev-team:exploratory-testing`: invoke with the Skill tool.
+
+Keep each agent's findings text. Record a declined agent as "Not run". Record an agent that
+errors, times out, or returns nothing as "<agent>: Did not complete". No outcome blocks graduate.
 
 ## 3. Interview
 
@@ -66,35 +97,38 @@ one-line description.
 
 ## 5. Branch and handoff
 
-1. Run `git switch -c feat/<name> main`. Use local `main`.
-2. Copy the screenshots to `docs/prototypes/<name>/`.
-3. Write `docs/prototypes/<name>.md` from `references/handoff-template.md`. Set the Reference
-   section to `proto/<name>` and the SHA from `git rev-parse proto/<name>`.
-4. Stage only `docs/prototypes/<name>.md` and `docs/prototypes/<name>/`. Commit with
-   `docs: add <name> prototype handoff`. Never use `--no-verify`.
+1. Run `git switch -c feat/<feat_name> main`. Use local `main`.
+2. Copy the screenshots to `docs/prototypes/<feat_name>/`.
+3. Write `docs/prototypes/<feat_name>.md` from `references/handoff-template.md`. Put each agent's
+   findings in "UX and a11y notes". Set the Reference section to `proto/<proto_name>` and the SHA
+   from `git rev-parse proto/<proto_name>`.
+4. Stage only `docs/prototypes/<feat_name>.md` and `docs/prototypes/<feat_name>/`. Commit with
+   `docs: add <feat_name> prototype handoff`.
 
 ## 6. Stop the server
 
-Run `lsof -ti tcp:3001`. If it prints nothing, go on.
+Run the listeners command. If it prints nothing, go on.
 
-For each pid, run `ps -o command= -p <pid>` and `lsof -a -p <pid> -d cwd -Fn`. Stop the process
-with `kill <pid>` only if the command is Vite and the working directory is this repo
-(`git rev-parse --show-toplevel`). Otherwise show the command and ask before stopping it.
+For each pid, stop it with `kill <pid>` only if it is this repo's Vite. Otherwise show its
+command and ask before stopping it.
 
 ## 7. Preview
 
 Show:
 
-- Handoff path: `docs/prototypes/<name>.md`
-- Branch: `feat/<name>`
-- Issue title: `Prototype handoff: <name>`
+- Handoff path: `docs/prototypes/<feat_name>.md`
+- Branch: `feat/<feat_name>`
+- Issue title: `Prototype handoff: <feat_name>`
 - Label: `prototype`
+- The full handoff body
 
 Ask: push, edit, or decline.
 
 - Push: go to step 8.
-- Edit: apply the change to the handoff, stage `docs/prototypes/<name>.md` and
-  `docs/prototypes/<name>/`, run `git commit --amend --no-edit`, and show the preview again.
+- Edit: apply the change to the handoff and stage the handoff paths. If
+  `git rev-parse --abbrev-ref @{u}` succeeds, the branch is already pushed: make a new commit,
+  `docs: update <feat_name> prototype handoff`. Otherwise run
+  `SKIP_REPOWISE=1 git commit --amend --no-edit`. Then show the preview again.
 - Decline: go to step 9. The commit stays local.
 
 ## 8. Push and issue
@@ -102,20 +136,23 @@ Ask: push, edit, or decline.
 Stop at the first failure and go to step 9 with a failure. Keep the commit.
 
 1. Run `gh auth status`.
-2. Run `gh label list --search prototype`. If `prototype` is missing, run
-   `gh label create prototype --color 5319e7 --description "Prototype handoff"`.
-3. Run `git push -u origin feat/<name>`. Push only that branch. Never push a `proto/*` ref.
-4. Get the SHA with `git rev-parse HEAD` and the repo with
-   `gh repo view --json nameWithOwner -q .nameWithOwner`.
-5. Copy the handoff to a file in the session scratchpad. In the copy, rewrite each image link
-   `<name>/<file>.png` to
-   `https://github.com/<owner>/<repo>/blob/<sha>/docs/prototypes/<name>/<file>.png?raw=true`.
-6. Find an open issue with the exact title:
-   `gh issue list --state open --label prototype --search "in:title \"Prototype handoff: <name>\"" --json number,title,url`.
-   Keep only results whose title equals `Prototype handoff: <name>`.
+2. Get the SHA with `git rev-parse HEAD`. Get the repo with
+   `gh repo view --json nameWithOwner,visibility`. If it is private, say that the image links may
+   not render in the issue.
+3. Copy the handoff to a file in the session scratchpad. In the copy, rewrite each image link
+   `<feat_name>/<file>.png` to
+   `https://github.com/<owner>/<repo>/blob/<sha>/docs/prototypes/<feat_name>/<file>.png?raw=true`.
+4. Scan the handoff and the copy for `/Users/`, `/home/`, `/private/tmp`, `/var/folders`, `ghp_`,
+   `gho_`, `github_pat_`, `sk-`, `AKIA`, and `-----BEGIN`. On any match, stop and show it.
+5. Run `gh label list --search prototype --json name`. If no entry has the exact name `prototype`,
+   run `gh label create prototype --color 5319e7 --description "Prototype handoff"`.
+6. Run `git push -u origin feat/<feat_name>`. Push only that branch. Never push a `proto/*` ref.
+7. Find an open issue with the exact title:
+   `gh issue list --state open --search "in:title \"Prototype handoff: <feat_name>\"" --limit 100 --json number,title,url`.
+   Keep only results whose title equals `Prototype handoff: <feat_name>`.
    - One exists: run `gh issue edit <number> --body-file <copy>` and use its URL.
    - None: run
-     `gh issue create --title "Prototype handoff: <name>" --label prototype --body-file <copy>`
+     `gh issue create --title "Prototype handoff: <feat_name>" --label prototype --body-file <copy>`
      and use the URL it prints.
 
 ## 9. Wrap up
@@ -124,8 +161,8 @@ On success, print `/dev-team:specs <issue-url>`.
 
 On decline or failure, show the error if there is one. Then print both:
 
-- `/prototype graduate`, to retry from `feat/<name>`.
-- `/dev-team:specs docs/prototypes/<name>.md`, to use the local file.
+- `/prototype graduate`, to retry from `feat/<feat_name>`.
+- `/dev-team:specs docs/prototypes/<feat_name>.md`, to use the local file.
 
 On every path, name the current branch (`git branch --show-current`). Remind the user that
-`proto/<name>` is kept for them to delete.
+`proto/<proto_name>` is kept for them to delete.
