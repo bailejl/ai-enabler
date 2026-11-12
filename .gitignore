@@ -56,7 +56,6 @@ graphify-out/
 /memory/
 /reports/
 /metrics/
-/plans/
 .pr-review-passed
 
 # Stryker
