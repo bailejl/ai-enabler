@@ -163,3 +163,17 @@ export const blockReason = (command) =>
   splitSegments(stripNonCommandText(command))
     .map(segmentReason)
     .find((reason) => reason !== null) ?? null
+
+const parseJson = (text) => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+// Claude Code hook JSON in; unusable input fails open (null).
+export const hookInputBlockReason = (text) => {
+  const command = parseJson(text)?.tool_input?.command
+  return typeof command === 'string' ? blockReason(command) : null
+}

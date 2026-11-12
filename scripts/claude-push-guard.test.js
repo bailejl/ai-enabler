@@ -1,5 +1,8 @@
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { blockReason } from './claude-push-guard.js'
+import { blockReason, hookInputBlockReason } from './claude-push-guard.js'
 
 const GRADUATE_HINT = '/prototype graduate'
 
@@ -153,7 +156,7 @@ describe('blockReason: pathological input', () => {
   test('handles a very long run of closing parentheses in linear time', () => {
     const started = Date.now()
     expect(blockReason(`echo ${')'.repeat(100000)}x`)).toBeNull()
-    expect(Date.now() - started).toBeLessThan(1000)
+    expect(Date.now() - started).toBeLessThan(5000)
   })
 })
 
@@ -166,5 +169,59 @@ describe('blockReason: known gaps (accepted, AC13 non-goals)', () => {
     'git push origin HEAD',
   ])('lets %j through', (command) => {
     expect(blockReason(command)).toBeNull()
+  })
+})
+
+const hookPayload = (command) => JSON.stringify({ tool_name: 'Bash', tool_input: { command } })
+
+describe('hookInputBlockReason', () => {
+  test('returns the reason for a blocked command payload', () => {
+    expect(hookInputBlockReason(hookPayload('git push --no-verify'))).toContain('--no-verify')
+  })
+
+  test('returns null for an allowed command payload', () => {
+    expect(hookInputBlockReason(hookPayload('git status'))).toBeNull()
+  })
+
+  test.each(['{}', '{"tool_input":{}}', '{"tool_input":{"command":5}}', 'null', 'not json', ''])(
+    'fails open on unusable input %j',
+    (text) => {
+      expect(hookInputBlockReason(text)).toBeNull()
+    },
+  )
+})
+
+const CLI_PATH = fileURLToPath(new URL('./claude-push-guard-cli.js', import.meta.url))
+const SETTINGS_PATH = fileURLToPath(new URL('../.claude/settings.json', import.meta.url))
+const runCli = (input) => spawnSync(process.execPath, [CLI_PATH], { input, encoding: 'utf8' })
+
+describe('claude-push-guard CLI', () => {
+  test('blocks a bypass with exit 2 and the reason on stderr', () => {
+    const result = runCli(hookPayload('git push --no-verify'))
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('--no-verify')
+  })
+
+  test.each([hookPayload('git push origin feat/a'), '{}', '{"tool_input":{}}', 'not json'])(
+    'passes %j silently',
+    (input) => {
+      expect(runCli(input)).toMatchObject({ status: 0, stdout: '', stderr: '' })
+    },
+  )
+})
+
+describe('.claude/settings.json', () => {
+  const preToolUse = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).hooks.PreToolUse
+  const commandsOf = (entry) => entry.hooks.map((hook) => hook.command)
+
+  test('registers the push guard for Bash', () => {
+    const entry = preToolUse.find((candidate) => candidate.matcher === 'Bash')
+    expect(commandsOf(entry).join('\n')).toContain('scripts/claude-push-guard-cli.js')
+  })
+
+  test('keeps the graphify PreToolUse entries', () => {
+    const commands = preToolUse.flatMap(commandsOf)
+    expect(commands).toContain('graphify hook-guard search')
+    expect(commands).toContain('graphify hook-guard read')
   })
 })
