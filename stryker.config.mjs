@@ -4,5 +4,14 @@ export default {
   testRunner: 'vitest',
   coverageAnalysis: 'perTest',
   reporters: ['html', 'clear-text', 'progress'],
-  mutate: ['src/**/*.{js,jsx}', '!src/**/*.test.{js,jsx}', '!src/main.jsx', '!src/App.jsx'],
+  mutate: [
+    'src/**/*.{js,jsx}',
+    '!src/**/*.test.{js,jsx}',
+    '!src/main.jsx',
+    '!src/App.jsx',
+    'scripts/**/*.js',
+    '!scripts/**/*.test.js',
+    // CLI wrappers are thin stdin/exit shells covered by spawn tests
+    '!scripts/**/*-cli.js',
+  ],
 }

@@ -20,6 +20,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-push-guard-cli.js\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -49,5 +59,8 @@
   },
   "env": {
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "40"
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }

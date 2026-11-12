@@ -28,24 +28,25 @@ npx playwright install chromium
 
 ## Commands
 
-| Task                | Command                 |
-| ------------------- | ----------------------- |
-| Dev server (:3000)  | `npm run dev`           |
-| Production build    | `npm run build`         |
-| Preview build       | `npm run preview`       |
-| Unit tests          | `npm test`              |
-| Unit tests (watch)  | `npm run test:watch`    |
-| Coverage            | `npm run test:coverage` |
-| E2E tests           | `npm run test:e2e`      |
-| Lint                | `npm run lint`          |
-| Lint (deep, ESLint) | `npm run lint:deep`     |
-| Lint fix            | `npm run lint:fix`      |
-| Format              | `npm run format`        |
-| Check formatting    | `npm run format:check`  |
-| Mutation testing    | `npx stryker run`       |
+| Task                     | Command                 |
+| ------------------------ | ----------------------- |
+| Dev server (:3000)       | `npm run dev`           |
+| Prototype server (:3001) | `npm run dev:prototype` |
+| Production build         | `npm run build`         |
+| Preview build            | `npm run preview`       |
+| Unit tests               | `npm test`              |
+| Unit tests (watch)       | `npm run test:watch`    |
+| Coverage                 | `npm run test:coverage` |
+| E2E tests                | `npm run test:e2e`      |
+| Lint                     | `npm run lint`          |
+| Lint (deep, ESLint)      | `npm run lint:deep`     |
+| Lint fix                 | `npm run lint:fix`      |
+| Format                   | `npm run format`        |
+| Check formatting         | `npm run format:check`  |
+| Mutation testing         | `npx stryker run`       |
 
-Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
-excluding test files, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
+Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}` and `scripts/**/*.js`,
+excluding test files, `scripts/**/*-cli.js`, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
 the e2e tests cover it.
 
 ## Project layout
@@ -62,6 +63,7 @@ the e2e tests cover it.
 - `stryker.config.mjs` - mutation testing settings.
 - `eslint.config.js` - deep lint rules.
 - `prettier.config.js` - formatting rules.
+- `scripts/` - Node tooling (push guards), with colocated `*.test.js`.
 - `.husky/` - Git hooks.
 - `.claude/` - Claude Code settings, project instructions, and agent files.
 
@@ -85,11 +87,30 @@ The repo ships two Husky hooks.
   regenerated `.claude/CLAUDE.md` and `.github/copilot-instructions.md` unless they had unstaged
   edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript and JSX files, Prettier on JSON,
   Markdown, and YAML.
-- `.husky/pre-push` runs `npm test` and `npm run test:e2e`.
+- `.husky/pre-push` runs the proto push guard, then `npm test` and `npm run test:e2e`.
 
 If Graphify is installed, it adds local `post-checkout`, `post-commit`, `post-merge`, and
 `post-rewrite` hooks in `.husky/` that rebuild `graphify-out/`. They are gitignored, so they only
 exist on machines where `graphify hook install` was run.
+
+## Prototyping
+
+Use the `/prototype` Claude Code skill (`.claude/skills/prototype`) to try a UI idea fast, before you
+write a spec.
+
+- `/prototype start <name>` creates the local branch `proto/<name>` from `main` and starts the
+  prototype server. On `proto/*` branches only, Claude skips tests and review.
+- `/prototype graduate` writes a handoff under `docs/prototypes/`, commits it on `feat/<name>`, and
+  can open a GitHub issue for `/dev-team:specs`.
+- `npm run dev:prototype` serves on port 3001. `npm run dev` stays on port 3000.
+
+Prototype branches are meant to stay local. Two guards block pushes of them:
+
+- `.husky/pre-push` runs `scripts/proto-push-guard-cli.js`, which calls `scripts/proto-push-guard.js`.
+  It refuses to push any `proto/*` ref.
+- A Claude Code `PreToolUse` hook runs `scripts/claude-push-guard-cli.js`, which calls
+  `scripts/claude-push-guard.js`. It blocks `--no-verify` and `HUSKY=0` pushes and pushes of
+  `proto/*` refs.
 
 ## AI tooling (optional)
 
