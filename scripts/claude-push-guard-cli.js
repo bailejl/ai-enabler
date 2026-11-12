@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { hookInputBlockReason } from './claude-push-guard.js'
+import { readHookBlockReason } from './claude-push-guard.js'
 
-const reason = hookInputBlockReason(readFileSync(0, 'utf8'))
+const HOOK_BLOCK_EXIT_CODE = 2 // exit 2 blocks the tool call in Claude Code
+const reason = readHookBlockReason(() => readFileSync(0, 'utf8'))
 if (reason !== null) {
   process.stderr.write(`${reason}\n`)
-  process.exitCode = 2
+  process.exitCode = HOOK_BLOCK_EXIT_CODE
 }

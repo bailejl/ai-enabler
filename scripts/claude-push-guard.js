@@ -63,12 +63,10 @@ const TOKEN_PATTERN = new RegExp(
   'g',
 )
 
-const NO_VERIFY_REASON =
-  'Blocked: git push --no-verify skips the proto push guard. ' +
-  'Prototype branches stay local; use /prototype graduate.'
+const STAY_LOCAL_HINT = 'Prototype branches stay local; use /prototype graduate.'
+const NO_VERIFY_REASON = `Blocked: git push --no-verify skips the proto push guard. ${STAY_LOCAL_HINT}`
 const protoRefReason = (ref) =>
-  `Blocked: this push would leak the prototype branch ${ref}. ` +
-  'Prototype branches stay local; use /prototype graduate.'
+  `Blocked: this push would leak the prototype branch ${ref}. ${STAY_LOCAL_HINT}`
 
 const replaceToken = (token, ...captures) => {
   const { rest } = captures.at(-1)
@@ -98,21 +96,22 @@ const wordsOf = (segment) =>
     .filter((word) => word !== '')
 
 const dropFrom = (words, isLeading) => {
-  const start = words.findIndex((word, index) => !isLeading(word, index))
+  const start = words.findIndex((word, index) => !isLeading(word, index, words))
   return start === -1 ? [] : words.slice(start)
 }
 
-const skipShellPrefix = (words) =>
-  dropFrom(words, (word) => ASSIGNMENT_PATTERN.test(word) || SHELL_PREFIX_WORDS.includes(word))
+const isShellPrefixWord = (word) =>
+  ASSIGNMENT_PATTERN.test(word) || SHELL_PREFIX_WORDS.includes(word)
+
+const skipShellPrefix = (words) => dropFrom(words, isShellPrefixWord)
 
 const isGit = (word) => word?.split('/').at(-1) === GIT_BINARY
 
 // Any option is skipped; an option that takes its value as a separate word also skips that word.
-const skipGitGlobalOptions = (words) =>
-  dropFrom(
-    words,
-    (word, index) => word.startsWith(OPTION_PREFIX) || GIT_VALUE_OPTIONS.includes(words[index - 1]),
-  )
+const isGitGlobalOption = (word, index, words) =>
+  word.startsWith(OPTION_PREFIX) || GIT_VALUE_OPTIONS.includes(words[index - 1])
+
+const skipGitGlobalOptions = (words) => dropFrom(words, isGitGlobalOption)
 
 // Words after `git push` when the segment is a plain push, else null.
 const argsAfterPush = (segment) => {
@@ -164,7 +163,7 @@ export const blockReason = (command) =>
     .map(segmentReason)
     .find((reason) => reason !== null) ?? null
 
-const parseJson = (text) => {
+const parseJsonOrNull = (text) => {
   try {
     return JSON.parse(text)
   } catch {
@@ -174,6 +173,15 @@ const parseJson = (text) => {
 
 // Claude Code hook JSON in; unusable input fails open (null).
 export const hookInputBlockReason = (text) => {
-  const command = parseJson(text)?.tool_input?.command
+  const command = parseJsonOrNull(text)?.tool_input?.command
   return typeof command === 'string' ? blockReason(command) : null
+}
+
+// A failed read is unusable input too: fail open.
+export const readHookBlockReason = (readInput) => {
+  try {
+    return hookInputBlockReason(readInput())
+  } catch {
+    return null
+  }
 }
