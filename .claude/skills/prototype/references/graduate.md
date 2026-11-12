@@ -144,7 +144,7 @@ Stop at the first failure and go to step 9 with a failure. Keep the commit.
    - Absolute paths: `/Users/`, `/home/`, `/private/tmp`, `/var/folders`.
    - Key shapes: `(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}`, `AKIA[0-9A-Z]{16}`,
      `ghp_[A-Za-z0-9]{36}`, `gho_[A-Za-z0-9]{36}`, `github_pat_[A-Za-z0-9_]{20,}`, and
-     `-----BEGIN [A-Z ]*PRIVATE KEY-----`.
+     `-----BEGIN [A-Z ]*PRIVATE KEY`.
 5. Run `gh label create prototype --color 5319e7 --description "Prototype handoff" --force`. It
    is safe to run when the label exists.
 6. Run `git push -u origin feat/<feat_name>`. Push only that branch. Never push a `proto/*` ref.

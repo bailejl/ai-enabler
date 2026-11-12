@@ -144,13 +144,22 @@ describe('blockReason: proto refspecs', () => {
 })
 
 describe('blockReason: HUSKY=0', () => {
+  // Conservative on purpose: any bare HUSKY=0 word blocks, even where no push follows
+  // (`echo HUSKY=0`, `HUSKY=0 npm test`, `git push origin HUSKY=0`).
   test.each([
     'HUSKY=0 git push origin feat/a',
     'FOO=1 HUSKY=0 git push origin feat/a',
     'env HUSKY=0 git push origin feat/a',
+    'env -i HUSKY=0 git push origin feat/a',
     'export HUSKY=0',
     'export FOO=1 HUSKY=0',
     'export HUSKY=0; git push origin feat/a',
+    'if true; then export HUSKY=0; fi; git push origin feat/a',
+    'declare -x HUSKY=0',
+    'typeset -x HUSKY=0',
+    'echo HUSKY=0',
+    'HUSKY=0 npm test',
+    'git push origin HUSKY=0',
   ])('blocks %j naming HUSKY=0', (command) => {
     const reason = blockReason(command)
     expect(reason).toContain('HUSKY=0')
@@ -159,14 +168,41 @@ describe('blockReason: HUSKY=0', () => {
 
   test.each([
     'HUSKY=1 git push origin feat/a',
-    'git push origin HUSKY=0',
-    'HUSKY=0 npm test',
+    'HUSKY=00 git push origin feat/a',
     'export HUSKY=1',
     'export FOO=1',
-    'echo HUSKY=0',
+    'echo "HUSKY=0"',
+    'git commit -m "HUSKY=0"',
   ])('allows %j', (command) => {
     expect(blockReason(command)).toBeNull()
   })
+})
+
+describe('blockReason: leading redirections', () => {
+  test.each([
+    '2>/dev/null git push --no-verify',
+    '> log git push --no-verify',
+    '>log git push --no-verify',
+    '<in git push --no-verify',
+    '&>out git push --no-verify',
+    '2> err git push --no-verify',
+  ])('blocks %j naming --no-verify', (command) => {
+    expect(blockReason(command)).toContain('--no-verify')
+  })
+
+  test.each([
+    ['> log git push origin proto/x', 'proto/x'],
+    ['2>/dev/null git push origin proto/x', 'proto/x'],
+  ])('blocks %j naming the ref', (command, ref) => {
+    expect(blockReason(command)).toContain(`branch ${ref}.`)
+  })
+
+  test.each(['2>/dev/null git push origin feat/a', '> log git push origin feat/a', '>log ls'])(
+    'allows %j',
+    (command) => {
+      expect(blockReason(command)).toBeNull()
+    },
+  )
 })
 
 describe('blockReason: text that only mentions a push', () => {

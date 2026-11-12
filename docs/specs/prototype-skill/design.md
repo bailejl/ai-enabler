@@ -101,7 +101,9 @@ random port.
   stops Claude only; a push you type yourself still meets the git hook. It fails open on unusable
   hook input. It accepts the evasions in the plan Risks: `bash -c`, `$(...)`, `xargs`, `sudo`,
   `git -c core.hooksPath=...`, shell aliases, and quoted refs or flags. It also accepts `HEAD` and
-  SHA refspecs, which name no branch. Trade-off: it stops accidents, not intent.
+  SHA refspecs, which name no branch. A variable set in an earlier Bash call also stays an accepted
+  evasion, for example `export HUSKY` alone after an earlier `HUSKY=0` assignment. Trade-off: it stops accidents, not
+  intent.
 - **A `SKIP_REPOWISE=1` switch in `.husky/pre-commit` skips the Repowise refresh.** Graduate uses
   it so the handoff commit holds only handoff files. Without it, Repowise adds
   `.claude/CLAUDE.md` and graduate's handoff-only checks fail. Trade-off: the index lags one commit.

@@ -4,7 +4,6 @@ import { isProtoRef } from './proto-push-guard.js'
 const NO_VERIFY_PREFIX = '--no-ver'
 const REPO_OPTION = '--repo'
 const HUSKY_DISABLE = 'HUSKY=0'
-const EXPORT_COMMAND = 'export'
 const DELETE_FLAGS = ['--delete', '-d']
 const GIT_BINARY = 'git'
 const PUSH_COMMAND = 'push'
@@ -42,13 +41,15 @@ const QUOTED_PLACEHOLDER = 'Q'
 
 const WHITESPACE_PATTERN = /\s+/
 const ASSIGNMENT_PATTERN = /^[A-Za-z_]\w*=/
+const REDIRECT_PATTERN = /^\d*[<>]/
+const STANDALONE_REDIRECT_PATTERN = /^\d*[<>]+$/
 const SEGMENT_SEPARATOR_PATTERN = /&&|\|\||\|&|[|;&\n]/
 
 // One left-to-right scan; at each position the first alternative that matches wins, so quotes and
 // $(( )) hide any `<<` or `#` inside them and only a heredoc opener or comment outside them counts.
 // Alternatives: line continuation, escaped char, comment (`#` starting a word), $'ANSI-C',
 // 'single', "double", fd redirection (`redirect`: 2>&1, >&2, &>, &>>; their `&` is not a
-// separator), $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<;
+// separator; `&>file` becomes `>file`), $((arithmetic)), then <<WORD / <<'WORD' / <<"WORD" / <<-WORD / <<\WORD (not <<<;
 // WORD is any run of characters bash allows) with the rest of its line (`rest`) kept and its body
 // removed through the terminator line, or to the end if unterminated.
 const TOKEN_PATTERN = new RegExp(
@@ -76,7 +77,7 @@ const protoRefReason = (ref) =>
 const replaceToken = (token, ...captures) => {
   const { rest, redirect } = captures.at(-1)
   if (rest !== undefined) return stripNonCommandText(rest)
-  if (redirect !== undefined) return ' '
+  if (redirect !== undefined) return redirect.startsWith('&') ? redirect.slice(1) : ' '
   if (token.startsWith('\\')) return token === '\\\n' ? ' ' : ''
   if (token.startsWith('#')) return ' '
   return QUOTED_PLACEHOLDER
@@ -106,8 +107,12 @@ const dropLeadingWhile = (words, isLeading) => {
   return start === -1 ? [] : words.slice(start)
 }
 
-const isShellPrefixWord = (word) =>
-  ASSIGNMENT_PATTERN.test(word) || SHELL_PREFIX_WORDS.includes(word)
+// Leading prefix words: assignments, keywords/wrappers, and redirections (`>log`, or `>` then `log`).
+const isShellPrefixWord = (word, index, words) =>
+  ASSIGNMENT_PATTERN.test(word) ||
+  SHELL_PREFIX_WORDS.includes(word) ||
+  REDIRECT_PATTERN.test(word) ||
+  STANDALONE_REDIRECT_PATTERN.test(words[index - 1])
 
 const skipShellPrefix = (words) => dropLeadingWhile(words, isShellPrefixWord)
 
@@ -155,18 +160,12 @@ const findProtoRef = (args) => {
     .find((protoRef) => protoRef !== undefined)
 }
 
-const exportsHuskyDisable = (words) =>
-  words[0] === EXPORT_COMMAND && words.slice(1).includes(HUSKY_DISABLE)
-
 const segmentReason = (segment) => {
   const words = wordsOf(segment)
-  if (exportsHuskyDisable(words)) return HUSKY_REASON
-  const afterPrefix = skipShellPrefix(words)
-  const args = argsAfterPush(afterPrefix)
+  // Any bare HUSKY=0 word blocks: assignment, export/declare/typeset argument, even `echo HUSKY=0`.
+  if (words.includes(HUSKY_DISABLE)) return HUSKY_REASON
+  const args = argsAfterPush(skipShellPrefix(words))
   if (args === null) return null
-  if (words.slice(0, words.length - afterPrefix.length).includes(HUSKY_DISABLE)) {
-    return HUSKY_REASON
-  }
   if (usesNoVerify(args)) return NO_VERIFY_REASON
   const protoRef = findProtoRef(args)
   return protoRef === undefined ? null : protoRefReason(protoRef)
