@@ -80,9 +80,8 @@ prototypes, automatic cleanup of `proto/*` branches, and any value stream featur
 - [ ] AC13: A Claude Code `PreToolUse` hook exits 2 with a reason on stderr for any Bash command
       with a plain `git push` segment that has a word starting with `--no-ver`, or a refspec with a
       `proto/` branch on either side (bare, `+`-prefixed, or `refs/heads/`-qualified), unless that
-      refspec is a delete. A non-delete proto refspec in the same command still blocks. A
-      `git push` segment with a `HUSKY=0` prefix, or an `export HUSKY=0` segment, also blocks
-      (added at build review). Every other command, and unusable hook input, exits 0 with no
+      refspec is a delete. A non-delete proto refspec in the same command still blocks. Any
+      segment with an unquoted `HUSKY=0` word also blocks (added at build review). Every other command, and unusable hook input, exits 0 with no
       output. Non-goals (not blocked):
       `bash -c`, `$(...)`, `xargs`, `sudo`, `git -c core.hooksPath=...`, shell aliases, and quoted
       refs or flags.
@@ -729,9 +728,10 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
   amending, to avoid a force-push.
 - Step 4.2: `readHookBlockReason` lives in `scripts/claude-push-guard.js` to keep the CLI under ten
   lines.
-- AC13 widened at the backstop security review: `HUSKY=0` (push prefix or `export`) also blocks,
-  because it skips the git pre-push guard too. Conservative: `HUSKY=0 git push origin feat/a`
-  blocks as well.
+- AC13 widened at the backstop security review: any unquoted `HUSKY=0` word also blocks,
+  because it skips the git pre-push guard too. Conservative: `HUSKY=0 npm test` and
+  `echo HUSKY=0` block as well. A leading redirect (`2>/dev/null git push ...`) no longer hides a
+  push.
 - AC9 and the Step 3.3 test use the three-dot `main...feat/<name>` (merge-base diff), matching
   `graduate.md`.
 - Graduate prints only `/dev-team:specs <issue-url>`; the design doc's `/dev-team:ship`
