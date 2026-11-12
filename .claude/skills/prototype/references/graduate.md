@@ -18,9 +18,8 @@ Before each step, print `Graduate step n of 9: <title>`.
 
 ## Names
 
-- `proto_name` is the prototype's name. It never changes. Use it for `proto/<proto_name>` and the
-  handoff's Reference section.
-- `feat_name` defaults to `proto_name`. Use it for `feat/<feat_name>`,
+- `proto_name` is the prototype's name and never changes. Use `proto_name` for `proto/<proto_name>` and the handoff's Reference section.
+- `feat_name` defaults to `proto_name`. Use `feat_name` for `feat/<feat_name>`,
   `docs/prototypes/<feat_name>.md`, the screenshot directory, the commit message, and the issue
   title.
 - Both must match `^[a-z0-9]+(-[a-z0-9]+)*$`. Check each name taken from a branch, and each
@@ -57,18 +56,16 @@ leading `n`.
 Run these checks in order. Change nothing until all pass. Stop at the first failure.
 
 1. Run the clean-tree check.
-2. `git diff main...HEAD` is not empty. If it is, say there is nothing to graduate.
-3. `feat/<feat_name>` is absent. If it exists, run the handoff-only check against
+2. `git diff main...HEAD` is not empty. If the diff is empty, say there is nothing to graduate.
+3. `feat/<feat_name>` is absent. If that branch exists, run the handoff-only check against
    `feat/<feat_name>`.
-   - Pass: ask whether to reuse it. Yes: `git switch feat/<feat_name>`, then step 6, then step 7.
+   - Pass: ask whether to reuse that branch. Yes: `git switch feat/<feat_name>`, then step 6, then step 7.
    - Fail, or the user says no: ask for another `feat_name`, check it, and run this check again.
 4. The server is up.
    - Nothing is listening: run `npm run dev:prototype` in the background. Poll
-     `curl -sf http://localhost:3001` for up to about 30 seconds. If it never answers, stop and
-     show the server output.
+     `curl -sf http://localhost:3001` for up to about 30 seconds. If the server never answers, stop and show the server output.
    - A pid is listening and it is this repo's Vite: use it.
-   - A pid is listening and it is not: show its command and ask whether to stop it. Yes: `kill` it
-     and start the server as above. No: stop.
+   - A pid is listening and is not this repo's Vite: show its command and ask whether to stop that process. Yes: `kill` that process and start the server as above. No: stop.
 
 ## 2. Advisory agents
 
@@ -107,10 +104,9 @@ one-line description.
 
 ## 6. Stop the server
 
-Run the listeners command. If it prints nothing, go on.
+Run the listeners command. If that command prints nothing, go on.
 
-For each pid, stop it with `kill <pid>` only if it is this repo's Vite. Otherwise show its
-command and ask before stopping it.
+For each pid, stop it with `kill <pid>` only if it is this repo's Vite. Otherwise show its command and ask before stopping that process.
 
 ## 7. Preview
 
@@ -137,23 +133,23 @@ Stop at the first failure and go to step 9 with a failure. Keep the commit.
 
 1. Run `gh auth status`.
 2. Get the SHA with `git rev-parse HEAD`. Get the repo with
-   `gh repo view --json nameWithOwner,visibility`. If it is private, say that the image links may
+   `gh repo view --json nameWithOwner,visibility`. If the repo is private, say that the image links may
    not render in the issue.
 3. Copy the handoff to a file in the session scratchpad. In the copy, rewrite each image link
    `<feat_name>/<file>.png` to
    `https://github.com/<owner>/<repo>/blob/<sha>/docs/prototypes/<feat_name>/<file>.png?raw=true`.
 4. Scan the handoff and the copy for `/Users/`, `/home/`, `/private/tmp`, `/var/folders`, `ghp_`,
-   `gho_`, `github_pat_`, `sk-`, `AKIA`, and `-----BEGIN`. On any match, stop and show it.
+   `gho_`, `github_pat_`, `sk-`, `AKIA`, and `-----BEGIN`. On any match, stop and show the match.
 5. Run `gh label list --search prototype --json name`. If no entry has the exact name `prototype`,
    run `gh label create prototype --color 5319e7 --description "Prototype handoff"`.
 6. Run `git push -u origin feat/<feat_name>`. Push only that branch. Never push a `proto/*` ref.
-7. Find an open issue with the exact title:
+7. Search open issues:
    `gh issue list --state open --search "in:title \"Prototype handoff: <feat_name>\"" --limit 100 --json number,title,url`.
    Keep only results whose title equals `Prototype handoff: <feat_name>`.
    - One exists: run `gh issue edit <number> --body-file <copy>` and use its URL.
    - None: run
      `gh issue create --title "Prototype handoff: <feat_name>" --label prototype --body-file <copy>`
-     and use the URL it prints.
+     and use the URL that command prints.
 
 ## 9. Wrap up
 

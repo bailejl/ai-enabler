@@ -50,7 +50,7 @@ Then:
 
 ## Iterate
 
-Use this on a `proto/*` branch, for `/prototype` or any UI request.
+Use this section on a `proto/*` branch for any UI request, including bare `/prototype`.
 
 1. Edit the code directly.
 2. Check it in the browser with the Playwright MCP tools: navigate to `http://localhost:3001`,

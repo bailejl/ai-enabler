@@ -104,7 +104,7 @@ write a spec.
   can open a GitHub issue for `/dev-team:specs`.
 - `npm run dev:prototype` serves on port 3001. `npm run dev` stays on port 3000.
 
-Prototype branches never leave your machine. Two guards enforce this:
+Prototype branches are meant to stay local. Two guards block pushes of them:
 
 - `scripts/proto-push-guard.js` runs in `.husky/pre-push` and refuses to push any `proto/*` ref.
 - `scripts/claude-push-guard.js` runs as a Claude Code `PreToolUse` hook. It blocks `--no-verify`
