@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-11
 **Branch**: feat/prototype-awareness
-**Status**: approved
+**Status**: implemented
 **Examination**: not-applicable
 **Gherkin persistence**: plan-file-only
 
@@ -202,6 +202,24 @@ Edit disabled.
 | P4 decline, then /dev-team:specs: no repeat, proceeds   | pass                        | pass                                  |
 | P5 handoff on feat/*: no offer, no drag-handle question | pass                        | pass                                  |
 | P6 accept: stops, points to /prototype start            | pass                        | pass                                  |
+
+- Round 4, after `/code-review` fixes (`ea0ea1c`): the handoff rule is now scoped to the feat branch's diff, specs points at the issue URL, and the UI-unclear framing is stated. Re-run on the final text:
+
+| Check                                                                           | Run 1           | Run 2           |
+| ------------------------------------------------------------------------------- | --------------- | --------------- |
+| AC1–AC5 greps                                                                   | pass            | n/a             |
+| AC6 orchestrator                                                                | pass (see note) | pass (see note) |
+| AC8 orchestrator                                                                | pass            | pass            |
+| P1 vague UI: offer and recommendation                                           | pass            | pass            |
+| P2 scripts bug fix: no offer                                                    | pass            | pass            |
+| P3 clear UI change: no offer                                                    | pass            | pass            |
+| P5 committed handoff on `feat/reorder-steps`: no offer, no drag-handle question | pass            | pass            |
+
+AC6 note: both runs gave the full ordered flow, both offer conditions, and every exclusion. They said "prototype code isn't merged; the feature is built from the specs", not the literal words "reference only". This is graded a pass on meaning.
+
+P4 and P6 were not re-run, because the accept and decline wording did not change after round 3.
+
+AC6 and AC8 ran as top-level `claude -p --agent dev-team:orchestrator` sessions, not as subagents of a parent session. That subagents get the same `CLAUDE.md` is inferred from round 0, where subagents in this build session showed the session-start copy.
 
 ## Build Progress
 
