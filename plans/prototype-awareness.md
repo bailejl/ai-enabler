@@ -188,7 +188,7 @@ Each command prints only `PASS-if-nothing-above` on success; any other line name
 #### Wave 1
 
 - [ ] Slice 1: Prototype path section in CLAUDE.md
-  - [ ] Step 1.1: Add the Prototype path section and repoint the convention bullet
+  - [x] Step 1.1: Add the Prototype path section and repoint the convention bullet
   - [ ] Step 1.2: Verify that agents follow the section
 
 ## Plan Review Summary
