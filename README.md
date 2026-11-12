@@ -100,8 +100,8 @@ write a spec.
 
 - `/prototype start <name>` creates the local branch `proto/<name>` from `main` and starts the
   prototype server. On `proto/*` branches only, Claude skips tests and review.
-- `/prototype graduate` writes a handoff under `docs/prototypes/`, commits it on `feat/<name>`, and
-  can open a GitHub issue for `/dev-team:specs`.
+- `/prototype graduate` writes a handoff under `docs/prototypes/` and commits it on `feat/<name>`.
+  If you approve, it pushes that branch and opens a GitHub issue for `/dev-team:specs`.
 - `npm run dev:prototype` serves on port 3001. `npm run dev` stays on port 3000.
 
 Prototype branches are meant to stay local. Two guards block pushes of them:
