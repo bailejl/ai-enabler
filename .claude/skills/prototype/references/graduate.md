@@ -75,7 +75,9 @@ prototype? Default is yes. Reply with agent names to drop, or 'no' for none."
 Run the accepted ones in parallel. Give each `http://localhost:3001` and `git diff main...HEAD`.
 
 - `dev-team:ui-ux-designer` and `dev-team:a11y-review`: run as subagents.
-- `dev-team:exploratory-testing`: invoke with the Skill tool.
+- `dev-team:exploratory-testing`: invoke with the Skill tool and
+  `--charter "<one-line goal from the diff and commits>"`. It writes a report under
+  `.dev-team-reports/` (gitignored). Read the findings from that report.
 
 Keep each agent's findings text. Record a declined agent as "Not run". Record an agent that
 errors, times out, or returns nothing as "<agent>: Did not complete". No outcome blocks graduate.
@@ -89,13 +91,13 @@ made. Treat a "skip" or "unsure" answer as unanswered and add it to Open questio
 ## 4. Screenshots
 
 Use the Playwright MCP tools to capture each distinct state at `http://localhost:3001`. Save the
-PNG files to the session scratchpad, not the repo. Give each a short kebab-case name and a
-one-line description.
+PNG files to `.playwright-mcp/` in the repo root, which is gitignored. The tool saves only under
+the repo root. Give each a short kebab-case name and a one-line description.
 
 ## 5. Branch and handoff
 
 1. Run `git switch -c feat/<feat_name> main`. Use local `main`.
-2. Copy the screenshots to `docs/prototypes/<feat_name>/`.
+2. Copy the screenshots from `.playwright-mcp/` to `docs/prototypes/<feat_name>/`.
 3. Write `docs/prototypes/<feat_name>.md` from `references/handoff-template.md`. Put each agent's
    findings in "UX and a11y notes". Set the Reference section to `proto/<proto_name>` and the SHA
    from `git rev-parse proto/<proto_name>`.
@@ -140,11 +142,11 @@ Stop at the first failure and go to step 9 with a failure. Keep the commit.
    `https://github.com/<owner>/<repo>/blob/<sha>/docs/prototypes/<feat_name>/<file>.png?raw=true`.
 4. Scan the handoff and the copy for `/Users/`, `/home/`, `/private/tmp`, `/var/folders`, `ghp_`,
    `gho_`, `github_pat_`, `sk-`, `AKIA`, and `-----BEGIN`. On any match, stop and show the match.
-5. Run `gh label list --search prototype --json name`. If no entry has the exact name `prototype`,
-   run `gh label create prototype --color 5319e7 --description "Prototype handoff"`.
+5. Run `gh label create prototype --color 5319e7 --description "Prototype handoff" --force`. It
+   is safe to run when the label exists.
 6. Run `git push -u origin feat/<feat_name>`. Push only that branch. Never push a `proto/*` ref.
-7. Search open issues:
-   `gh issue list --state open --search "in:title \"Prototype handoff: <feat_name>\"" --limit 100 --json number,title,url`.
+7. List open issues:
+   `gh issue list --state open --limit 200 --json number,title,url`.
    Keep only results whose title equals `Prototype handoff: <feat_name>`.
    - One exists: run `gh issue edit <number> --body-file <copy>` and use its URL.
    - None: run

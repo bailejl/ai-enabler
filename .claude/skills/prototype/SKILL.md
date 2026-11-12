@@ -54,8 +54,10 @@ Use this section on a `proto/*` branch for any UI request, including bare `/prot
 
 1. Edit the code directly.
 2. Check it in the browser with the Playwright MCP tools: navigate to `http://localhost:3001`,
-   take a screenshot, and read `mcp__playwright__browser_console_messages`.
-3. A step works when the page renders with no console errors. Fix errors before you commit.
+   take a screenshot into `.playwright-mcp/` (gitignored), and read
+   `mcp__playwright__browser_console_messages`.
+3. A step works when the page renders with no console errors. Ignore a 404 for `/favicon.ico`.
+   Any other console error fails the step. Fix it before you commit.
 4. Commit each working step. The subject is `<what>: <why>`. The body records any approach you
    tried and dropped, and why.
 

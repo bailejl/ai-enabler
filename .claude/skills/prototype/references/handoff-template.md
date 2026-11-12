@@ -1,9 +1,9 @@
 # Handoff template
 
-Graduate fills this in and writes it to `docs/prototypes/<name>.md`. Keep all nine headings.
+Graduate fills this in and writes it to `docs/prototypes/<feat_name>.md`. Keep all nine headings.
 
 ````markdown
-# Prototype handoff: <name>
+# Prototype handoff: <feat_name>
 
 ## Goal
 
@@ -21,7 +21,7 @@ Graduate fills this in and writes it to `docs/prototypes/<name>.md`. Keep all ni
 
 <Layout and interaction notes. Add one entry per screenshot:>
 
-![<description>](<name>/<file>.png)
+![<description>](<feat_name>/<file>.png)
 <One-line text description of the screenshot.>
 
 ## UX and a11y notes
@@ -44,7 +44,7 @@ Graduate fills this in and writes it to `docs/prototypes/<name>.md`. Keep all ni
 
 ## Reference
 
-- Branch: `proto/<name>`
+- Branch: `proto/<proto_name>`
 - Final commit: <SHA>
 - Prototype code is reference only; rebuild through /dev-team:specs, do not merge.
 - This file is the source; the issue is a copy.
