@@ -592,6 +592,76 @@ confirm the hook blocks it.
 `/build` fills in one row per Slice 3 scenario, with the prompt used, the observed result, and
 pass or fail. Every row must pass. Test branches (`proto/smoke`, `feat/smoke`) are deleted after.
 
+Clone: scratchpad/dry (main reset to feat/prototype-skill 6d0d50d). GitHub: bailejl/ai-enabler (public).
+
+| #   | Scenario                                     | Prompt or action                               | Observed                                                                                                                                                           | Result                         |
+| --- | -------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| 1   | Start a prototype                            | start smoke on main, clean tree, 3001 free     | `proto/smoke` created from main (merge-base = main 6d0d50d); `dev:prototype` in background; curl answered in 1 s; URL reported after                               | PASS                           |
+| 2   | Start refuses: uncommitted changes           | untracked junk.txt, start smoke                | check 2 porcelain non-empty -> ask commit/stash; no branch                                                                                                         | PASS                           |
+| 3   | Start refuses: bad name                      | start "Canvas Zoom"                            | regex no match -> ask kebab-case; no branch                                                                                                                        | PASS                           |
+| 4   | Start refuses: Playwright MCP absent         | not runnable (tools present in session)        | text check only: check 3 names both tools and stops                                                                                                                | PASS (text only)               |
+| 5   | Unknown subcommand                           | /prototype frobnicate                          | text: prints usage, changes nothing                                                                                                                                | PASS (text only)               |
+| 6   | Start while not on main                      | on feat/other (1 extra commit), start smoke    | proto/smoke base 6d0d50d = main, not feat/other 1a50248                                                                                                            | PASS                           |
+| 7a  | Port 3001 taken (run 1)                      | python http.server 3001; answer no             | LISTEN pid + `ps` command shown; stop; no branch, no URL                                                                                                           | PASS                           |
+| 7b  | Port 3001 taken (run 2)                      | same; answer yes                               | kill pid, re-check -> free, continue                                                                                                                               | PASS                           |
+| 8   | Start with existing name                     | on main, start smoke; yes / no                 | check 4 found our Vite and offered stop; resume asked; yes -> switch proto/smoke; no -> new name smoke2 passes check 1                                             | PASS                           |
+| 9   | Iterate on proto branch                      | dotted background change                       | edited App.jsx, Playwright navigate + screenshot + console; committed `canvas dots background: make the grid easier to read` with dropped-approach body; hooks ran | PASS (see defects 1, 2)        |
+| 10  | Full process on other branches               | ask to iterate on feat/other                   | text: refuses, points to /prototype start                                                                                                                          | PASS (text only)               |
+| 11  | Graduate refuses: on main                    | graduate on main                               | Entry: "run on a proto/* branch"                                                                                                                                   | PASS                           |
+| 12  | Graduate refuses: dirty                      | junk.txt on proto/smoke                        | clean-tree check fails; nothing created                                                                                                                            | PASS                           |
+| 13  | Graduate refuses: no diff                    | proto/empty from main                          | `git diff main...HEAD` empty -> nothing to graduate                                                                                                                | PASS                           |
+| 14  | feat/<name> exists (not handoff-only)        | proto/zoom with feat/zoom holding a src commit | handoff-only check fails -> ask another feat_name                                                                                                                  | PASS                           |
+| 15  | Graduate restarts stopped server             | G1 with nothing on 3001                        | preflight 4 started dev:prototype, curl ok in 1 s                                                                                                                  | PASS                           |
+| 16  | Graduate with agents (G1)                    | accept all three                               | ui-ux-designer and a11y-review returned findings -> UX and a11y notes; exploratory-testing returned only its "provide a charter" line                              | PASS for routing; see defect 3 |
+| 17  | Advisory agent fails                         | exploratory-testing (real failure, no charter) | recorded "exploratory-testing: Did not complete"; graduate continued                                                                                               | PASS                           |
+| 18  | Decline the agents                           | text check of step 2                           | "Not run" form in template                                                                                                                                         | PASS (text only)               |
+| 19  | Interview / Open questions                   | answered "unsure" and later "skip"             | both landed in Open questions                                                                                                                                      | PASS                           |
+| 20  | Handoff only under docs/prototypes           | `git diff --name-only main...feat/smoke`       | `docs/prototypes/smoke.md`, `docs/prototypes/smoke/canvas-dots.png` only (SKIP_REPOWISE worked)                                                                    | PASS                           |
+| 21  | Decline the push (G1)                        | preview -> decline                             | commit kept locally; server stopped (Vite + cwd matched, killed); printed retry + `/dev-team:specs docs/prototypes/smoke.md`, branch, keep-proto reminder          | PASS                           |
+| 22a | GitHub fails (run 1)                         | GH_TOKEN=invalid, from feat/smoke              | entry handoff-only pass; `gh auth status` rc=1 -> step 9; commit kept; no remote branch                                                                            | PASS                           |
+| 22b | GitHub fails (run 2)                         | empty GH_CONFIG_DIR                            | same; rc=1; nothing pushed                                                                                                                                         | PASS                           |
+| 23  | Preview edit before push                     | edit Flow line                                 | no @{u} -> `SKIP_REPOWISE=1 git commit --amend --no-edit`; still handoff-only                                                                                      | PASS                           |
+| 24  | Label missing                                | accept with no `prototype` label               | label created (5319e7), issue carries it                                                                                                                           | PASS (see defect 4)            |
+| 25a | Rerun after partial failure + accept (run 1) | G4 from feat/smoke                             | pushed feat/smoke only; created issue #6 with SHA-pinned image URL (HTTP 200 image/png); printed `/dev-team:specs <url>`                                           | PASS                           |
+| 26  | Preview edit after push                      | G5 edit Open questions                         | @{u} resolves -> new commit `docs: update smoke prototype handoff`; push fast-forward                                                                              | PASS                           |
+| 27a | Existing open issue (run 1)                  | G5 accept                                      | found #6 by exact title; `gh issue edit` body; no new issue                                                                                                        | PASS                           |
+| 27b | Existing open issue (run 2)                  | repeat                                         | same #6; 1 issue with that title                                                                                                                                   | PASS                           |
+| 25b | Rerun after partial failure (run 2)          | closed #6, rerun from feat/smoke               | no open issue -> created #7 once                                                                                                                                   | PASS (see defect 5)            |
+| 28  | Accept path (run 2)                          | G5                                             | push + reuse path worked end to end                                                                                                                                | PASS                           |
+| 29  | AC11: /dev-team:specs on handoff             | `/dev-team:specs docs/prototypes/smoke.md`     | validate mode selected; Intent, Architecture, AC produced with citations; 2 open questions -> stakeholder input; stopped before persisting; no refusal             | PASS                           |
+
+## Defects found
+
+1. SKILL.md:52-53 and graduate.md step 4: the Playwright MCP may only write under the repo root
+   (`.playwright-mcp/`), not the session scratchpad. It also creates `.playwright-mcp/` (untracked,
+   not gitignored) in the repo, which breaks the clean-tree checks in graduate. Fix: gitignore
+   `.playwright-mcp/` and save screenshots there, then copy.
+2. SKILL.md:54: "no console errors" fails on the app's pre-existing `favicon.ico` 404, so every
+   iterate step is blocked. Fix: add a favicon, or ignore resource-load 404s that are not from app
+   code.
+3. graduate.md step 2: `dev-team:exploratory-testing` needs `--charter '<goal>'`. Without it, it
+   stops with "What should I investigate?" and always records "Did not complete". It also writes
+   its report to `.dev-team-reports/` in the repo, which dirties the tree. Fix: pass a charter and a small
+   `--probe-budget`, and gitignore or relocate its report.
+4. graduate.md step 8.5: `gh label list --search` lagged right after label create (empty output
+   for a few seconds). A quick rerun would then run `gh label create` on an existing label and
+   fail. Fix: check with `gh api repos/<owner>/<repo>/labels/prototype`, or use
+   `gh label create --force`.
+5. graduate.md step 8.7: `gh issue list --search` lagged right after `gh issue create` (0
+   results). A quick rerun could duplicate the issue. Fix: use the list API without `--search`
+   (`gh issue list --state open --limit 200 --json number,title,url`) and filter by exact title.
+6. handoff-template.md: uses `<name>` throughout while graduate.md uses `proto_name` and
+   `feat_name`. Fix: Branch line -> `proto/<proto_name>`; title, image path -> `<feat_name>`.
+
+## GitHub cleanup
+
+- Issues created: https://github.com/bailejl/ai-enabler/issues/6, https://github.com/bailejl/ai-enabler/issues/7. Both closed with "dry-run test".
+- Remote `feat/smoke` deleted; `git ls-remote` shows no `feat/smoke` or `proto/*` refs.
+- `prototype` label was created in this run and deleted afterwards.
+- Ports 3000 and 3001 free. The `.playwright-mcp/` directory this run created in the main repo was removed; the main repo tree is clean.
+
+Six skill-text defects found here were fixed in 0a43714 (screenshot dir, favicon 404, exploratory-testing charter, label `--force`, issue lookup without `--search`, template names). Test issues #6 and #7 closed; remote `feat/smoke` and the test label deleted.
+
 ## Parallelization
 
 ```mermaid
@@ -618,7 +688,7 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
 - [ ] Linter passes
 - [ ] `/code-review` passes
 - [ ] Documentation updated
-- [ ] Dry-run checklist all pass
+- [x] Dry-run checklist all pass
 
 ## Skipped (low value)
 
@@ -682,9 +752,9 @@ Remaining warnings, accepted:
   - [x] Step 4.1: Classify push commands
   - [x] Step 4.2: Register the PreToolUse hook
 
-- [ ] Slice 3: The /prototype skill and docs
-  - [ ] Step 3.1: Write the skill rules, start, and iterate
-  - [ ] Step 3.2: Write the handoff template
-  - [ ] Step 3.3: Write graduate up to the local commit
-  - [ ] Step 3.4: Write graduate push and issue
-  - [ ] Step 3.5: Document the skill
+- [x] Slice 3: The /prototype skill and docs
+  - [x] Step 3.1: Write the skill rules, start, and iterate
+  - [x] Step 3.2: Write the handoff template
+  - [x] Step 3.3: Write graduate up to the local commit
+  - [x] Step 3.4: Write graduate push and issue
+  - [x] Step 3.5: Document the skill
