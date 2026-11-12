@@ -1,3 +1,6 @@
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { findProtoRefs, isProtoRef, refusalMessage } from './proto-push-guard.js'
 
@@ -138,5 +141,42 @@ describe('refusalMessage', () => {
 
   test('says prototype branches stay local', () => {
     expect(refusalMessage(['refs/heads/proto/b'])).toContain('stay local')
+  })
+})
+
+const CLI_PATH = fileURLToPath(new URL('./proto-push-guard-cli.js', import.meta.url))
+const PRE_PUSH_PATH = fileURLToPath(new URL('../.husky/pre-push', import.meta.url))
+const runCli = (input) => spawnSync(process.execPath, [CLI_PATH], { input, encoding: 'utf8' })
+
+describe('proto-push-guard CLI', () => {
+  test('refuses a proto ref with exit 1 and names it on stderr', () => {
+    const result = runCli(pushLine('refs/heads/proto/canvas-zoom', 'refs/heads/proto/canvas-zoom'))
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('refs/heads/proto/canvas-zoom')
+    expect(result.stderr).toContain('/prototype graduate')
+  })
+
+  test('passes a non-proto ref silently', () => {
+    const result = runCli(pushLine('refs/heads/feat/canvas', 'refs/heads/feat/canvas'))
+    expect(result).toMatchObject({ status: 0, stdout: '', stderr: '' })
+  })
+
+  test('passes empty stdin silently', () => {
+    const result = runCli('')
+    expect(result).toMatchObject({ status: 0, stdout: '', stderr: '' })
+  })
+})
+
+describe('.husky/pre-push', () => {
+  const commands = readFileSync(PRE_PUSH_PATH, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('#'))
+
+  test('runs the guard before npm test', () => {
+    const guardIndex = commands.indexOf('node scripts/proto-push-guard-cli.js')
+    const testIndex = commands.indexOf('npm test')
+    expect(guardIndex).toBeGreaterThanOrEqual(0)
+    expect(guardIndex).toBeLessThan(testIndex)
   })
 })

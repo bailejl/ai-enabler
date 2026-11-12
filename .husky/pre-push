@@ -1,2 +1,4 @@
+# Refuse prototype branches before the slow tests (reads the push refs from stdin)
+node scripts/proto-push-guard-cli.js
 npm test
 npm run test:e2e
