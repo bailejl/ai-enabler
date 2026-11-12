@@ -56,7 +56,7 @@ prototypes, automatic cleanup of `proto/*` branches, and any value stream featur
       "<agent>: Did not complete". No agent outcome blocks graduate. The interview is prefilled
       from the diff and commit messages, asks only about gaps, and sends "skip" or "unsure"
       answers to Open questions.
-- [ ] AC9: Graduate creates `feat/<name>` from local `main`. `git diff --name-only main..feat/<name>`
+- [ ] AC9: Graduate creates `feat/<name>` from local `main`. `git diff --name-only main...feat/<name>`
       lists only `docs/prototypes/<name>.md` and `docs/prototypes/<name>/*.png`. The handoff has
       all nine template headings; a section with no content says "Not run" or points to Open
       questions. Each screenshot is referenced as `<name>/<file>.png` with a one-line text
@@ -426,11 +426,11 @@ Stopping a server on port 3001 first checks that the process is Vite from this r
 the skill shows the process command and asks before stopping it. Steps: preflight
 (proto branch, clean tree, non-empty diff, `feat/<name>` free or reusable, server up or restart);
 one agent prompt (default yes, per-agent opt-out); an interview prefilled from the diff and commit
-messages that asks only about gaps and accepts "skip"; screenshots saved to the session scratchpad;
+messages that asks only about gaps and accepts "skip"; screenshots saved to the gitignored `.playwright-mcp/`;
 `git switch -c feat/<name> main`; copy screenshots and write the handoff under
 `docs/prototypes/`; commit; stop the server by port.
 **TEST**: Dry-run rows for every graduate preflight, agent, and decline-push scenario; check
-`git diff --name-only main..feat/smoke` lists only `docs/prototypes/` files.
+`git diff --name-only main...feat/smoke` lists only `docs/prototypes/` files.
 **REFACTOR**: Keep each graduate step to one short paragraph.
 **Files**: `.claude/skills/prototype/references/graduate.md`, `.claude/skills/prototype/SKILL.md`
 **Covers**: AC7, AC8, AC9
@@ -712,6 +712,32 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
   before Slice 4, or you run that check yourself.
 - The Step 3.4 accept-path dry run creates a real branch and issue on GitHub. `/build` asks you
   first, then cleans up.
+- Both guards check ref names, not commits. `git push origin HEAD:feat/x` or `<sha>:feat/x` from a
+  proto branch may publish prototype commits under another name. Accepted, same class as the
+  evasions above.
+
+### Deviations recorded at build
+
+- `.gitignore`: `/plans/` removed and `"worktree": {"baseRef": "head"}` added to
+  `.claude/settings.json` (both approved by you before the build).
+- `.husky/pre-commit`: `SKIP_REPOWISE=1` skips the Repowise refresh, so graduate's handoff commit
+  holds only `docs/prototypes/` files (AC9). `.gitignore` gains `.playwright-mcp/` for screenshots.
+- AC6: the iterate console check ignores a 404 for `/favicon.ico` (the app has no favicon).
+- AC10: once `feat/<name>` is pushed, an edit at the preview makes a new commit instead of
+  amending, to avoid a force-push.
+- Step 4.2: `readHookBlockReason` lives in `scripts/claude-push-guard.js` to keep the CLI under ten
+  lines.
+
+### Manual checks run at build
+
+- Step 1.2: piping a `refs/heads/proto/x` pre-push line into the CLI exits 1 with the refusal; a
+  `feat/x` line exits 0 (logged in `metrics/verify-log.jsonl`).
+- Step 2.1: `npm run dev:prototype` answered on 3001; a second instance failed with "Port 3001 is
+  already in use"; `npm run dev` stayed on 3000.
+- Step 4.2: after restart, Claude Code's PreToolUse hook blocked a `--no-verify --dry-run` push to a
+  bare temp remote before it ran.
+- Step 3.5: `grep -l` listed both files for all four terms; `format:check` passed.
+- Dry-run rows 4, 5, 10 and 18 were checked against the skill text, not executed.
 
 ## Plan Review Summary
 
