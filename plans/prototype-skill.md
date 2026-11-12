@@ -459,7 +459,9 @@ validates.
 
 **Complexity**: trivial
 **IMPLEMENT**: Add `/prototype`, `npm run dev:prototype`, and the two push guards to `README.md`
-and `.claude/CLAUDE.md`.
+and `.claude/CLAUDE.md`. In `.claude/CLAUDE.md` Conventions, add that `scripts/` holds Node tooling (pure module
+plus thin `*-cli.js` wrapper, colocated `scripts/**/*.test.js`, CLIs excluded from coverage and
+mutation, no imports from `src/`), and add `scripts/**/*.test.js` to the unit tests line.
 **TEST**: `grep -l` lists both `README.md` and `.claude/CLAUDE.md` for each of `dev:prototype`,
 `/prototype`, `proto-push-guard`, and `claude-push-guard`; `npm run format:check` passes.
 **REFACTOR**: None.
@@ -633,7 +635,9 @@ Per-step ratings above. Slice 3 is prompt text, so its checks are scenario-mappe
   for them and stops with an install hint if they are absent.
 - `git push --no-verify` bypasses the git hook for pushes you type; Slice 4 blocks it for Claude.
   `git -c core.hooksPath=...`, shell aliases, `bash -c`, `$(...)`, `xargs`, and `sudo` can still
-  evade Slice 4, as can a quoted ref or flag (`"proto/x"`), and unusable hook input fails open. Accepted: it stops accidents, not intent.
+  evade Slice 4, as can a quoted ref or flag (`"proto/x"`), `git push --all`, `--mirror`, or `git push origin HEAD`
+  while on a proto branch (the git pre-push hook still refuses those), and unusable hook input fails
+  open. Accepted: it stops accidents, not intent.
 - Once Slice 4 is live, Claude cannot run the Step 1.2 manual push of `proto/x`. Build Step 1.2
   before Slice 4, or you run that check yourself.
 - The Step 3.4 accept-path dry run creates a real branch and issue on GitHub. `/build` asks you
@@ -666,17 +670,17 @@ Remaining warnings, accepted:
 
 #### Wave 1
 
-- [ ] Slice 1: Refuse pushes of prototype branches
-  - [ ] Step 1.1: Find prototype refs in pre-push input
-  - [ ] Step 1.2: Wire the CLI into the pre-push hook
-- [ ] Slice 2: Prototype dev server on its own port
-  - [ ] Step 2.1: Add the dev:prototype script
+- [x] Slice 1: Refuse pushes of prototype branches
+  - [x] Step 1.1: Find prototype refs in pre-push input
+  - [x] Step 1.2: Wire the CLI into the pre-push hook
+- [x] Slice 2: Prototype dev server on its own port
+  - [x] Step 2.1: Add the dev:prototype script
 
 #### Wave 2
 
-- [ ] Slice 4: Stop Claude from bypassing the push guard
-  - [ ] Step 4.1: Classify push commands
-  - [ ] Step 4.2: Register the PreToolUse hook
+- [x] Slice 4: Stop Claude from bypassing the push guard
+  - [x] Step 4.1: Classify push commands
+  - [x] Step 4.2: Register the PreToolUse hook
 
 - [ ] Slice 3: The /prototype skill and docs
   - [ ] Step 3.1: Write the skill rules, start, and iterate
