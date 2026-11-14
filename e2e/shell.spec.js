@@ -3,6 +3,13 @@ import { scan } from './axe.js'
 
 const STARTER_STEP_COUNT = 6
 const PROJECT_NAME = 'Untitled Project'
+const LONG_PROJECT_NAME_LENGTH = 100
+const HOW_TO_USE_LINES = 5
+
+const expectStarterViewAccessible = async (page) => {
+  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+  expect(await scan(page)).toEqual([])
+}
 
 test('the header shows the mark, the brand, a divider, and the project name', async ({ page }) => {
   await page.goto('/')
@@ -31,9 +38,9 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
   await page.setViewportSize({ width: 1024, height: 700 })
   await page.goto('/')
   const projectName = page.locator('.header__project')
-  await projectName.evaluate((element) => {
-    element.textContent = 'W'.repeat(100)
-  })
+  await projectName.evaluate((element, length) => {
+    element.textContent = 'W'.repeat(length)
+  }, LONG_PROJECT_NAME_LENGTH)
   const isTruncated = await projectName.evaluate((e) => e.scrollWidth > e.clientWidth)
   expect(isTruncated).toBe(true)
   await expect(page.getByText('AI Enabler', { exact: true })).toBeVisible()
@@ -60,8 +67,7 @@ test('reloading after deleting Idea restores six steps and stores nothing', asyn
 
 test('the default view has no accessibility violations', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
-  expect(await scan(page)).toEqual([])
+  await expectStarterViewAccessible(page)
 })
 
 const HELP_SECTIONS = ['How to use', 'Glossary', 'Help']
@@ -87,21 +93,28 @@ const REQUIRED_TERMS = [
   ['Avg process time', 'Total PT ÷ number of steps'],
 ]
 
+const helpNav = (page) => page.getByRole('navigation', { name: 'Help' })
+
+const helpSection = (page, title) =>
+  helpNav(page)
+    .locator('details')
+    .filter({ has: page.locator('summary', { hasText: title }) })
+
 const openAllHelpSections = async (page) => {
-  const sections = page.getByRole('navigation', { name: 'Help' }).locator('details')
+  const sections = helpNav(page).locator('details')
   await expect(sections).toHaveCount(HELP_SECTIONS.length)
   for (const section of await sections.all()) {
     await section.locator('summary').click()
   }
+  await expect(helpNav(page).locator('details[open]')).toHaveCount(HELP_SECTIONS.length)
 }
 
 test('the three help sections start collapsed', async ({ page }) => {
   await page.goto('/')
-  const sections = page.getByRole('navigation', { name: 'Help' }).locator('details')
-  await expect(sections.locator('summary')).toHaveText(HELP_SECTIONS)
-  for (const section of await sections.all()) {
-    await expect(section).not.toHaveAttribute('open', /.*/)
-  }
+  const nav = helpNav(page)
+  await expect(nav.locator('details')).toHaveCount(HELP_SECTIONS.length)
+  await expect(nav.locator('details summary')).toHaveText(HELP_SECTIONS)
+  await expect(nav.locator('details[open]')).toHaveCount(0)
 })
 
 test.describe('with every help section expanded', () => {
@@ -112,34 +125,34 @@ test.describe('with every help section expanded', () => {
 
   for (const [term, definition] of REQUIRED_TERMS) {
     test(`the glossary defines ${term}`, async ({ page }) => {
-      const entry = page
-        .locator('.menu dl > div')
+      const entry = helpNav(page)
+        .locator('dl > div')
         .filter({ has: page.getByText(term, { exact: true }) })
+      await expect(entry.locator('dd')).toBeVisible()
       await expect(entry.locator('dd')).toHaveText(definition)
     })
   }
 
   for (const title of ['How to use', 'Help']) {
     test(`${title} has text`, async ({ page }) => {
-      const body = page
-        .locator('.menu details')
-        .filter({ has: page.getByText(title, { exact: true }) })
-        .locator('.menu__body')
-      await expect(body).not.toHaveText('')
+      const firstLine = helpSection(page, title).locator('p').first()
+      await expect(firstLine).toBeVisible()
+      await expect(firstLine).toHaveText(/\S/)
     })
   }
 
   test('How to use lists five lines', async ({ page }) => {
-    const lines = page.locator('.menu details').first().locator('.menu__body p')
-    await expect(lines).toHaveCount(5)
+    const lines = helpSection(page, 'How to use').locator('p')
+    await expect(lines).toHaveCount(HOW_TO_USE_LINES)
+    await expect(lines.first()).toBeVisible()
+    await expect(lines.last()).toBeVisible()
   })
 
   test('the help menu has no buttons or links', async ({ page }) => {
-    await expect(page.getByRole('navigation', { name: 'Help' }).locator('button, a')).toHaveCount(0)
+    await expect(helpNav(page).locator('button, a')).toHaveCount(0)
   })
 
   test('the view has no accessibility violations', async ({ page }) => {
-    await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
-    expect(await scan(page)).toEqual([])
+    await expectStarterViewAccessible(page)
   })
 })

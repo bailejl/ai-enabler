@@ -99,10 +99,6 @@ body,
   font-weight: 600;
 }
 
-.menu__body dd {
-  margin-left: 0;
-}
-
 .canvas {
   grid-area: canvas;
   min-height: 0;
