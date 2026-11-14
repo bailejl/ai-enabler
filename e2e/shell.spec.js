@@ -63,3 +63,83 @@ test('the default view has no accessibility violations', async ({ page }) => {
   await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
   expect(await scan(page)).toEqual([])
 })
+
+const HELP_SECTIONS = ['How to use', 'Glossary', 'Help']
+
+const REQUIRED_TERMS = [
+  ['PT (process time)', 'Actual work time spent on an item at a step'],
+  [
+    'LT (lead time)',
+    'Elapsed time an item spends at a step, from arrival to departure, including waiting',
+  ],
+  [
+    '%C&A (percent complete and accurate)',
+    "Share of a step's output that needs no rework downstream",
+  ],
+  ['Queue', 'Number of items waiting at a step'],
+  ['Batch size', 'Number of items a step processes together'],
+  ['Flow efficiency', 'Total PT ÷ total LT'],
+  [
+    'First pass yield',
+    "Product of all steps' %C&A: the share of items that pass the whole stream without rework",
+  ],
+  ['Total queue', 'Sum of the queues of all steps'],
+  ['Avg process time', 'Total PT ÷ number of steps'],
+]
+
+const openAllHelpSections = async (page) => {
+  const sections = page.getByRole('navigation', { name: 'Help' }).locator('details')
+  await expect(sections).toHaveCount(HELP_SECTIONS.length)
+  for (const section of await sections.all()) {
+    await section.locator('summary').click()
+  }
+}
+
+test('the three help sections start collapsed', async ({ page }) => {
+  await page.goto('/')
+  const sections = page.getByRole('navigation', { name: 'Help' }).locator('details')
+  await expect(sections.locator('summary')).toHaveText(HELP_SECTIONS)
+  for (const section of await sections.all()) {
+    await expect(section).not.toHaveAttribute('open', /.*/)
+  }
+})
+
+test.describe('with every help section expanded', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await openAllHelpSections(page)
+  })
+
+  for (const [term, definition] of REQUIRED_TERMS) {
+    test(`the glossary defines ${term}`, async ({ page }) => {
+      const entry = page
+        .locator('.menu dl > div')
+        .filter({ has: page.getByText(term, { exact: true }) })
+      await expect(entry.locator('dd')).toHaveText(definition)
+    })
+  }
+
+  for (const title of ['How to use', 'Help']) {
+    test(`${title} has text`, async ({ page }) => {
+      const body = page
+        .locator('.menu details')
+        .filter({ has: page.getByText(title, { exact: true }) })
+        .locator('.menu__body')
+      await expect(body).not.toHaveText('')
+    })
+  }
+
+  test('How to use lists five lines', async ({ page }) => {
+    const lines = page.locator('.menu details').first().locator('.menu__body p')
+    await expect(lines).toHaveCount(5)
+  })
+
+  test('the help menu has no buttons or links', async ({ page }) => {
+    await expect(page.getByRole('navigation', { name: 'Help' }).locator('button, a')).toHaveCount(0)
+  })
+
+  test('the view has no accessibility violations', async ({ page }) => {
+    await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+    expect(await scan(page)).toEqual([])
+  })
+})

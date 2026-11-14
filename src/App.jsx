@@ -12,6 +12,7 @@ import { useCallback, useState } from 'react'
 import { initialEdges, initialNodes } from './flow/initialFlow.js'
 import { createStarterProject } from './flow/project.js'
 import Header from './shell/Header.jsx'
+import HelpMenu from './shell/HelpMenu.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
 
 const themeProperties = toCssCustomProperties(tokens)
@@ -28,7 +29,7 @@ export default function App() {
   return (
     <div className="shell" style={themeProperties}>
       <Header projectName={project.name} />
-      <nav aria-label="Help" className="menu" />
+      <HelpMenu />
       <main aria-label="Value stream map" className="canvas">
         <h1 className="visually-hidden">ai-enabler value stream map</h1>
         <ReactFlow
