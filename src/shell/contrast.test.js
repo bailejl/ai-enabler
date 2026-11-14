@@ -32,6 +32,7 @@ const contrastPairs = [
   ['focusRing', 'headerBackground', NON_TEXT_MINIMUM],
   ['focusRing', 'pageBackground', NON_TEXT_MINIMUM],
   ['focusRing', 'menuBackground', NON_TEXT_MINIMUM],
+  ['focusRing', 'cardBackground', NON_TEXT_MINIMUM],
   ['menuText', 'menuBackground', TEXT_MINIMUM],
   ['tileText', 'statusOnTargetBackground', TEXT_MINIMUM],
   ['tileText', 'statusWatchBackground', TEXT_MINIMUM],

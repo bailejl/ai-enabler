@@ -1,6 +1,7 @@
 :root {
   --header-height: 3rem;
   --menu-width: 16rem;
+  --canvas-min-height: 24rem;
   --menu-padding: 0.75rem;
   --menu-body-padding: 0.5rem 0 0.5rem 0.75rem;
   --header-gap: 0.75rem;
@@ -47,6 +48,13 @@ body,
   height: 100%;
   background: var(--page-background);
   font-family: system-ui, sans-serif;
+}
+
+/* React Flow's stylesheet removes the outline from nodes and edges (specificity 0,3,0). */
+.react-flow__node.selectable:focus-visible,
+.react-flow__edge:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .header {
@@ -238,6 +246,28 @@ body,
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Below this width the menu stacks above the canvas instead of taking a column beside it. */
+@media (max-width: 639px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--header-height) auto auto auto minmax(var(--canvas-min-height), 1fr);
+    grid-template-areas:
+      'header'
+      'status'
+      'menu'
+      'metrics'
+      'canvas';
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* Tighter spacing keeps Import and Export inside a 320px viewport. */
+  .header {
+    --header-gap: 0.5rem;
+    --header-padding: 0.75rem;
+  }
 }
 
 /* Seven tiles share one row from this width; below it they wrap instead of squeezing. */
