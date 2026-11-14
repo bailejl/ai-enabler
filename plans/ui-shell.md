@@ -1261,8 +1261,8 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 1
 
-- [ ] Slice 1: CI workflow
-  - [ ] Step 1.1: Add the unit and e2e CI jobs
+- [x] Slice 1: CI workflow
+  - [x] Step 1.1: Add the unit and e2e CI jobs
 
 - [ ] Slice 2: Shell layout, header, help menu, and accessibility baseline
   - [ ] Step 2.1: Create the starter project identity
