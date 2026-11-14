@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-14
 **Branch**: feat/ui-shell
-**Status**: approved
+**Status**: implemented
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-shell.md` (AC1–AC46, with amendments S16 and S17). The handoff is `docs/prototypes/ui-shell.md`. The prototype code on `proto/ui-shell` is reference only and is not merged.
 
@@ -1361,16 +1361,91 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
+### AC1 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "151 passed (18.6s)"; "e2e/shell.spec.js:15:1 › the header shows the mark, the brand, a divider, and the project name"; "e2e/shell.spec.js:26:1 › the document title names the project and the app"; "e2e/shell.spec.js:31:1 › the page has banner, Help navigation, and Value stream map landmarks"; "e2e/shell.spec.js:38:1 › a long project name truncates without hiding the brand"; "e2e/export-import.spec.js:582:1 › a 100-character project name is truncated and keeps Import and Export in view at…
+```
+
+### AC2 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/shell.spec.js:110:1 › the three help sections start collapsed"; "e2e/shell.spec.js:124:3 › with every help section expanded › the glossary has exactly the required entries"; 15 rows of "with every help section expanded › the glossary defines ..." (e.g. "the glossary defines Flow efficiency"); "How to use has text"; "Help has text"; "e2e/shell.spec.js:153:3 › with every help section expanded › the help menu has no buttons or links"; "e2e/shell.spec.js:157:3 › with every help section …
+```
+
+### AC3 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/cards.spec.js:16:1 › the Build card shows its title and PT, LT and %C&A values"; "e2e/cards.spec.js:50:1 › the Build card rows are spoken as their full names"; "e2e/cards.spec.js:61:1 › Idea's queue badge Q 20 is named and sits in the card's upper-left quarter"; "e2e/cards.spec.js:76:1 › only Production has a batch badge B 3, named and in the card's upper-right quarter"; "e2e/cards.spec.js:104:1 › the default view with step cards has no accessibility violations". Unit run (exit=0, "…
+```
+
+### AC4 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/connections.spec.js:26:1 › connecting Idea to Test adds an edge whose end has an arrowhead marker"; "e2e/connections.spec.js:37:1 › Test has two incoming connections once Idea connects to it as well as Build"; "invalid connections leave the edge count unchanged › Production right to Plan left (loop)" / "Idea right to Plan left (duplicate)" / "Plan right to Plan left (self)" / "Idea right to empty canvas" / "Test left to Build right (target to source)"; "e2e/connections.spec.js:79:1 …
+```
+
+### AC5 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/metrics.spec.js:20:1 › the starter metrics show seven tiles in spec order as term and description pairs"; "e2e/metrics.spec.js:29:1 › deleting Idea updates the card count and every tile in the same update"; "with every step deleted › every tile shows a dash and no status text"; "with every step deleted › the canvas explains the empty map in a status region"; "at 1200px / at 1024px the tiles occupy one row without clipping a value"; "at 1023px / at 800px the tiles occupy more than on…
+```
+
+### AC6 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/shell.spec.js:50:1 › reloading after deleting Idea restores six steps and stores nothing"
+```
+
+### AC7 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "exporting the starter project after selecting Build › downloads untitled-project.ai-enabler.json at schema 0.0.0 with the project identity"; "exporting the starter project after selecting Build › carries no React Flow runtime fields on nodes and only id, source, target on edges"; "exporting the starter project after selecting Build › announces the exported file name in the live region"; "e2e/export-import.spec.js:190:1 › exporting then importing that file and confirming leaves the nodes…
+```
+
+### AC8 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "importing a file with three steps › a same-name file asks first, with focus on Cancel and both project names in the body"; "replacing shows the three cards in the canvas, keeps the project id, then announces and shows the outcome"; "a different-name file asks, then takes the name and id and recomputes every tile"; "a file whose id matches the open project still asks the different-name question"; "name matching is exact: a case-different name asks the different-name question"; "cancellin…
+```
+
+### AC9 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "e2e/a11y.spec.js:38:1 › the default view has no axe violations"; "all three help sections expanded have no axe violations"; "an import error has no axe violations"; "the import confirmation open has no axe violations"; "the empty map has no axe violations"; "an imported map with On target and Needs attention tiles has no axe violations"; "a selected step and a selected connection have no axe violations"; 13 rows "every control shows a visible focus indicator › the ... has a solid 2px+ r…
+```
+
+### AC10 — met
+
+```
+$ npx vitest run --reporter=verbose > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/unit.txt 2>&1
+exit=0; "Test Files 21 passed (21)" "Tests 785 passed (785)"; "src/flow/schema/version.test.js > parseSemver" (23 passing); "schema versions > starts at 0.0.0"; "upgradeToCurrent" (14 passing); "the real registry > has a fixture for every released version" / "lets every released version reach the current version" / "has fixture files for exactly the released versions"; "the 0.0.0 fixture > upgrades to its expected output" / "is left unchanged by the upgrade"; "export shape of the current schema …
+```
+
+### AC11 — met
+
+```
+$ npm run test:e2e > /var/folders/61/vk2r4fm176q5262pv_gxt5wh0000gn/T/acceptance-TCJFsJ/e2e.txt 2>&1
+exit=0; "edit detection › an exported file carries a contentHash that recomputes from the rest of the file"; "edit detection › an untouched export imports with no mention of outside changes"; "edit detection › when a step label was edited the confirmation warns, Replace map still works, and the outcome repeats the warning"; "when the contentHash was removed ..."; "when the contentHash is a number ..."; "invalid files are rejected with a plain message › connection #2 with no id" / "connection #2 …
+```
+
 ### Audit details
 
-- Overall: tainted
-- Binding hash: 53df5f08d3274458abb13451380ada5831aa67a63fc8fc29ee6d68fad5017b8b
-- Inputs digest: 364370d3e70e654e0cc7d01a14358ae5d16a1ab6f3c84f623abedc99f439687d
-- Agent: a03346efa9d1c5358
-- Recorded at: 2026-11-14T22:59:23+00:00
-- Audit findings:
-  - read .github/workflows/ci.yml: grep -n schema-fixture-guard-cli .github/workflows/ci.yml; echo "exit=$?"
-  - read .github/workflows/ci.yml: cd /Users/jlb/repos/ai-enabler && grep -n schema-fixture-guard-cli .github/workflows/ci.yml; echo "exit=$?"
+- Overall: met
+- Binding hash: 17ad1102d62ed39331c611d498ee57008926df52ff060fb16ba63d879d560f4e
+- Inputs digest: c0f3f6fbcca19ebefbed8a3ba6428e1c5aa398b38f02fbfb4af9bd15029cdbdc
+- Agent: a88c18abd08ff5e24
+- Recorded at: 2026-11-14T23:03:39+00:00
+- Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
 
