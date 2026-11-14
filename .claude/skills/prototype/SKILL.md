@@ -25,37 +25,48 @@ refuses and points to `/prototype start <name>`.
   commit again.
 - On any other branch, do not skip the process. Say so and point to `/prototype start <name>`.
 
+## Prototype server
+
+`npm run dev:prototype` tries port 3001 and moves to the next free port if 3001 is taken. Never
+assume 3001. Get the URL with these commands.
+
+- Find: run `pgrep -f 'vite --mode prototype'`. Keep a pid only if its cwd equals
+  `git rev-parse --show-toplevel` (cwd from `lsof -a -p <pid> -d cwd -Fn`, strip the leading `n`)
+  and it is listening (below). The `npm exec` parent also matches but does not listen; skip it.
+- Port: `lsof -a -p <pid> -iTCP -sTCP:LISTEN -P -n -Fn`. The port is the text after the last `:`
+  on the `n` line.
+- Prototype URL: `http://localhost:<port>`.
+- Start: run `npm run dev:prototype` in the background (`run_in_background`). Read its output for
+  up to about 30 seconds until a `Local:   http://localhost:<port>/` line appears, then confirm
+  with `curl -sf <url>`. If neither succeeds, show the server output and report the failure. Do
+  not report a URL.
+- Stop: `kill <pid>` for each pid that Find returns.
+
 ## start <name>
 
-Run all four checks first, in this order. Change nothing until they all pass.
+Run all three checks first, in this order. Change nothing until they all pass.
 
 1. The name matches `^[a-z0-9]+(-[a-z0-9]+)*$`. If not, ask for a kebab-case name.
 2. `git status --porcelain` is empty. If not, ask the user to commit or stash.
 3. The Playwright MCP tools `mcp__playwright__browser_navigate` and
    `mcp__playwright__browser_take_screenshot` are available. If not, tell the user to install
    Playwright MCP.
-4. Port 3001 is free: `lsof -ti tcp:3001 -sTCP:LISTEN` prints nothing. If it prints a pid, show
-   `ps -o command= -p <pid>` and offer to stop that process.
-   - Yes: `kill <pid>`, run check 4 again, then continue.
-   - No: stop. Do not report the prototype as running.
 
 Then:
 
 1. If `proto/<name>` exists, ask whether to resume it.
-   - Yes: `git switch proto/<name>`, then go to step 3 to restart the server.
+   - Yes: `git switch proto/<name>`, then go to step 3.
    - No: ask for another name and start over at check 1.
 2. Otherwise, run `git switch -c proto/<name> main`. Use local `main`. Do not fetch.
-3. Run `npm run dev:prototype` in the background (`run_in_background`).
-4. Poll `curl -sf http://localhost:3001` for up to about 30 seconds.
-5. When it answers, report `http://localhost:3001`. If it never does, show the server output and
-   report the failure. Do not report a URL.
+3. Find the prototype server. If one is running, report its URL. Otherwise start it and report
+   the URL it prints.
 
 ## Iterate
 
 Use this section on a `proto/*` branch for any UI request, including bare `/prototype`.
 
 1. Edit the code directly.
-2. Check it in the browser with the Playwright MCP tools: navigate to `http://localhost:3001`,
+2. Check it in the browser with the Playwright MCP tools: navigate to the prototype URL (see Prototype server),
    take a screenshot into `.playwright-mcp/` (gitignored), and read
    `mcp__playwright__browser_console_messages`.
 3. A step works when the page renders with no console errors. Ignore a 404 for `/favicon.ico`.
