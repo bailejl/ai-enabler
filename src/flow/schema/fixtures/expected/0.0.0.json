@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "0.0.0",
+  "exportedAt": "2026-11-14T12:00:00.000Z",
+  "project": {
+    "id": "fixture-project-0-0-0",
+    "name": "Fixture 0.0.0"
+  },
+  "nodes": [
+    {
+      "id": "idea",
+      "type": "step",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Idea",
+        "pt": 120,
+        "lt": 1440,
+        "ca": 90,
+        "queue": 20
+      }
+    },
+    {
+      "id": "design",
+      "type": "step",
+      "position": {
+        "x": 200,
+        "y": -100
+      },
+      "data": {
+        "label": "Design",
+        "pt": 240,
+        "lt": 960,
+        "ca": 75,
+        "queue": 0
+      }
+    },
+    {
+      "id": "build",
+      "type": "step",
+      "position": {
+        "x": 200,
+        "y": 100
+      },
+      "data": {
+        "label": "Build",
+        "pt": 480,
+        "lt": 1200,
+        "ca": 100,
+        "queue": 4
+      }
+    },
+    {
+      "id": "release",
+      "type": "step",
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "data": {
+        "label": "Release",
+        "pt": 60,
+        "lt": 720,
+        "ca": 87.5,
+        "queue": 1,
+        "batch": 3
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "idea->design",
+      "source": "idea",
+      "target": "design"
+    },
+    {
+      "id": "idea->build",
+      "source": "idea",
+      "target": "build"
+    },
+    {
+      "id": "design->release",
+      "source": "design",
+      "target": "release"
+    },
+    {
+      "id": "build->release",
+      "source": "build",
+      "target": "release"
+    }
+  ]
+}
