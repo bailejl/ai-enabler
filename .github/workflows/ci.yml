@@ -25,6 +25,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npm run lint
       - run: npm run lint:ci
+      - run: node scripts/schema-fixture-guard-cli.js origin/main
       - run: npm test
 
   e2e:
