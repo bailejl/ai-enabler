@@ -9,11 +9,13 @@ import {
 import { useCallback } from 'react'
 import '@xyflow/react/dist/style.css'
 import Header from './shell/Header.jsx'
+import Announcer from './shell/Announcer.jsx'
 import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
 import { isValidConnection } from './flow/connections.js'
 import StepCard from './shell/StepCard.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
+import { useAnnouncer } from './shell/useAnnouncer.js'
 import { useProject } from './shell/useProject.js'
 
 // Module-level so React Flow sees one stable object across renders.
@@ -25,13 +27,20 @@ const EMPTY_MAP_MESSAGE =
   'No steps on this map. Import a project, or reload to restore the starter map.'
 
 function Shell() {
-  const { project, nodes, edges, onNodesChange, onEdgesChange, onConnect } = useProject()
+  const { project, nodes, edges, onNodesChange, onEdgesChange, onConnect, exportProject } =
+    useProject()
+  const { message, announce } = useAnnouncer()
+  const handleExport = useCallback(
+    () => announce(`Exported ${exportProject()}`),
+    [announce, exportProject],
+  )
 
   const isValidForEdges = useCallback((connection) => isValidConnection(edges)(connection), [edges])
 
   return (
     <div className="shell" style={themeProperties}>
-      <Header projectName={project.name} />
+      <Header projectName={project.name} onExport={handleExport} />
+      <Announcer message={message} />
       <HelpMenu />
       <MetricsBar steps={nodes.map((node) => node.data)} />
       <main aria-label="Value stream map" className="canvas">

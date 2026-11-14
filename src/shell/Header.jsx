@@ -4,7 +4,7 @@ const APP_NAME = 'AI Enabler'
 
 export const toDocumentTitle = (projectName) => `${projectName} · ${APP_NAME}`
 
-export default function Header({ projectName }) {
+export default function Header({ projectName, onExport }) {
   useEffect(() => {
     document.title = toDocumentTitle(projectName)
   }, [projectName])
@@ -21,6 +21,16 @@ export default function Header({ projectName }) {
       <span className="header__project" title={projectName}>
         {projectName}
       </span>
+      <div className="header__actions">
+        <button
+          type="button"
+          className="header__button"
+          aria-label="Export project (JSON)"
+          onClick={onExport}
+        >
+          Export
+        </button>
+      </div>
     </header>
   )
 }
