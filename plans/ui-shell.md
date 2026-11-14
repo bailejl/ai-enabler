@@ -1307,12 +1307,16 @@ graph LR
 
 ## Pre-PR Quality Gate
 
-- [ ] All tests pass (`npm test`, `npm run test:e2e`)
-- [ ] Linter passes (`npm run lint`, `npm run lint:deep`)
-- [ ] Format check passes (`npm run format:check`)
+- [ ] Unit tests pass: `npm test`
+- [ ] E2E tests pass: `npm run test:e2e`
+- [ ] Linter passes: `npm run lint`
+- [ ] Deep linter passes: `npm run lint:deep`
+- [ ] Format check passes: `npm run format:check`
+- [ ] Production build succeeds: `npm run build`
+- [ ] Schema fixture guard passes against main: `node scripts/schema-fixture-guard-cli.js main`
 - [ ] Both CI jobs green on the PR
 - [ ] `/code-review` passes
-- [ ] Documentation updated (`docs/schema-versioning.md`)
+- [ ] Documentation updated (`docs/schema-versioning.md`) in this branch
 
 ## Skipped (low value)
 
