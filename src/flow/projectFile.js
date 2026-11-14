@@ -1,3 +1,4 @@
+import { contentHash } from './contentHash.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 import { STEP_DATA_FIELDS, STEP_TYPE } from './step.js'
 
@@ -36,6 +37,9 @@ export const toProjectFile = ({ project, nodes, edges, now }) => ({
   nodes: nodes.map(toExportNode),
   edges: edges.map(toExportEdge),
 })
+
+// The file as written to disk: the project file plus the hash of everything else in it.
+export const withContentHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
 
 export const projectFileName = (name) => {
   const slug = name

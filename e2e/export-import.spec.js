@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from '@playwright/test'
+import { contentHash } from '../src/flow/contentHash.js'
 import { initialNodes } from '../src/flow/initialFlow.js'
 import { toMetricTiles } from '../src/flow/metrics.js'
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
@@ -94,6 +95,7 @@ test.describe('exporting the starter project after selecting Build', () => {
   })
 })
 
+const EDITED_NOTICE = 'This file was changed outside AI Enabler after it was exported.'
 const IMPORT_BUTTON_NAME = 'Import project (JSON)'
 const STARTER_PROJECT_NAME = 'Untitled Project'
 const SAME_NAME_QUESTION = `Replace current map with the imported version of ${STARTER_PROJECT_NAME}?`
@@ -607,4 +609,83 @@ test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and r
   // Guards the zero case: badges do render on a step whose counts are positive.
   await expect(cardByTitle(page, 'Queued').locator('.badge')).toContainText('Q 3')
   await expect(card).toContainText('88%')
+})
+
+test.describe('edit detection', () => {
+  const withoutHash = ({ contentHash: _hash, ...file }) => file
+  const exportedStarter = async (page) => {
+    await page.goto('/')
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    return exportProjectFile(page)
+  }
+
+  test('an exported file carries a contentHash that recomputes from the rest of the file', async ({
+    page,
+  }) => {
+    const file = await exportedStarter(page)
+    expect(file.contentHash).toMatch(/^sha256-[0-9a-f]{64}$/)
+    expect(await contentHash(withoutHash(file))).toBe(file.contentHash)
+  })
+
+  test('an untouched export imports with no mention of outside changes', async ({ page }) => {
+    const file = await exportedStarter(page)
+    await chooseFile(page, asUpload(file))
+    await expect(confirmDialog(page)).toHaveAccessibleName(SAME_NAME_QUESTION)
+    await expect(confirmDialog(page)).not.toContainText('changed outside')
+    await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
+    await expect(importStatus(page)).toHaveText(`Imported ${STARTER_PROJECT_NAME}, 6 steps`)
+    await expect(announcer(page)).toHaveText(`Imported ${STARTER_PROJECT_NAME}, 6 steps`)
+  })
+
+  const EDITED_FILES = [
+    {
+      change: 'a step label was edited',
+      edit: (file) => ({
+        ...file,
+        nodes: file.nodes.map((node, index) =>
+          index === 0 ? { ...node, data: { ...node.data, label: 'Edited by hand' } } : node,
+        ),
+      }),
+    },
+    { change: 'the contentHash was removed', edit: withoutHash },
+    { change: 'the contentHash is a number', edit: (file) => ({ ...file, contentHash: 42 }) },
+  ]
+
+  for (const { change, edit } of EDITED_FILES) {
+    test(`when ${change} the confirmation warns, Replace map still works, and the outcome repeats the warning`, async ({
+      page,
+    }) => {
+      const file = await exportedStarter(page)
+      await recordAnnouncements(page)
+      await chooseFile(page, asUpload(edit(file)))
+
+      const dialog = confirmDialog(page)
+      await expect(dialog).toContainText(EDITED_NOTICE)
+      await expect(dialog).toHaveAccessibleDescription(new RegExp(EDITED_NOTICE))
+      await dialog.getByRole('button', { name: 'Replace map' }).click()
+
+      const outcome = `Imported ${STARTER_PROJECT_NAME}, 6 steps. ${EDITED_NOTICE}`
+      await expect(importStatus(page)).toHaveText(outcome)
+      await expect(announcer(page)).toHaveText(outcome)
+      await expect(confirmDialog(page)).toHaveCount(0)
+    })
+  }
+
+  test('cancelling an edited file changes nothing and does not repeat the warning', async ({
+    page,
+  }) => {
+    const file = await exportedStarter(page)
+    await chooseFile(page, asUpload(withoutHash(file)))
+    await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
+    await confirmDialog(page).getByRole('button', { name: 'Cancel' }).click()
+    await expect(announcer(page)).toHaveText(CANCELLED_ANNOUNCEMENT)
+    await expect(page.getByText(EDITED_NOTICE)).toHaveCount(0)
+  })
+
+  test('the confirmation with the warning passes the accessibility scan', async ({ page }) => {
+    const file = await exportedStarter(page)
+    await chooseFile(page, asUpload(withoutHash(file)))
+    await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
+    expect(await scan(page)).toEqual([])
+  })
 })

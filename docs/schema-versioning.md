@@ -2,6 +2,18 @@
 
 Exported project files carry a `schemaVersion` (SemVer). Importing an older file runs it through a chain of upgrade functions to the current version.
 
+## Content hash
+
+Schema 0.0.0 includes a top-level `contentHash`: `sha256-` plus the lowercase hex SHA-256 of the file's canonical JSON. Canonical JSON has object keys sorted at every level, no whitespace, array order kept, and the top-level `contentHash` left out, encoded as UTF-8 (`src/flow/contentHash.js`). Export writes it last; import ignores it when rebuilding the map.
+
+On import the app recomputes the hash over the file as read, before any upgrade, and compares it with the stored value. A missing, non-string, or different `contentHash` marks the file as edited, and the confirmation and the outcome line say so. The import still goes ahead on confirm. A bad `contentHash` never makes a file invalid.
+
+The hash detects edits, not tampering. Anyone who changes a file can recompute and replace the hash, so it is not a security control.
+
+An upgrade does not rewrite `contentHash`: the stored value stays the hash of the file as exported. A fixture that has no upgrade hop keeps a valid hash. When an upgrade changes a fixture's data, the expected snapshot keeps the input's hash, which no longer matches the upgraded file. That is correct, because the check runs before the upgrade.
+
+Fixtures carry a valid `contentHash`. After editing a fixture, recompute it with `contentHash` from `src/flow/contentHash.js`. `importFile.test.js` fails for a released fixture whose hash does not match.
+
 ## Bump levels
 
 - **Major:** a breaking change, such as a field removed, renamed, or its meaning changed.
@@ -12,7 +24,7 @@ Every bump, at any level, adds an upgrade function (identity is allowed) and a f
 
 ## Bump the schema
 
-1. Add a fixture for the new version: `src/flow/schema/fixtures/<new>.json`. Copy the shape of the export at that version.
+1. Add a fixture for the new version: `src/flow/schema/fixtures/<new>.json`. Copy the shape of the export at that version, including a valid `contentHash`.
 2. In `src/flow/schema/version.js`, add the new version to `RELEASED_SCHEMA_VERSIONS` and set `CURRENT_SCHEMA_VERSION` to it.
 3. Add a hop to `REGISTRY` in `src/flow/schema/upgrades.js`:
 

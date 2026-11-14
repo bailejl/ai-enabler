@@ -1,4 +1,5 @@
 {
+  "contentHash": "sha256-7df9c816dde2a9460b5b07570cc83315107fe8ed7b4199d3f433e66072001d24",
   "schemaVersion": "0.0.0",
   "exportedAt": "2026-11-14T12:00:00.000Z",
   "project": { "id": "fixture-project-0-0-0", "name": "Fixture 0.0.0" },

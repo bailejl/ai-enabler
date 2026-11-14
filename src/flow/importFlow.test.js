@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EDITED_NOTICE,
   IMPORT_EVENT,
   INITIAL_IMPORT_STATE,
   describeImportStatus,
@@ -26,9 +27,9 @@ const projectFile = (project, nodes = [step('a', 'Plan'), step('b', 'Build')]) =
   edges: [{ id: 'a->b', source: 'a', target: 'b' }],
 })
 
-const parsed = (file) => ({
+const parsed = (file, edited = false) => ({
   type: IMPORT_EVENT.fileParsed,
-  result: { ok: true, file },
+  result: { ok: true, file, edited },
   project: OPEN_PROJECT,
 })
 const failed = (message) => ({
@@ -187,6 +188,47 @@ describe('reduceImport outcomes', () => {
   it('ignores dismiss while confirming', () => {
     const confirming = confirmFor(sameNameFile).state
     expect(reduceImport(confirming, { type: IMPORT_EVENT.dismiss }).state).toBe(confirming)
+  })
+})
+
+describe('reduceImport with an edited file', () => {
+  const file = projectFile({ id: 'file-id', name: 'Untitled Project' })
+  const EDITED_OUTCOME = `Imported Untitled Project, 2 steps. ${EDITED_NOTICE}`
+
+  it('states the notice text that the dialog and the outcome share', () => {
+    expect(EDITED_NOTICE).toBe('This file was changed outside AI Enabler after it was exported.')
+  })
+
+  it.each([
+    ['an edited file', true],
+    ['an untouched file', false],
+  ])('carries the flag of %s into the confirmation', (_name, edited) => {
+    expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file, edited)).state.isEdited).toBe(edited)
+  })
+
+  it('adds the notice to the outcome announcement and the status line', () => {
+    const { state, announcement } = reduceAll([parsed(file, true), { type: IMPORT_EVENT.confirm }])
+    expect(announcement).toBe(EDITED_OUTCOME)
+    expect(describeImportStatus(state)).toEqual({ text: EDITED_OUTCOME, isError: false })
+  })
+
+  it('still replaces the map on confirm', () => {
+    const { replacement } = reduceAll([parsed(file, true), { type: IMPORT_EVENT.confirm }])
+    expect(replacement).toEqual({
+      project: { id: 'open-id', name: 'Untitled Project' },
+      ...fromProjectFile(file),
+    })
+  })
+
+  it('leaves the outcome announcement of an untouched file without the notice', () => {
+    const { announcement } = reduceAll([parsed(file, false), { type: IMPORT_EVENT.confirm }])
+    expect(announcement).toBe('Imported Untitled Project, 2 steps')
+  })
+
+  it('cancels as before and announces nothing about the edit', () => {
+    const { state, announcement } = reduceAll([parsed(file, true), { type: IMPORT_EVENT.cancel }])
+    expect(state).toEqual(INITIAL_IMPORT_STATE)
+    expect(announcement).toBe('Import cancelled')
   })
 })
 

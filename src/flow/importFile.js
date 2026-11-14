@@ -1,3 +1,4 @@
+import { contentHash } from './contentHash.js'
 import { REGISTRY, upgradeToCurrent } from './schema/upgrades.js'
 import { isObject } from './schema/primitives.js'
 import { NOT_A_PROJECT_FILE, validateProjectFile } from './schema/validate.js'
@@ -50,12 +51,18 @@ const STAGES = [checkEnvelope, upgradeToCurrent, validate]
 const runStages = (first, settings) =>
   STAGES.reduce((result, stage) => (result.ok ? stage(result.file, settings) : result), first)
 
+// AC48: a file is edited unless it carries a contentHash string equal to the hash of its own
+// contents. Compared on the file as read, so an upgrade never makes an untouched file look edited.
+const isEdited = async (file) => (await contentHash(file)) !== file.contentHash
+
 /**
  * Turns the text of a chosen file into a validated project file at the current schema version.
+ * `edited` says the file changed outside the app since it was exported (it has no matching
+ * contentHash); the hash is checked against the file as read, before any upgrade.
  * Never throws on any file contents; the injected settings are trusted.
- * @returns {{ ok: true, file: object } | { ok: false, message: string }}
+ * @returns {Promise<{ ok: true, file: object, edited: boolean } | { ok: false, message: string }>}
  */
-export const parseImport = (
+export const parseImport = async (
   text,
   {
     registry = REGISTRY,
@@ -64,5 +71,7 @@ export const parseImport = (
   } = {},
 ) => {
   const parsed = parseJson(text)
-  return parsed.ok ? runStages(parsed, { registry, current, released }) : parsed
+  if (!parsed.ok) return parsed
+  const result = runStages(parsed, { registry, current, released })
+  return result.ok ? { ...result, edited: await isEdited(parsed.file) } : result
 }

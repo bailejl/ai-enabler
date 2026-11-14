@@ -51,7 +51,7 @@ function Shell() {
   } = useProject({ announce, importButtonRef })
   const handleDelete = useFocusAfterDelete({ nodes, canvasRef })
   const handleExport = useCallback(
-    () => announce(`Exported ${exportProject()}`),
+    async () => announce(`Exported ${await exportProject()}`),
     [announce, exportProject],
   )
 
@@ -72,6 +72,7 @@ function Shell() {
           message={importState.message}
           currentName={importState.currentName}
           incomingName={importState.incomingName}
+          isEdited={importState.isEdited}
           onConfirm={confirmImport}
           onCancel={cancelImport}
         />

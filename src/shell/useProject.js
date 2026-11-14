@@ -9,7 +9,7 @@ import {
 import { parseImport } from '../flow/importFile.js'
 import { initialEdges, initialNodes } from '../flow/initialFlow.js'
 import { createStarterProject } from '../flow/project.js'
-import { projectFileName, toProjectFile } from '../flow/projectFile.js'
+import { projectFileName, toProjectFile, withContentHash } from '../flow/projectFile.js'
 import { downloadTextFile } from './download.js'
 
 const JSON_INDENT = 2
@@ -105,10 +105,13 @@ export const useProject = ({ announce, importButtonRef }) => {
     returnFocusRef: importButtonRef,
   })
   // Returns the downloaded file name so the caller can announce it.
-  const exportProject = useCallback(() => {
+  const exportProject = useCallback(async () => {
     const projectFile = toProjectFile({ project, nodes, edges, now: new Date() })
     const fileName = projectFileName(project.name)
-    downloadTextFile(fileName, JSON.stringify(projectFile, null, JSON_INDENT))
+    downloadTextFile(
+      fileName,
+      JSON.stringify(await withContentHash(projectFile), null, JSON_INDENT),
+    )
     return fileName
   }, [project, nodes, edges])
   return {

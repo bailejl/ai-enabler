@@ -14,6 +14,9 @@ export const IMPORT_EVENT = Object.freeze({
 
 export const IMPORT_CANCELLED = 'Import cancelled'
 
+// AC48: shown in the confirmation and the outcome line for a file that does not match its hash.
+export const EDITED_NOTICE = 'This file was changed outside AI Enabler after it was exported.'
+
 export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
 
 // The allowlist an export writes is the allowlist an import reads: unknown keys in the file
@@ -23,8 +26,10 @@ export const fromProjectFile = (file) => ({
   edges: file.edges.map(toExportEdge),
 })
 
-const describeImported = (name, stepCount) =>
-  `Imported ${name}, ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}`
+const describeImported = (name, stepCount, isEdited) => {
+  const outcome = `Imported ${name}, ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}`
+  return isEdited ? `${outcome}. ${EDITED_NOTICE}` : outcome
+}
 
 // D2: exact match, no case folding, no trimming. The file's id never decides.
 const isSameName = (current, incoming) => current.name === incoming.name
@@ -51,13 +56,14 @@ const receiveFile = (state, { result, project }) => {
       { announcement: result.message },
     )
   }
-  const { file } = result
+  const { file, edited } = result
   const isSame = isSameName(project, file.project)
   return transition({
     type: IMPORT_CONFIRMING,
     // The last outcome, so a cancel puts it back: a success line stays until the next import.
     status: state.status ?? null,
     file,
+    isEdited: edited === true,
     currentName: project.name,
     incomingName: file.project.name,
     message: describeConfirmation(isSame, file.project.name),
@@ -69,7 +75,7 @@ const receiveFile = (state, { result, project }) => {
 }
 
 const confirmReplace = (state) => {
-  const announcement = describeImported(state.project.name, state.file.nodes.length)
+  const announcement = describeImported(state.project.name, state.file.nodes.length, state.isEdited)
   return transition(
     { type: IMPORT_IDLE, status: announcement },
     { announcement, replacement: { project: state.project, ...fromProjectFile(state.file) } },
@@ -99,7 +105,7 @@ export const describeImportStatus = (state) => {
 
 /**
  * Pure import flow.
- * State: { type: 'idle', status } | { type: 'confirming', status, file, currentName,
+ * State: { type: 'idle', status } | { type: 'confirming', status, file, isEdited, currentName,
  *   incomingName, message, project } | { type: 'error', message }.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
  *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.

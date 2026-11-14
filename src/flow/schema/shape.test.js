@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { shapeOf } from './shape.js'
 import { CURRENT_SCHEMA_VERSION } from './version.js'
-import { toProjectFile } from '../projectFile.js'
+import { toProjectFile, withContentHash } from '../projectFile.js'
 import { createStarterProject } from '../project.js'
 import { initialNodes, initialEdges } from '../initialFlow.js'
 
@@ -67,22 +67,24 @@ describe('shapeOf', () => {
 
 describe('export shape of the current schema version', () => {
   const starterExport = () =>
-    toProjectFile({
-      project: createStarterProject({ newId: () => 'starter-project' }),
-      nodes: initialNodes,
-      edges: initialEdges,
-      now: new Date('2026-11-14T12:00:00.000Z'),
-    })
+    withContentHash(
+      toProjectFile({
+        project: createStarterProject({ newId: () => 'starter-project' }),
+        nodes: initialNodes,
+        edges: initialEdges,
+        now: new Date('2026-11-14T12:00:00.000Z'),
+      }),
+    )
 
   it('has a fixture for the current version', () => {
     expect(currentFixture).toBeDefined()
   })
 
-  it('matches the starter project export', () => {
-    expect(shapeOf(starterExport())).toEqual(shapeOf(currentFixture))
+  it('matches the starter project export', async () => {
+    expect(shapeOf(await starterExport())).toEqual(shapeOf(currentFixture))
   })
 
-  const starterShape = () => shapeOf(starterExport())
+  const starterShape = async () => shapeOf(await starterExport())
 
   it.each([
     ['gains a key', (file) => ({ ...file, notes: 'new' })],
@@ -107,11 +109,12 @@ describe('export shape of the current schema version', () => {
       (file) => ({ ...file, edges: file.edges.map((e) => ({ id: e.id, source: e.source })) }),
     ],
     ['retypes a key', (file) => ({ ...file, schemaVersion: 0 })],
+    ['loses the contentHash', ({ contentHash: _hash, ...file }) => file],
     [
       'retypes a node key',
       (file) => ({ ...file, nodes: file.nodes.map((n) => ({ ...n, position: [n.position.x] })) }),
     ],
-  ])('fails when the export %s', (_name, change) => {
-    expect(shapeOf(change(starterExport()))).not.toEqual(starterShape())
+  ])('fails when the export %s', async (_name, change) => {
+    expect(shapeOf(change(await starterExport()))).not.toEqual(await starterShape())
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { projectFileName, toProjectFile } from './projectFile.js'
+import { contentHash } from './contentHash.js'
+import { projectFileName, toProjectFile, withContentHash } from './projectFile.js'
 import { validateProjectFile } from './schema/validate.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 import { createStarterProject } from './project.js'
@@ -30,6 +31,26 @@ const deepFreeze = (value) => {
 }
 
 const exportNodes = (nodes) => toProjectFile({ project: PROJECT, nodes, edges: [], now: NOW }).nodes
+
+describe('withContentHash', () => {
+  const file = () => toProjectFile({ project: PROJECT, nodes: [runtimeNode], edges: [], now: NOW })
+
+  it('adds the hash of the file as a top-level contentHash', async () => {
+    const hashed = await withContentHash(file())
+    expect(hashed.contentHash).toBe(await contentHash(file()))
+    expect(hashed.contentHash).toMatch(/^sha256-[0-9a-f]{64}$/)
+  })
+
+  it('keeps every other field of the file', async () => {
+    expect(await withContentHash(file())).toEqual({ ...file(), contentHash: expect.any(String) })
+  })
+
+  it('does not change the file it was given', async () => {
+    const original = deepFreeze(file())
+    await withContentHash(original)
+    expect(original).not.toHaveProperty('contentHash')
+  })
+})
 
 describe('toProjectFile', () => {
   it('writes exactly the file fields', () => {
