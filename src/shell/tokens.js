@@ -5,6 +5,12 @@ export const tokens = {
   menuBackground: '#ffffff',
   menuText: '#0f172a',
   focusRing: '#2563eb',
+  tileText: '#0f172a',
+  tileBorder: '#64748b',
+  statusOnTargetBackground: '#dcfce7',
+  statusWatchBackground: '#fef3c7',
+  statusNeedsAttentionBackground: '#fee2e2',
+  statusNoneBackground: '#ffffff',
 }
 
 const toKebabCase = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)

@@ -33,6 +33,11 @@ const contrastPairs = [
   ['focusRing', 'pageBackground', NON_TEXT_MINIMUM],
   ['focusRing', 'menuBackground', NON_TEXT_MINIMUM],
   ['menuText', 'menuBackground', TEXT_MINIMUM],
+  ['tileText', 'statusOnTargetBackground', TEXT_MINIMUM],
+  ['tileText', 'statusWatchBackground', TEXT_MINIMUM],
+  ['tileText', 'statusNeedsAttentionBackground', TEXT_MINIMUM],
+  ['tileText', 'statusNoneBackground', TEXT_MINIMUM],
+  ['tileBorder', 'pageBackground', NON_TEXT_MINIMUM],
 ]
 
 describe('theme token contrast', () => {

@@ -9,6 +9,10 @@
   --divider-height: 1.5rem;
   --focus-ring-width: 3px;
   --focus-ring-offset: 2px;
+  --metrics-padding: 0.5rem;
+  --metrics-gap: 0.5rem;
+  --metric-basis: 8rem;
+  --metric-padding: 0.5rem;
 }
 
 html,
@@ -26,9 +30,10 @@ body,
 .shell {
   display: grid;
   grid-template-columns: var(--menu-width) minmax(0, 1fr);
-  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  grid-template-rows: var(--header-height) auto minmax(0, 1fr);
   grid-template-areas:
     'header header'
+    'menu metrics'
     'menu canvas';
   height: 100%;
   background: var(--page-background);
@@ -99,9 +104,84 @@ body,
   font-weight: 600;
 }
 
+.metrics {
+  grid-area: metrics;
+  padding: var(--metrics-padding);
+}
+
+.metrics__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--metrics-gap);
+  margin: 0;
+}
+
+.metric {
+  flex: 1 1 var(--metric-basis);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--metric-padding);
+  border: 1px solid var(--tile-border);
+  border-radius: 0.375rem;
+  color: var(--tile-text);
+}
+
+.metric--on-target {
+  background: var(--status-on-target-background);
+}
+
+.metric--watch {
+  background: var(--status-watch-background);
+}
+
+.metric--needs-attention {
+  background: var(--status-needs-attention-background);
+}
+
+.metric--none {
+  background: var(--status-none-background);
+}
+
+.metric__label {
+  min-height: 2lh;
+  font-size: 0.75rem;
+}
+
+.metric__value {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.metric__status {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Seven tiles share one row from this width; below it they wrap instead of squeezing. */
+@media (min-width: 1024px) {
+  .metrics__list {
+    flex-wrap: nowrap;
+  }
+}
+
 .canvas {
   grid-area: canvas;
+  position: relative;
   min-height: 0;
+}
+
+.canvas__empty {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  margin: 0;
+  pointer-events: none;
+  color: var(--tile-text);
 }
 
 .visually-hidden {
