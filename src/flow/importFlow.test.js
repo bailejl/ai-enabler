@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { INITIAL_IMPORT_STATE, fromProjectFile, reduceImport } from './importFlow.js'
+import {
+  INITIAL_IMPORT_STATE,
+  describeImportStatus,
+  fromProjectFile,
+  reduceImport,
+} from './importFlow.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 
 const OPEN_PROJECT = { id: 'open-id', name: 'Untitled Project' }
@@ -206,5 +211,37 @@ describe('fromProjectFile', () => {
     expect(fromProjectFile(file).nodes).toEqual([
       { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
     ])
+  })
+})
+
+describe('describeImportStatus', () => {
+  it('shows nothing before any import', () => {
+    expect(describeImportStatus(INITIAL_IMPORT_STATE)).toBeNull()
+  })
+
+  it('shows the error message as an error', () => {
+    expect(describeImportStatus(reduceAll([failed(NOT_JSON)]).state)).toEqual({
+      text: NOT_JSON,
+      isError: true,
+    })
+  })
+
+  it('shows the last outcome after a replace, as a non-error', () => {
+    const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
+    const { state } = reduceAll([parsed(file), { type: 'confirm' }])
+    expect(describeImportStatus(state)).toEqual({
+      text: 'Imported Checkout Revamp, 2 steps',
+      isError: false,
+    })
+  })
+
+  it('shows nothing while a confirmation is pending', () => {
+    const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
+    expect(describeImportStatus(reduceAll([parsed(file)]).state)).toBeNull()
+  })
+
+  it('shows nothing after a cancel', () => {
+    const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
+    expect(describeImportStatus(reduceAll([parsed(file), { type: 'cancel' }]).state)).toBeNull()
   })
 })

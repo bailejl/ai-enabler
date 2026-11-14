@@ -1,13 +1,24 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 const APP_NAME = 'AI Enabler'
+const IMPORT_ACCEPT = '.json,application/json'
 
 export const toDocumentTitle = (projectName) => `${projectName} · ${APP_NAME}`
 
-export default function Header({ projectName, onExport }) {
+export default function Header({ projectName, onExport, onImportFile, importButtonRef }) {
+  const fileInputRef = useRef(null)
+
   useEffect(() => {
     document.title = toDocumentTitle(projectName)
   }, [projectName])
+
+  // Clearing the value once the file is read lets the same file be chosen again.
+  const handleFileChosen = async (event) => {
+    const input = event.target
+    const [file] = input.files
+    if (file) await onImportFile(file)
+    input.value = ''
+  }
 
   return (
     <header className="header">
@@ -22,6 +33,22 @@ export default function Header({ projectName, onExport }) {
         {projectName}
       </span>
       <div className="header__actions">
+        <button
+          ref={importButtonRef}
+          type="button"
+          className="header__button"
+          aria-label="Import project (JSON)"
+          onClick={() => fileInputRef.current.click()}
+        >
+          Import
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={IMPORT_ACCEPT}
+          hidden
+          onChange={handleFileChosen}
+        />
         <button
           type="button"
           className="header__button"

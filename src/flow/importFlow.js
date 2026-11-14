@@ -77,6 +77,17 @@ const HANDLERS = {
 }
 
 /**
+ * What the visible status line shows for a state: the last outcome (idle) or the error. Nothing
+ * shows while a confirmation is pending or before any import.
+ * @returns {{ text: string, isError: boolean } | null}
+ */
+export const describeImportStatus = (state) => {
+  if (state.type === IMPORT_ERROR) return { text: state.message, isError: true }
+  if (state.type === IMPORT_IDLE && state.status) return { text: state.status, isError: false }
+  return null
+}
+
+/**
  * Pure import flow.
  * State: { type: 'idle', status } | { type: 'confirming', file, currentName, incomingName,
  *   message, project } | { type: 'error', message }.

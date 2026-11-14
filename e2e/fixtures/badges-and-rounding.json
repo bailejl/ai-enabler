@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.0.0",
+  "exportedAt": "2026-11-14T12:00:00.000Z",
+  "project": {
+    "id": "file-id-badges",
+    "name": "Badge Check"
+  },
+  "nodes": [
+    {
+      "id": "only",
+      "type": "step",
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "data": {
+        "label": "Only",
+        "pt": 60,
+        "lt": 120,
+        "ca": 87.6,
+        "queue": 0,
+        "batch": 0
+      }
+    }
+  ],
+  "edges": []
+}

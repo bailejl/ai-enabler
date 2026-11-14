@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "0.0.0",
+  "exportedAt": "2026-11-14T12:00:00.000Z",
+  "project": {
+    "id": "file-id-same",
+    "name": "Untitled Project"
+  },
+  "nodes": [
+    {
+      "id": "intake",
+      "type": "step",
+      "position": {
+        "x": 3000,
+        "y": 2000
+      },
+      "data": {
+        "label": "Intake",
+        "pt": 60,
+        "lt": 240,
+        "ca": 80,
+        "queue": 2
+      }
+    },
+    {
+      "id": "review",
+      "type": "step",
+      "position": {
+        "x": 3500,
+        "y": 2000
+      },
+      "data": {
+        "label": "Review",
+        "pt": 120,
+        "lt": 480,
+        "ca": 90
+      }
+    },
+    {
+      "id": "ship",
+      "type": "step",
+      "position": {
+        "x": 4000,
+        "y": 2000
+      },
+      "data": {
+        "label": "Ship",
+        "pt": 30,
+        "lt": 90,
+        "ca": 100,
+        "batch": 4
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "intake->review",
+      "source": "intake",
+      "target": "review"
+    },
+    {
+      "id": "review->ship",
+      "source": "review",
+      "target": "ship"
+    }
+  ]
+}
