@@ -13,7 +13,7 @@ export const tokens = {
   statusNoneBackground: '#ffffff',
   cardBackground: '#ffffff',
   cardText: '#0f172a',
-  cardBorder: '#cbd5e1',
+  cardBorder: '#64748b',
   queueBadgeBackground: '#fef08a',
   queueBadgeText: '#422006',
   queueBadgeBorder: '#a16207',

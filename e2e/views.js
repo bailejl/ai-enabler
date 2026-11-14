@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect } from '@playwright/test'
 import { edgeBetween } from './canvas.js'
@@ -41,6 +42,21 @@ export const importAndConfirm = async (page, file) => {
   await chooseFile(page, file)
   await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
   await expect(confirmDialog(page)).toHaveCount(0)
+}
+
+// A step with both a queue and a batch badge joins the fixture's Watch-rated, rounded step.
+const BADGED_STEP = {
+  id: 'badged',
+  type: 'step',
+  position: { x: 400, y: 100 },
+  data: { label: 'Badged', pt: 60, lt: 120, ca: 100, queue: 3, batch: 4 },
+}
+
+export const openBadgesView = async (page) => {
+  await openStarterView(page)
+  const fixture = JSON.parse(readFileSync(fixturePath('badges-and-rounding.json'), 'utf8'))
+  const nodes = [...fixture.nodes, BADGED_STEP]
+  await importAndConfirm(page, asUpload(JSON.stringify({ ...fixture, nodes })))
 }
 
 export const deleteAllSteps = async (page) => {
