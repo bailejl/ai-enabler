@@ -22,12 +22,15 @@ export const STAGE_SPACING = 200
  */
 export const toNodes = (stages) =>
   stages.map(({ id, ...data }, i) =>
-    withAriaLabel({
-      id,
-      type: STEP_TYPE,
-      position: { x: i * STAGE_SPACING, y: 0 },
-      data,
-    }),
+    withAriaLabel(
+      {
+        id,
+        type: STEP_TYPE,
+        position: { x: i * STAGE_SPACING, y: 0 },
+        data,
+      },
+      i,
+    ),
   )
 
 /**

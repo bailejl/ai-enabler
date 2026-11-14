@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
-import { cards } from './canvas.js'
-import { EMPTY_MAP_MESSAGE, STARTER_STEP_COUNT } from './views.js'
+import { cardByTitle, cards } from './canvas.js'
+import { deleteAllSteps, EMPTY_MAP_MESSAGE, STARTER_STEP_COUNT } from './views.js'
 
 const STARTER_TILES = [
   ['Total lead time', '12d 4h'],
@@ -17,11 +17,6 @@ const tiles = (page) => page.getByRole('region', { name: 'Metrics' }).locator('d
 const tileValue = (page, label) =>
   tiles(page).filter({ has: page.getByText(label, { exact: true }) })
 
-const deleteFirstCard = async (page) => {
-  await cards(page).first().click()
-  await page.keyboard.press('Backspace')
-}
-
 test('the starter metrics show seven tiles in spec order as term and description pairs', async ({
   page,
 }) => {
@@ -34,9 +29,7 @@ test('the starter metrics show seven tiles in spec order as term and description
 test('deleting Idea updates the card count and every tile in the same update', async ({ page }) => {
   await page.goto('/')
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
-  await cards(page)
-    .filter({ has: page.getByText('Idea', { exact: true }) })
-    .click()
+  await cardByTitle(page, 'Idea').click()
   await page.keyboard.press('Backspace')
 
   await expect
@@ -52,10 +45,7 @@ test('deleting Idea updates the card count and every tile in the same update', a
 test.describe('with every step deleted', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    for (let remaining = STARTER_STEP_COUNT; remaining > 0; remaining -= 1) {
-      await deleteFirstCard(page)
-      await expect(cards(page)).toHaveCount(remaining - 1)
-    }
+    await deleteAllSteps(page)
   })
 
   test('every tile shows a dash and no status text', async ({ page }) => {

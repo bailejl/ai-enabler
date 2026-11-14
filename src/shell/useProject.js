@@ -18,7 +18,7 @@ const UNREADABLE_FILE = Object.freeze({ ok: false, message: 'This file could not
 // A file the browser cannot read is reported like any other file that cannot be imported.
 const readImport = async (file) => {
   try {
-    return parseImport(await file.text())
+    return await parseImport(await file.text())
   } catch {
     return UNREADABLE_FILE
   }

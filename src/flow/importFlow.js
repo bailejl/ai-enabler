@@ -22,7 +22,7 @@ export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: n
 // The allowlist an export writes is the allowlist an import reads: unknown keys in the file
 // (style, className, hidden, ...) never reach React Flow. Each node is named by its step title.
 export const fromProjectFile = (file) => ({
-  nodes: file.nodes.map((node) => withAriaLabel(toExportNode(node))),
+  nodes: file.nodes.map((node, index) => withAriaLabel(toExportNode(node), index)),
   edges: file.edges.map(toExportEdge),
 })
 
@@ -57,21 +57,27 @@ const receiveFile = (state, { result, project }) => {
     )
   }
   const { file, edited } = result
+  const isEdited = edited === true
   const isSame = isSameName(project, file.project)
-  return transition({
-    type: IMPORT_CONFIRMING,
-    // The last outcome, so a cancel puts it back: a success line stays until the next import.
-    status: state.status ?? null,
-    file,
-    isEdited: edited === true,
-    currentName: project.name,
-    incomingName: file.project.name,
-    message: describeConfirmation(isSame, file.project.name),
-    // Same name keeps the open project's id; a different name takes the file's name and id.
-    project: isSame
-      ? { id: project.id, name: project.name }
-      : { id: file.project.id, name: file.project.name },
-  })
+  const message = describeConfirmation(isSame, file.project.name)
+  return transition(
+    {
+      type: IMPORT_CONFIRMING,
+      // The last outcome, so a cancel puts it back: a success line stays until the next import.
+      status: state.status ?? null,
+      file,
+      isEdited,
+      currentName: project.name,
+      incomingName: file.project.name,
+      message,
+      // Same name keeps the open project's id; a different name takes the file's name and id.
+      project: isSame
+        ? { id: project.id, name: project.name }
+        : { id: file.project.id, name: file.project.name },
+    },
+    // The dialog shows the notice, so an edited file speaks it when the dialog opens.
+    { announcement: isEdited ? `${message} ${EDITED_NOTICE}` : null },
+  )
 }
 
 const confirmReplace = (state) => {

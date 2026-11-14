@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
 import { cardByTitle, cards, settledBox } from './canvas.js'
-import { STARTER_STEP_COUNT } from './views.js'
+import { deleteAllSteps, STARTER_STEP_COUNT } from './views.js'
 
 // The badge's visible letters, not its visually hidden name.
 const badgeIn = (card, text) => card.getByText(text, { exact: true })
@@ -41,11 +41,7 @@ test.describe('after a step is deleted from the keyboard', () => {
   })
 
   test('focus lands on the canvas, inside it, once no step is left', async ({ page }) => {
-    for (let remaining = STARTER_STEP_COUNT; remaining > 0; remaining -= 1) {
-      await cards(page).first().click()
-      await page.keyboard.press('Backspace')
-      await expect(cards(page)).toHaveCount(remaining - 1)
-    }
+    await deleteAllSteps(page)
 
     await expect(page.getByRole('main')).toBeFocused()
   })

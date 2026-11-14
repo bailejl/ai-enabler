@@ -1,5 +1,5 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
-import { STEP_TYPE } from '../step.js'
+import { STEP_TYPE, stepPositionName } from '../step.js'
 import { isObject } from './primitives.js'
 
 export const NOT_A_PROJECT_FILE =
@@ -16,8 +16,7 @@ const isPercentage = (value) => Number.isFinite(value) && value >= 0 && value <=
 // Steps are named by label and 1-based position. A missing or blank label leaves the position.
 const stepName = (node, index) => {
   const label = node?.data?.label
-  const position = `#${index + 1}`
-  return isNonEmptyText(label) ? `Step "${label}" (${position})` : `Step ${position}`
+  return isNonEmptyText(label) ? `Step "${label}" (#${index + 1})` : stepPositionName(index)
 }
 
 // A rule that flags the first step for which isProblem is true. describe gets the step name.

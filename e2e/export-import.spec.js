@@ -102,7 +102,6 @@ const SAME_NAME_QUESTION = `Replace current map with the imported version of ${S
 const CHECKOUT_NAME = 'Checkout Revamp'
 const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
 const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
-const SLOW_READ_MS = 500
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 const NOT_JSON_MESSAGE = 'This file is not valid JSON.'
 const NOT_A_PROJECT_MESSAGE = 'This is not a project file. Choose a file exported from AI Enabler.'
@@ -367,6 +366,12 @@ test.describe('invalid files are rejected with a plain message', () => {
     Object.fromEntries(Object.entries(object).filter(([k]) => k !== key))
   const withoutSchemaVersion = () => omit(validFile(), 'schemaVersion')
 
+  const withSecondEdge = (change) => {
+    const file = validFile()
+    file.edges[1] = change(file.edges[1])
+    return file
+  }
+
   const REJECTED_FILES = [
     { name: 'text that is not JSON', contents: 'this is not json', message: NOT_JSON_MESSAGE },
     { name: 'an array', contents: [], message: NOT_A_PROJECT_MESSAGE },
@@ -399,6 +404,26 @@ test.describe('invalid files are rejected with a plain message', () => {
         edges: [...validFile().edges, { id: 'ship->intake', source: 'ship', target: 'intake' }],
       },
       message: 'The connections form a loop.',
+    },
+    {
+      name: 'connection #2 with no id',
+      contents: withSecondEdge((edge) => omit(edge, 'id')),
+      message: 'Connection 2 is missing an id.',
+    },
+    {
+      name: 'connection #2 with the number 42 as its id',
+      contents: withSecondEdge((edge) => ({ ...edge, id: 42 })),
+      message: 'Connection 2 is missing an id.',
+    },
+    {
+      name: 'connection #2 with an empty id',
+      contents: withSecondEdge((edge) => ({ ...edge, id: '' })),
+      message: 'Connection 2 is missing an id.',
+    },
+    {
+      name: 'connection #2 with the id of connection #1',
+      contents: withSecondEdge((edge) => ({ ...edge, id: validFile().edges[0].id })),
+      message: `Two connections share the id "${validFile().edges[0].id}".`,
     },
   ]
 
@@ -442,30 +467,29 @@ test('the visible import status is not itself a live region', async ({ page }) =
 test('when two files are chosen in a row, only the last one chosen asks for confirmation', async ({
   page,
 }) => {
-  // The first read is slow, so that file finishes after the second. It reads as `slowText`, and
-  // the real reader is back in place for every read after it.
+  // The first read is held until the test releases it, so that file finishes after the second.
+  // It reads as `slowText`, and the real reader is back in place for every read after it.
   const slowFile = JSON.stringify(readFixture('different-name.json'))
-  await page.addInitScript(
-    ({ delayMs, slowText }) => {
-      const readText = Blob.prototype.text
-      Blob.prototype.text = () => {
-        Blob.prototype.text = readText
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            window.slowReadSettled = true
-            resolve(slowText)
-          }, delayMs)
-        })
-      }
-    },
-    { delayMs: SLOW_READ_MS, slowText: slowFile },
-  )
+  await page.addInitScript((slowText) => {
+    const readText = Blob.prototype.text
+    Blob.prototype.text = () => {
+      Blob.prototype.text = readText
+      return new Promise((resolve) => {
+        window.releaseSlowRead = () => {
+          window.slowReadSettled = true
+          resolve(slowText)
+        }
+      })
+    }
+  }, slowFile)
   await page.goto('/')
 
   await chooseFile(page, asUpload(slowFile))
   await chooseFile(page, fixturePath('different-case-name.json'))
   await expect(confirmDialog(page)).toHaveAccessibleName(DIFFERENT_CASE_QUESTION)
 
+  expect(await page.evaluate(() => window.slowReadSettled)).toBeFalsy()
+  await page.evaluate(() => window.releaseSlowRead())
   await page.waitForFunction(() => window.slowReadSettled === true)
   // Two frames let React apply anything the slow read would have dispatched.
   await page.evaluate(
@@ -637,37 +661,50 @@ test.describe('edit detection', () => {
     await expect(announcer(page)).toHaveText(`Imported ${STARTER_PROJECT_NAME}, 6 steps`)
   })
 
+  const STARTER_FIRST_TITLE = initialNodes[0].data.label
+  const EDITED_LABEL = 'Edited by hand'
+  const EDITED_OPENING = `${SAME_NAME_QUESTION} ${EDITED_NOTICE}`
+
   const EDITED_FILES = [
     {
       change: 'a step label was edited',
+      firstTitle: EDITED_LABEL,
       edit: (file) => ({
         ...file,
         nodes: file.nodes.map((node, index) =>
-          index === 0 ? { ...node, data: { ...node.data, label: 'Edited by hand' } } : node,
+          index === 0 ? { ...node, data: { ...node.data, label: EDITED_LABEL } } : node,
         ),
       }),
     },
-    { change: 'the contentHash was removed', edit: withoutHash },
-    { change: 'the contentHash is a number', edit: (file) => ({ ...file, contentHash: 42 }) },
+    { change: 'the contentHash was removed', firstTitle: STARTER_FIRST_TITLE, edit: withoutHash },
+    {
+      change: 'the contentHash is a number',
+      firstTitle: STARTER_FIRST_TITLE,
+      edit: (file) => ({ ...file, contentHash: 42 }),
+    },
   ]
 
-  for (const { change, edit } of EDITED_FILES) {
+  for (const { change, firstTitle, edit } of EDITED_FILES) {
     test(`when ${change} the confirmation warns, Replace map still works, and the outcome repeats the warning`, async ({
       page,
     }) => {
       const file = await exportedStarter(page)
+      await expect(announcer(page)).toHaveText(`Exported ${EXPORT_FILE_NAME}`)
       await recordAnnouncements(page)
       await chooseFile(page, asUpload(edit(file)))
 
       const dialog = confirmDialog(page)
       await expect(dialog).toContainText(EDITED_NOTICE)
       await expect(dialog).toHaveAccessibleDescription(new RegExp(EDITED_NOTICE))
+      await expect(announcer(page)).toHaveText(EDITED_OPENING)
+      expect(await spokenMessages(page)).toEqual([EDITED_OPENING])
       await dialog.getByRole('button', { name: 'Replace map' }).click()
 
       const outcome = `Imported ${STARTER_PROJECT_NAME}, 6 steps. ${EDITED_NOTICE}`
       await expect(importStatus(page)).toHaveText(outcome)
       await expect(announcer(page)).toHaveText(outcome)
       await expect(confirmDialog(page)).toHaveCount(0)
+      await expect(cardByTitle(page, firstTitle)).toBeVisible()
     })
   }
 
@@ -677,6 +714,7 @@ test.describe('edit detection', () => {
     const file = await exportedStarter(page)
     await chooseFile(page, asUpload(withoutHash(file)))
     await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
+    await expect(announcer(page)).toContainText(EDITED_NOTICE)
     await confirmDialog(page).getByRole('button', { name: 'Cancel' }).click()
     await expect(announcer(page)).toHaveText(CANCELLED_ANNOUNCEMENT)
     await expect(page.getByText(EDITED_NOTICE)).toHaveCount(0)

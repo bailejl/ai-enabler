@@ -206,6 +206,17 @@ describe('reduceImport with an edited file', () => {
     expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file, edited)).state.isEdited).toBe(edited)
   })
 
+  it('announces the question and the notice when the confirmation opens', () => {
+    const { announcement } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, true))
+    expect(announcement).toBe(
+      `Replace current map with the imported version of Untitled Project? ${EDITED_NOTICE}`,
+    )
+  })
+
+  it('announces nothing when the confirmation of an untouched file opens', () => {
+    expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file, false)).announcement).toBeNull()
+  })
+
   it('adds the notice to the outcome announcement and the status line', () => {
     const { state, announcement } = reduceAll([parsed(file, true), { type: IMPORT_EVENT.confirm }])
     expect(announcement).toBe(EDITED_OUTCOME)
@@ -260,6 +271,14 @@ describe('fromProjectFile', () => {
       ],
       edges: [{ id: 'e', source: 'a', target: 'a' }],
     })
+  })
+
+  it('names an imported step with a blank label by its 1-based position', () => {
+    const file = projectFile({ id: 'p', name: 'P' }, [
+      { id: 'a', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
+      { id: 'b', position: { x: 1, y: 0 }, data: { label: '  ' } },
+    ])
+    expect(fromProjectFile(file).nodes.map((node) => node.ariaLabel)).toEqual(['Plan', 'Step #2'])
   })
 
   it('defaults an absent node type to step and leaves absent optional fields out', () => {

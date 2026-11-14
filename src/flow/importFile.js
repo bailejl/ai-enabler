@@ -10,6 +10,7 @@ import {
 } from './schema/version.js'
 
 const NOT_JSON = 'This file is not valid JSON.'
+const UNREADABLE = 'This file could not be read.'
 
 const fail = (message) => ({ ok: false, message })
 const succeed = (file) => ({ ok: true, file })
@@ -53,7 +54,7 @@ const runStages = (first, settings) =>
 
 // AC48: a file is edited unless it carries a contentHash string equal to the hash of its own
 // contents. Compared on the file as read, so an upgrade never makes an untouched file look edited.
-const isEdited = async (file) => (await contentHash(file)) !== file.contentHash
+const isEdited = async (file, digest) => (await contentHash(file, { digest })) !== file.contentHash
 
 /**
  * Turns the text of a chosen file into a validated project file at the current schema version.
@@ -68,10 +69,16 @@ export const parseImport = async (
     registry = REGISTRY,
     current = CURRENT_SCHEMA_VERSION,
     released = RELEASED_SCHEMA_VERSIONS,
+    digest,
   } = {},
 ) => {
   const parsed = parseJson(text)
   if (!parsed.ok) return parsed
   const result = runStages(parsed, { registry, current, released })
-  return result.ok ? { ...result, edited: await isEdited(parsed.file) } : result
+  if (!result.ok) return result
+  try {
+    return { ...result, edited: await isEdited(parsed.file, digest) }
+  } catch {
+    return fail(UNREADABLE)
+  }
 }

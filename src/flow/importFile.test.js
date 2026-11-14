@@ -32,10 +32,15 @@ const fixtures = import.meta.glob('./schema/fixtures/*.json', {
   query: '?raw',
   import: 'default',
 })
+const e2eFixtures = import.meta.glob('../../e2e/fixtures/*.json', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+})
 const fixtureVersions = Object.keys(fixtures).map((path) => path.match(/([^/]+)\.json$/)[1])
 
 describe('parseImport', () => {
-  it('accepts a valid file at the current version and returns it unchanged', async () => {
+  it('accepts a valid file at the current version, flagging it edited since it has no hash, and returns it unchanged', async () => {
     const file = validFile()
     expect(await parse(file)).toEqual({ ok: true, file, edited: true })
   })
@@ -115,7 +120,7 @@ describe('parseImport', () => {
       })
     })
 
-    it('accepts a file at the injected current version', async () => {
+    it('accepts a file at the injected current version, flagging it edited since it has no hash', async () => {
       const file = validFile({ schemaVersion: '0.2.0' })
       expect(await parse(file, settings)).toEqual({ ok: true, file, edited: true })
     })
@@ -247,6 +252,16 @@ describe('parseImport', () => {
       })
     })
 
+    it('rejects as unreadable instead of throwing when hashing fails', async () => {
+      const digest = async () => {
+        throw new Error('no crypto')
+      }
+      expect(await parse(validFile(), { digest })).toEqual({
+        ok: false,
+        message: 'This file could not be read.',
+      })
+    })
+
     it('reports no edited flag for a rejected file', async () => {
       expect(await parse(validFile({ project: { id: 'p1', name: '' } }))).not.toHaveProperty(
         'edited',
@@ -255,6 +270,16 @@ describe('parseImport', () => {
 
     it('accepts a file whose contentHash is a number without rejecting it', async () => {
       expect((await parse(validFile({ contentHash: 42 }))).ok).toBe(true)
+    })
+  })
+
+  describe('e2e fixtures', () => {
+    it('finds the e2e fixtures', () => {
+      expect(Object.keys(e2eFixtures).length).toBeGreaterThan(0)
+    })
+
+    it.each(Object.entries(e2eFixtures))('treats %s as untouched', async (_path, text) => {
+      expect((await parseImport(text)).edited).toBe(false)
     })
   })
 

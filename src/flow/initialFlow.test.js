@@ -28,6 +28,17 @@ describe('toNodes', () => {
     ])
   })
 
+  it.each([
+    ['empty', ''],
+    ['whitespace', '  \t'],
+  ])('names a step with a blank (%s) label by its 1-based position', (_name, label) => {
+    const nodes = toNodes([
+      { id: 'a', label: 'A' },
+      { id: 'b', label },
+    ])
+    expect(nodes.map((n) => n.ariaLabel)).toEqual(['A', 'Step #2'])
+  })
+
   it('returns no nodes for no stages', () => {
     expect(toNodes([])).toEqual([])
   })

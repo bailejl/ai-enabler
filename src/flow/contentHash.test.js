@@ -31,6 +31,14 @@ describe('canonicalJson', () => {
     expect(canonicalJson(value)).toBe(expected)
   })
 
+  it('sorts integer-like keys in code-unit order, not numeric order', () => {
+    expect(canonicalJson({ 9: 2, 10: 1 })).toBe('{"10":1,"9":2}')
+  })
+
+  it('drops undefined properties and writes undefined array items as null', () => {
+    expect(canonicalJson({ a: undefined, b: [undefined, 1] })).toBe('{"b":[null,1]}')
+  })
+
   it('keeps array order', () => {
     expect(canonicalJson({ list: [3, 1, 2] })).toBe('{"list":[3,1,2]}')
   })
