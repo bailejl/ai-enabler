@@ -1292,10 +1292,10 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 3
 
-- [ ] Slice 6: Step cards and connections
-  - [ ] Step 6.1: Render step cards with handles
-  - [ ] Step 6.2: Arrowheads, connection rules, and hidden handles
-  - [ ] Step 6.3: Delete with Delete or Backspace
+- [x] Slice 6: Step cards and connections
+  - [x] Step 6.1: Render step cards with handles
+  - [x] Step 6.2: Arrowheads, connection rules, and hidden handles
+  - [x] Step 6.3: Delete with Delete or Backspace
 
 ### Wave 4
 
