@@ -1412,7 +1412,7 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 6
 
-- [ ] Slice 9: Edge id validation and edit detection
-  - [ ] Step 9.1: Validate edge ids
-  - [ ] Step 9.2: Hash project files
-  - [ ] Step 9.3: Write the hash on export and warn on edited imports
+- [x] Slice 9: Edge id validation and edit detection
+  - [x] Step 9.1: Validate edge ids
+  - [x] Step 9.2: Hash project files
+  - [x] Step 9.3: Write the hash on export and warn on edited imports
