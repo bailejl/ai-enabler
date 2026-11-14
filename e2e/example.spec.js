@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { settledBox } from './canvas.js'
 import { initialEdges, initialNodes } from '../src/flow/initialFlow.js'
 
 test('value stream canvas shows the starter stages and links', async ({ page }) => {
@@ -15,20 +16,6 @@ const nodeByLabel = (page, label) => page.locator('.react-flow__node').filter({ 
 
 const DRAG_DX = 80
 const DRAG_DY = 120
-
-const settledBox = async (locator) => {
-  await expect(locator).toBeVisible()
-  // fitView adjusts the viewport after first render; wait until the box stops moving.
-  await expect
-    .poll(async () => {
-      const a = await locator.boundingBox()
-      await locator.page().waitForTimeout(50)
-      const b = await locator.boundingBox()
-      return a.x === b.x && a.y === b.y
-    })
-    .toBe(true)
-  return locator.boundingBox()
-}
 
 test('a stage can be dragged without moving its neighbours', async ({ page }) => {
   await page.goto('/')

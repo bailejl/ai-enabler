@@ -1,27 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
+import { cardByTitle, settledBox } from './canvas.js'
 
 const STARTER_STEP_COUNT = 6
 
-const cardByTitle = (page, title) =>
-  page.locator('.react-flow__node').filter({ has: page.getByText(title, { exact: true }) })
-
 // The badge's visible letters, not its visually hidden name.
 const badgeIn = (card, text) => card.getByText(text, { exact: true })
-
-const settledBox = async (locator) => {
-  await expect(locator).toBeVisible()
-  // fitView adjusts the viewport after first render; wait until the box stops moving.
-  await expect
-    .poll(async () => {
-      const a = await locator.boundingBox()
-      await locator.page().waitForTimeout(50)
-      const b = await locator.boundingBox()
-      return a.x === b.x && a.y === b.y && a.width === b.width
-    })
-    .toBe(true)
-  return locator.boundingBox()
-}
 
 const centerOf = ({ x, y, width, height }) => ({ x: x + width / 2, y: y + height / 2 })
 

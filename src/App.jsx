@@ -19,6 +19,7 @@ import { useProject } from './shell/useProject.js'
 // Module-level so React Flow sees one stable object across renders.
 const nodeTypes = { step: StepCard }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: tokens.arrowhead } }
+const DELETE_KEYS = ['Delete', 'Backspace']
 const themeProperties = toCssCustomProperties(tokens)
 const EMPTY_MAP_MESSAGE =
   'No steps on this map. Import a project, or reload to restore the starter map.'
@@ -46,6 +47,7 @@ function Shell() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidForEdges}
+          deleteKeyCode={DELETE_KEYS}
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
         >
