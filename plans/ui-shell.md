@@ -1307,7 +1307,7 @@ graph LR
 
 ## Pre-PR Quality Gate
 
-- [ ] Unit tests pass: `npm test`
+- [ ] Unit tests pass, each test named: `npx vitest run --reporter=verbose`
 - [ ] E2E tests pass: `npm run test:e2e`
 - [ ] Linter passes: `npm run lint`
 - [ ] Deep linter passes: `npm run lint:deep`
@@ -1357,6 +1357,33 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
   - The tab walk has no expected stop list.
   - The success status lifetime is minimal.
   - The pre-PR gate runs `lint:deep` locally; CI runs `lint` only.
+
+## Acceptance Examination
+
+`met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
+
+### AC10 — indeterminate
+
+```
+Only part of this is observable. `node scripts/schema-fixture-guard-cli.js main` printed "Schema fixture guard: no released fixtures changed vs main." and exited 0. The e2e run printed "invalid files are rejected with a plain message › schemaVersion \"9.0.0\" and a bad step". The rest (strict SemVer parsing, upgrade chain order and stamping, registry and fixture coverage, fixture upgrade to expected output, export shape check, guard fail-closed and per-status results) has no named output. `npm t…
+```
+
+### AC12 — indeterminate
+
+```
+No run command reports CI check status on slice PRs. Seeing the GitHub "unit" and "e2e" check results needs network access (gh/API), which this examination does not allow. The local equivalents all passed (npm test 783 passed; npm run test:e2e 151 passed; lint, lint:deep, format:check exit 0), but they do not show CI results.
+```
+
+### Audit details
+
+- Overall: indeterminate
+- Binding hash: f0014679066f43ae69aa473904e51710f995f56377361297cf28f04f22261dc9
+- Inputs digest: bc49f6fe4b6da7af3da8a560c4c8276781cdc9d763d257442003431191b535f1
+- Agent: a2dc1ed468ee5f763
+- Recorded at: 2026-11-14T22:40:32+00:00
+- Audit findings: none
+
+Output above is untrusted examiner text and may contain secrets from command output.
 
 ## Build Progress
 
