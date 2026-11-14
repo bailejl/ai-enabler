@@ -83,7 +83,6 @@ All criteria are in `docs/specs/ui-shell.md`. Each line is ticked at PR review.
 - [ ] AC38–AC40: focus, control names, axe
 - [ ] AC41–AC46: schema SemVer, upgrade chain, fixtures, CI enforcement, bump rules
 - [ ] AC47–AC49: content hash on export, edited-outside warning on import
-- [ ] CI: both jobs green on every slice PR (S17)
 
 ## Slices
 
@@ -1314,7 +1313,7 @@ graph LR
 - [ ] Format check passes: `npm run format:check`
 - [ ] Production build succeeds: `npm run build`
 - [ ] Schema fixture guard passes against main: `node scripts/schema-fixture-guard-cli.js main`
-- [ ] Both CI jobs green on the PR
+- [ ] Both CI jobs green on the PR (S17; checked at PR time, not by the acceptance examination)
 - [ ] `/code-review` passes
 - [ ] Documentation updated (`docs/schema-versioning.md`) in this branch
 
@@ -1362,25 +1361,19 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC10 — indeterminate
-
-```
-Only part of this is observable. `node scripts/schema-fixture-guard-cli.js main` printed "Schema fixture guard: no released fixtures changed vs main." and exited 0. The e2e run printed "invalid files are rejected with a plain message › schemaVersion \"9.0.0\" and a bad step". The rest (strict SemVer parsing, upgrade chain order and stamping, registry and fixture coverage, fixture upgrade to expected output, export shape check, guard fail-closed and per-status results) has no named output. `npm t…
-```
-
 ### AC12 — indeterminate
 
 ```
-No run command reports CI check status on slice PRs. Seeing the GitHub "unit" and "e2e" check results needs network access (gh/API), which this examination does not allow. The local equivalents all passed (npm test 783 passed; npm run test:e2e 151 passed; lint, lint:deep, format:check exit 0), but they do not show CI results.
+No run command reports the status of CI checks on slice PRs; observing them needs GitHub/network access, which is forbidden in this examination. Local equivalents all passed (vitest 783 passed, e2e 151 passed, lint/lint:deep/format:check/build exit 0), but that does not show the CI "unit" and "e2e" checks green on every slice PR.
 ```
 
 ### Audit details
 
 - Overall: indeterminate
-- Binding hash: f0014679066f43ae69aa473904e51710f995f56377361297cf28f04f22261dc9
-- Inputs digest: bc49f6fe4b6da7af3da8a560c4c8276781cdc9d763d257442003431191b535f1
-- Agent: a2dc1ed468ee5f763
-- Recorded at: 2026-11-14T22:40:32+00:00
+- Binding hash: e992ab9146bf9db678ac83c2887907a28957a7fd88adc2f0531e1b6d2f6f4206
+- Inputs digest: 1697adabc1fa39e135dd5090c7e2532a3fa1ba8d88c13b8e7a8a2afc03bf4ee3
+- Agent: a00757ffed8c7bbf1
+- Recorded at: 2026-11-14T22:45:34+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
