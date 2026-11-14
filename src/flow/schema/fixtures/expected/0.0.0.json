@@ -66,6 +66,17 @@
         "queue": 1,
         "batch": 3
       }
+    },
+    {
+      "id": "review",
+      "type": "step",
+      "position": {
+        "x": 400,
+        "y": 200
+      },
+      "data": {
+        "label": "Review"
+      }
     }
   ],
   "edges": [
@@ -88,6 +99,11 @@
       "id": "build->release",
       "source": "build",
       "target": "release"
+    },
+    {
+      "id": "build->review",
+      "source": "build",
+      "target": "review"
     }
   ]
 }

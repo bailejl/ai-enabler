@@ -6,3 +6,6 @@
 graphify-out/
 CLAUDE.md
 package-lock.json
+
+# Upgrade snapshots are JSON.stringify output, not hand-formatted
+src/flow/schema/fixtures/expected/

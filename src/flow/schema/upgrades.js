@@ -19,7 +19,15 @@ const findPath = (registry, from, current) => {
   return version === current ? hops : null
 }
 
-const applyHop = (file, hop) => ({ ...hop.upgrade(file), schemaVersion: hop.to })
+const isPlainObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+// An upgrade that returns anything but an object counts as a failed upgrade, like a throw.
+const applyHop = (file, hop) => {
+  const upgraded = hop.upgrade(file)
+  if (!isPlainObject(upgraded)) throw new TypeError('upgrade did not return an object')
+  return { ...upgraded, schemaVersion: hop.to }
+}
 
 export const upgradeToCurrent = (
   file,
@@ -81,9 +89,11 @@ const findGaps = (registry) =>
     )
 
 const findHopsPastCurrent = (registry, current) =>
-  registry
-    .filter((hop) => parseSemver(hop.to) !== null && compareSemver(hop.to, current) > 0)
-    .map((hop) => `${describeHop(hop)} goes past the current version ${current}.`)
+  parseSemver(current) === null
+    ? [`The current version ${current} is not a valid version.`]
+    : registry
+        .filter((hop) => parseSemver(hop.to) !== null && compareSemver(hop.to, current) > 0)
+        .map((hop) => `${describeHop(hop)} goes past the current version ${current}.`)
 
 // Every structural problem with the registry, as messages. Empty when the registry is sound.
 export const findRegistryProblems = (registry, current) => [

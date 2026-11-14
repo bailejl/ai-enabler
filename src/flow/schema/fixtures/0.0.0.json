@@ -26,12 +26,19 @@
       "type": "step",
       "position": { "x": 400, "y": 0 },
       "data": { "label": "Release", "pt": 60, "lt": 720, "ca": 87.5, "queue": 1, "batch": 3 }
+    },
+    {
+      "id": "review",
+      "type": "step",
+      "position": { "x": 400, "y": 200 },
+      "data": { "label": "Review" }
     }
   ],
   "edges": [
     { "id": "idea->design", "source": "idea", "target": "design" },
     { "id": "idea->build", "source": "idea", "target": "build" },
     { "id": "design->release", "source": "design", "target": "release" },
-    { "id": "build->release", "source": "build", "target": "release" }
+    { "id": "build->release", "source": "build", "target": "release" },
+    { "id": "build->review", "source": "build", "target": "review" }
   ]
 }

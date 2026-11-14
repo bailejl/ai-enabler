@@ -82,9 +82,9 @@ describe('upgradeToCurrent', () => {
   })
 
   it('passes a current-version file through with the real registry', () => {
-    const input = deepFreeze(fileAt('0.0.0'))
+    const input = deepFreeze(fileAt(CURRENT_SCHEMA_VERSION))
 
-    expect(upgradeToCurrent(input)).toEqual({ ok: true, file: fileAt('0.0.0') })
+    expect(upgradeToCurrent(input)).toEqual({ ok: true, file: fileAt(CURRENT_SCHEMA_VERSION) })
   })
 
   it('returns a failure naming the version when an upgrade throws', () => {
@@ -97,6 +97,21 @@ describe('upgradeToCurrent', () => {
         },
       },
     ]
+
+    const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.1.0' })
+
+    expect(result).toEqual({
+      ok: false,
+      message: 'This file could not be upgraded from schema 0.0.0 to 0.1.0.',
+    })
+  })
+
+  it.each([
+    ['null', null],
+    ['an array', []],
+    ['a string', 'upgraded'],
+  ])('returns a failure naming the version when an upgrade returns %s', (_name, returned) => {
+    const registry = [{ from: '0.0.0', to: '0.1.0', upgrade: () => returned }]
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.1.0' })
 
@@ -124,14 +139,25 @@ describe('upgradeToCurrent', () => {
   })
 
   it.each([
-    ['a version with no upgrade path', fileAt('0.5.0')],
-    ['a missing version', { ...fileAt('0.0.0'), schemaVersion: undefined }],
-    ['a null file', null],
-  ])('returns a failure for %s', (_name, input) => {
+    [
+      'a version with no upgrade path',
+      fileAt('0.5.0'),
+      'This file uses schema 0.5.0, which this app cannot upgrade to 0.2.0.',
+    ],
+    [
+      'a missing version',
+      { ...fileAt('0.0.0'), schemaVersion: undefined },
+      'This file uses schema undefined, which this app cannot upgrade to 0.2.0.',
+    ],
+    [
+      'a null file',
+      null,
+      'This file uses schema undefined, which this app cannot upgrade to 0.2.0.',
+    ],
+  ])('returns a failure for %s', (_name, input, message) => {
     const result = upgradeToCurrent(input, { registry: multiHopRegistry, current: '0.2.0' })
 
-    expect(result.ok).toBe(false)
-    expect(result.message).toMatch(/cannot upgrade to 0\.2\.0/)
+    expect(result).toEqual({ ok: false, message })
   })
 
   it('ends with a failure on a cyclic registry', () => {
@@ -142,7 +168,10 @@ describe('upgradeToCurrent', () => {
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.2.0' })
 
-    expect(result.ok).toBe(false)
+    expect(result).toEqual({
+      ok: false,
+      message: 'This file uses schema 0.0.0, which this app cannot upgrade to 0.2.0.',
+    })
   })
 })
 
@@ -206,7 +235,8 @@ describe('findRegistryProblems', () => {
   it.each([
     ['from greater than to', [hop('0.1.0', '0.0.0')], '0.1.0', 'The upgrade 0.1.0 to 0.0.0'],
     ['from equal to to', [hop('0.1.0', '0.1.0')], '0.1.0', 'The upgrade 0.1.0 to 0.1.0'],
-    ['a version that is not SemVer', [hop('1.0', '0.1.0')], '0.1.0', 'The upgrade 1.0 to 0.1.0'],
+    ['a from that is not SemVer', [hop('1.0', '0.1.0')], '0.1.0', 'The upgrade 1.0 to 0.1.0'],
+    ['a to that is not SemVer', [hop('0.1.0', '1.0')], '0.1.0', 'The upgrade 0.1.0 to 1.0'],
   ])('flags %s', (_name, registry, current, expected) => {
     expect(findRegistryProblems(registry, current)).toEqual([
       `${expected} must go from a lower version to a higher one.`,
@@ -216,6 +246,7 @@ describe('findRegistryProblems', () => {
   it('flags two upgrades that start at the same version', () => {
     const registry = [hop('0.0.0', '0.1.0'), hop('0.0.0', '0.2.0')]
 
+    // Both reports are intended: the duplicate start, and the gap it leaves between the two hops.
     expect(findRegistryProblems(registry, '0.2.0')).toEqual([
       'More than one upgrade starts at 0.0.0.',
       'The upgrade 0.0.0 to 0.1.0 is followed by one that starts at 0.0.0.',
@@ -233,6 +264,12 @@ describe('findRegistryProblems', () => {
   it('flags an upgrade that goes past the current version', () => {
     expect(findRegistryProblems([hop('0.0.0', '0.3.0')], '0.2.0')).toEqual([
       'The upgrade 0.0.0 to 0.3.0 goes past the current version 0.2.0.',
+    ])
+  })
+
+  it('flags a current version that is not SemVer', () => {
+    expect(findRegistryProblems([hop('0.0.0', '0.1.0')], '1.0')).toEqual([
+      'The current version 1.0 is not a valid version.',
     ])
   })
 
@@ -295,6 +332,9 @@ describe.each(RELEASED_SCHEMA_VERSIONS)('the %s fixture', (version) => {
   it('upgrades to its expected output', async () => {
     const { result } = upgradeFixture()
 
+    // Once real hops exist, hand-review this expected file before accepting a -u update: a
+    // regenerated snapshot would otherwise bless whatever the upgrade now does.
+    expect(result.ok).toBe(true)
     await expect(`${JSON.stringify(result.file, null, 2)}\n`).toMatchFileSnapshot(
       `./fixtures/expected/${version}.json`,
     )
