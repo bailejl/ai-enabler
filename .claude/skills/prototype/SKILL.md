@@ -28,18 +28,21 @@ refuses and points to `/prototype start <name>`.
 ## Prototype server
 
 `npm run dev:prototype` tries port 3001 and moves to the next free port if 3001 is taken. Never
-assume 3001. Get the URL with these commands.
+assume 3001. Get the URL with these commands. Find matches the `--mode prototype` flag in the
+`dev:prototype` script in `package.json`; if you change that script, change Find too.
 
 - Find: run `pgrep -f 'vite --mode prototype'`. Keep a pid only if its cwd equals
   `git rev-parse --show-toplevel` (cwd from `lsof -a -p <pid> -d cwd -Fn`, strip the leading `n`)
   and it is listening (below). The `npm exec` parent also matches but does not listen; skip it.
+  If more than one pid remains, use the one with the lowest port and tell the user the others are
+  running.
 - Port: `lsof -a -p <pid> -iTCP -sTCP:LISTEN -P -n -Fn`. The port is the text after the last `:`
   on the `n` line.
 - Prototype URL: `http://localhost:<port>`.
 - Start: run `npm run dev:prototype` in the background (`run_in_background`). Read its output for
   up to about 30 seconds until a `Local:   http://localhost:<port>/` line appears, then confirm
-  with `curl -sf <url>`. If neither succeeds, show the server output and report the failure. Do
-  not report a URL.
+  with `curl -sf <url>`. If the line does not appear, or curl fails, show the server output and
+  report the failure. Do not report a URL.
 - Stop: `kill <pid>` for each pid that Find returns.
 
 ## start <name>
@@ -66,8 +69,9 @@ Then:
 Use this section on a `proto/*` branch for any UI request, including bare `/prototype`.
 
 1. Edit the code directly.
-2. Check it in the browser with the Playwright MCP tools: navigate to the prototype URL (see Prototype server),
-   take a screenshot into `.playwright-mcp/` (gitignored), and read
+2. Find the prototype server; if none is running, start it (see Prototype server). Check the
+   change in the browser with the Playwright MCP tools: navigate to the prototype URL, take a
+   screenshot into `.playwright-mcp/` (gitignored), and read
    `mcp__playwright__browser_console_messages`.
 3. A step works when the page renders with no console errors. Ignore a 404 for `/favicon.ico`.
    Any other console error fails the step. Fix it before you commit.
