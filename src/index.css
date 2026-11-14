@@ -1,3 +1,14 @@
+:root {
+  --header-height: 3rem;
+  --menu-width: 16rem;
+  --header-gap: 0.75rem;
+  --header-padding: 1rem;
+  --mark-size: 1.5rem;
+  --divider-height: 1.5rem;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+}
+
 html,
 body,
 #root {
@@ -5,8 +16,70 @@ body,
   height: 100%;
 }
 
-.canvas {
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--menu-width) minmax(0, 1fr);
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  grid-template-areas:
+    'header header'
+    'menu canvas';
   height: 100%;
+  background: var(--page-background);
+  font-family: system-ui, sans-serif;
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: var(--header-gap);
+  padding: 0 var(--header-padding);
+  background: var(--header-background);
+  color: var(--header-text);
+}
+
+.header__mark {
+  flex: none;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  fill: var(--header-text);
+  stroke: var(--header-text);
+  stroke-width: 2;
+}
+
+.header__brand {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.header__divider {
+  flex: none;
+  height: var(--divider-height);
+  border-left: 1px solid var(--header-text);
+}
+
+.header__project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  grid-area: menu;
+  background: var(--menu-background);
+  color: var(--menu-text);
+}
+
+.canvas {
+  grid-area: canvas;
+  min-height: 0;
 }
 
 .visually-hidden {

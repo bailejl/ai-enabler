@@ -3,7 +3,7 @@ import { initialEdges, initialNodes } from '../src/flow/initialFlow.js'
 
 test('value stream canvas shows the starter stages and links', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveTitle('ai-enabler')
+  await expect(page).toHaveTitle('Untitled Project · AI Enabler')
   await expect(page.getByRole('main')).toHaveAccessibleName('Value stream map')
   await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes.length)
   await expect(page.locator('.react-flow__edge')).toHaveCount(initialEdges.length)
