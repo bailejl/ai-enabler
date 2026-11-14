@@ -62,10 +62,17 @@ test("only Production has a batch badge B 3, named and in the card's upper-right
 })
 
 test('each card has one left target handle and one right source handle', async ({ page }) => {
-  const card = cardByTitle(page, 'Build')
-  await expect(card.locator('.react-flow__handle')).toHaveCount(2)
-  await expect(card.locator('.react-flow__handle-left.target')).toHaveCount(1)
-  await expect(card.locator('.react-flow__handle-right.source')).toHaveCount(1)
+  const cards = page.locator('.react-flow__node')
+  await expect(cards.locator('.react-flow__handle')).toHaveCount(STARTER_STEP_COUNT * 2)
+  await expect(cards.locator('.react-flow__handle-left.target')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(cards.locator('.react-flow__handle-right.source')).toHaveCount(STARTER_STEP_COUNT)
+  // Every card holds exactly one of each, so none has two of one kind and none of the other.
+  await expect(cards.filter({ has: page.locator('.react-flow__handle-left.target') })).toHaveCount(
+    STARTER_STEP_COUNT,
+  )
+  await expect(cards.filter({ has: page.locator('.react-flow__handle-right.source') })).toHaveCount(
+    STARTER_STEP_COUNT,
+  )
 })
 
 test('the default view with step cards has no accessibility violations', async ({ page }) => {

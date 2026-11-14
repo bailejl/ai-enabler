@@ -1,9 +1,19 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
-import { cardByTitle, connect, edgeBetween, edges, leftHandle, rightHandle } from './canvas.js'
+import {
+  cardByTitle,
+  connect,
+  dragHandleOverEmptyCanvas,
+  dragHandleToEmptyCanvas,
+  edgeBetween,
+  edges,
+  leftHandle,
+  rightHandle,
+} from './canvas.js'
 
 const STARTER_STEP_COUNT = 6
 const STARTER_EDGE_COUNT = 5
+const MIN_HANDLE_HIT_SIZE = 20
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
@@ -32,6 +42,14 @@ test('Test has two incoming connections once Idea connects to it as well as Buil
 })
 
 test.describe('invalid connections leave the edge count unchanged', () => {
+  // The control connect proves the drag mechanics work, so a misfiring drag cannot pass these.
+  const expectRejectedThenValidConnectionAdds = async (page, attemptRejectedDrag) => {
+    await attemptRejectedDrag()
+    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
+    await connect(page, 'Idea', 'Test')
+    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT + 1)
+  }
+
   const cases = [
     ['Production right to Plan left (loop)', 'Production', 'Plan'],
     ['Idea right to Plan left (duplicate)', 'Idea', 'Plan'],
@@ -39,21 +57,20 @@ test.describe('invalid connections leave the edge count unchanged', () => {
   ]
   for (const [name, from, to] of cases) {
     test(name, async ({ page }) => {
-      await connect(page, from, to)
-      await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
+      await expectRejectedThenValidConnectionAdds(page, () => connect(page, from, to))
     })
   }
 
   test('Idea right to empty canvas', async ({ page }) => {
-    await rightHandle(page, 'Idea').dragTo(page.locator('.react-flow__pane'), {
-      targetPosition: { x: 400, y: 400 },
-    })
-    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
+    await expectRejectedThenValidConnectionAdds(page, () =>
+      dragHandleToEmptyCanvas(page, rightHandle(page, 'Idea')),
+    )
   })
 
   test('Test left to Build right (target to source)', async ({ page }) => {
-    await leftHandle(page, 'Test').dragTo(rightHandle(page, 'Build'))
-    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
+    await expectRejectedThenValidConnectionAdds(page, () =>
+      leftHandle(page, 'Test').dragTo(rightHandle(page, 'Build')),
+    )
   })
 })
 
@@ -82,34 +99,58 @@ test.describe('handle visibility', () => {
     await expect(rightHandle(page, 'Idea')).toHaveCSS('opacity', '1')
   })
 
+  test('a handle hit area is at least 20 by 20 pixels', async ({ page }) => {
+    // Layout size: the canvas zoom scales the on-screen box, not the CSS hit area.
+    const { width, height } = await rightHandle(page, 'Idea').evaluate((handle) => ({
+      width: handle.offsetWidth,
+      height: handle.offsetHeight,
+    }))
+    expect(width).toBeGreaterThanOrEqual(MIN_HANDLE_HIT_SIZE)
+    expect(height).toBeGreaterThanOrEqual(MIN_HANDLE_HIT_SIZE)
+  })
+
   test('every other card shows its left handle while a connection is dragged, then hides unconnected ones on release', async ({
     page,
   }) => {
-    const unconnected = leftHandle(page, 'Idea')
-    await expect(unconnected).toHaveCSS('opacity', '0')
+    // Free Build's and Deploy's left handles so the drag has hidden handles to reveal.
+    await selectEdge(page, 'plan', 'build')
+    await page.keyboard.press('Delete')
+    await selectEdge(page, 'test', 'deploy')
+    await page.keyboard.press('Delete')
+    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT - 2)
 
-    const box = await rightHandle(page, 'Idea').boundingBox()
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 150, { steps: 5 })
+    const buildLeft = leftHandle(page, 'Build')
+    const deployLeft = leftHandle(page, 'Deploy')
+    await expect(buildLeft).toHaveCSS('opacity', '0')
+    await expect(deployLeft).toHaveCSS('opacity', '0')
 
-    for (const title of ['Plan', 'Build', 'Test', 'Deploy', 'Production']) {
-      await expect(leftHandle(page, title)).toHaveCSS('opacity', '1')
-    }
+    await dragHandleOverEmptyCanvas(page, rightHandle(page, 'Idea'))
+    await expect(leftHandle(page, 'Plan')).toHaveCSS('opacity', '1')
+    await expect(buildLeft).toHaveCSS('opacity', '1')
+    await expect(leftHandle(page, 'Test')).toHaveCSS('opacity', '1')
+    await expect(deployLeft).toHaveCSS('opacity', '1')
+    await expect(leftHandle(page, 'Production')).toHaveCSS('opacity', '1')
 
     await page.mouse.up()
-    await expect(unconnected).toHaveCSS('opacity', '0')
-    await expect(rightHandle(page, 'Production')).toHaveCSS('opacity', '0')
+    await expect(buildLeft).toHaveCSS('opacity', '0')
+    await expect(deployLeft).toHaveCSS('opacity', '0')
+    await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT - 2)
   })
 })
 
 const selectEdge = async (page, from, to) => {
-  // The interaction path is an invisible stroke (and flat for a straight edge), so click its midpoint.
-  const box = await edgeBetween(page, from, to)
-    .locator('.react-flow__edge-interaction')
-    .boundingBox()
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-  await expect(edgeBetween(page, from, to)).toHaveClass(/selected/)
+  const edge = edgeBetween(page, from, to)
+  // The interaction path is an invisible stroke (flat for a straight edge), so Playwright's
+  // actionability checks reject a locator click; click its midpoint after checking what is there.
+  const box = await edge.locator('.react-flow__edge-interaction').boundingBox()
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  const labelAtPoint = await page.evaluate(
+    ({ x, y }) => document.elementFromPoint(x, y)?.closest('.react-flow__edge')?.ariaLabel,
+    point,
+  )
+  expect(labelAtPoint).toBe(`Edge from ${from} to ${to}`)
+  await page.mouse.click(point.x, point.y)
+  await expect(edge).toHaveClass(/selected/)
 }
 
 const selectStep = async (page, title) => {
