@@ -151,13 +151,14 @@ body,
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .metric__status {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* Seven tiles share one row from this width; below it they wrap instead of squeezing. */

@@ -37,7 +37,9 @@ test('the starter metrics show seven tiles in spec order as term and description
 test('deleting Idea updates the card count and every tile in the same update', async ({ page }) => {
   await page.goto('/')
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
-  await cards(page).filter({ hasText: 'Idea' }).click()
+  await cards(page)
+    .filter({ has: page.getByText('Idea', { exact: true }) })
+    .click()
   await page.keyboard.press('Backspace')
 
   await expect
@@ -81,16 +83,57 @@ for (const [width, rows, isExpectedRowCount] of WIDTHS) {
     await page.goto('/')
     await expect(tiles(page)).toHaveCount(STARTER_TILES.length)
 
-    const tops = await tiles(page).evaluateAll((elements) =>
-      elements.map((element) => Math.round(element.getBoundingClientRect().top)),
-    )
-    const clippedValues = await tiles(page)
-      .locator('dd')
-      .evaluateAll((elements) =>
-        elements.filter((element) => element.scrollWidth > element.clientWidth),
+    await page.evaluate(() => document.fonts.ready)
+
+    await expect
+      .poll(async () => {
+        const tops = await tiles(page).evaluateAll((elements) =>
+          elements.map((element) => Math.round(element.getBoundingClientRect().top)),
+        )
+        return isExpectedRowCount(new Set(tops).size)
+      })
+      .toBe(true)
+    await expect
+      .poll(() =>
+        tiles(page)
+          .locator('dd')
+          .evaluateAll((elements) =>
+            elements
+              .filter((element) => element.scrollWidth > element.clientWidth)
+              .map((element) => element.textContent),
+          ),
       )
-    expect(clippedValues).toEqual([])
-    expect(isExpectedRowCount(new Set(tops).size)).toBe(true)
+      .toEqual([])
+  })
+}
+
+const SINGLE_LINE_WIDTHS = [1200, 1024]
+
+for (const width of SINGLE_LINE_WIDTHS) {
+  test(`at ${width}px every value and status stays on a single line`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 })
+    await page.goto('/')
+    await expect(tiles(page)).toHaveCount(STARTER_TILES.length)
+    await page.evaluate(() => document.fonts.ready)
+
+    await expect
+      .poll(() =>
+        tiles(page)
+          .locator('dd')
+          .evaluateAll((elements) =>
+            elements.flatMap((element) =>
+              [...element.childNodes, ...element.querySelectorAll('.metric__status')]
+                .filter((node) => node.textContent.trim() !== '')
+                .filter((node) => {
+                  const range = document.createRange()
+                  range.selectNodeContents(node)
+                  return range.getClientRects().length > 1
+                })
+                .map((node) => node.textContent),
+            ),
+          ),
+      )
+      .toEqual([])
   })
 }
 
