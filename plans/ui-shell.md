@@ -1264,14 +1264,14 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 - [x] Slice 1: CI workflow
   - [x] Step 1.1: Add the unit and e2e CI jobs
 
-- [ ] Slice 2: Shell layout, header, help menu, and accessibility baseline
-  - [ ] Step 2.1: Create the starter project identity
-  - [ ] Step 2.2: Add theme tokens and a contrast checker
-  - [ ] Step 2.3: Render the shell grid and the header
-  - [ ] Step 2.4: Add the help menu
+- [x] Slice 2: Shell layout, header, help menu, and accessibility baseline
+  - [x] Step 2.1: Create the starter project identity
+  - [x] Step 2.2: Add theme tokens and a contrast checker
+  - [x] Step 2.3: Render the shell grid and the header
+  - [x] Step 2.4: Add the help menu
 
 - [ ] Slice 3: Pure value stream logic
-  - [ ] Step 3.1: Format working-day durations
+  - [x] Step 3.1: Format working-day durations
   - [ ] Step 3.2: Give starter steps their sample data and node type
   - [ ] Step 3.3: Compute and rate the metrics as tiles
   - [ ] Step 3.4: Build the card view of a step
