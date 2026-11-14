@@ -37,14 +37,17 @@ const hasBadOptionalField = (field, isValid) => (node) => {
 
 const invalidField = (noun) => (name) => `${name} has an invalid ${noun}.`
 
-const findDuplicateId = (nodes) => {
+// The first id that an earlier item already used, or undefined. Items are untrusted: null is skipped.
+const findDuplicateId = (items) => {
   const seen = new Set()
-  for (const { id } of nodes) {
-    if (seen.has(id)) return id
-    seen.add(id)
+  for (const item of items) {
+    if (seen.has(item?.id)) return item.id
+    seen.add(item?.id)
   }
   return undefined
 }
+
+const connectionName = (index) => `Connection ${index + 1}`
 
 const hasMissingEndpoint = (nodes) => {
   const ids = new Set(nodes.map((node) => node.id))
@@ -98,6 +101,14 @@ const RULES = [
   (file) => {
     const id = findDuplicateId(file.nodes)
     return id === undefined ? null : `Two steps share the id "${id}".`
+  },
+  (file) => {
+    const index = file.edges.findIndex((edge) => !isNonEmptyString(edge?.id))
+    return index === -1 ? null : `${connectionName(index)} is missing an id.`
+  },
+  (file) => {
+    const id = findDuplicateId(file.edges)
+    return id === undefined ? null : `Two connections share the id "${id}".`
   },
   (file) =>
     file.edges.some(hasMissingEndpoint(file.nodes))

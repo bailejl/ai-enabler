@@ -39,6 +39,12 @@ const withEdges = (...pairs) => ({
   edges: pairs.map(([source, target], i) => ({ id: `edge-${i}`, source, target })),
 })
 
+// Replaces the connection at the 1-based position with the result of change(connection).
+const withEdge = (position, change, file = validFile()) => ({
+  ...file,
+  edges: file.edges.map((edge, i) => (i === position - 1 ? change(edge) : edge)),
+})
+
 const withProject = (patch) => ({ ...validFile(), project: { ...validFile().project, ...patch } })
 
 const deepFreeze = (value) => {
@@ -190,11 +196,6 @@ describe('validateProjectFile: ids and connections', () => {
       'A connection points to a step that is not there.',
     ],
     [
-      'a null connection',
-      { ...validFile(), edges: [null] },
-      'A connection points to a step that is not there.',
-    ],
-    [
       'a step connected to itself',
       withEdges(['plan', 'plan']),
       'Step "Plan" (#2) connects to itself.',
@@ -213,6 +214,31 @@ describe('validateProjectFile: ids and connections', () => {
       'a two-step loop',
       withEdges(['plan', 'build'], ['build', 'plan']),
       'The connections form a loop.',
+    ],
+    [
+      'a connection with no id',
+      withEdge(2, (edge) => withoutKey(edge, 'id')),
+      'Connection 2 is missing an id.',
+    ],
+    [
+      'a connection with the numeric id 42',
+      withEdge(2, (edge) => ({ ...edge, id: 42 })),
+      'Connection 2 is missing an id.',
+    ],
+    [
+      'a connection with an empty id',
+      withEdge(2, (edge) => ({ ...edge, id: '' })),
+      'Connection 2 is missing an id.',
+    ],
+    [
+      'a null connection before the endpoint check',
+      withEdge(2, () => null),
+      'Connection 2 is missing an id.',
+    ],
+    [
+      'two connections with id "idea->plan"',
+      withEdge(2, (edge) => ({ ...edge, id: 'idea->plan' })),
+      'Two connections share the id "idea->plan".',
     ],
     ['an empty project id', withProject({ id: '' }), 'The project id is missing.'],
     ['a numeric project id', withProject({ id: 7 }), 'The project id is missing.'],
@@ -238,12 +264,42 @@ describe('validateProjectFile: ids and connections', () => {
 })
 
 describe('validateProjectFile: first problem wins', () => {
+  const duplicateNodeAndEdgeId = withEdge(
+    2,
+    (edge) => ({ ...edge, id: 'idea->plan' }),
+    withStep(3, (node) => ({ ...node, id: 'plan' })),
+  )
+  const missingEdgeIdAndEndpoint = withEdge(1, (edge) => ({
+    ...withoutKey(edge, 'id'),
+    target: 'ghost',
+  }))
+  const duplicateEdgeIdAndEndpoint = withEdge(2, (edge) => ({
+    ...edge,
+    id: 'idea->plan',
+    target: 'ghost',
+  }))
+
   const missingPositionAndLoop = {
     ...withStep(3, (node) => withoutKey(node, 'position')),
     edges: withEdges(['idea', 'plan'], ['plan', 'build'], ['build', 'idea']).edges,
   }
 
   it.each([
+    [
+      'a duplicate step id and a duplicate connection id',
+      duplicateNodeAndEdgeId,
+      'Two steps share the id "plan".',
+    ],
+    [
+      'a missing connection id and a connection to a missing step',
+      missingEdgeIdAndEndpoint,
+      'Connection 1 is missing an id.',
+    ],
+    [
+      'a duplicate connection id and a connection to a missing step',
+      duplicateEdgeIdAndEndpoint,
+      'Two connections share the id "idea->plan".',
+    ],
     [
       'a missing position and a loop',
       missingPositionAndLoop,
@@ -351,6 +407,7 @@ describe('validateProjectFile: untrusted input', () => {
   const MISSING_ID = 'Step #1 is missing an id.'
   const NO_PROJECT_NAME = 'The project name is empty.'
   const MISSING_ENDPOINT = 'A connection points to a step that is not there.'
+  const MISSING_CONNECTION_ID = 'Connection 1 is missing an id.'
 
   it.each([
     ['null first', null, MISSING_ID],
@@ -368,16 +425,21 @@ describe('validateProjectFile: untrusted input', () => {
   })
 
   it.each([
-    ['null first', null],
-    ['a number first', 5],
-    ['a string first', 'x'],
-    ['an array first', []],
-    ['an object with object endpoints first', { source: {}, target: [] }],
-  ])('returns a failure instead of throwing for connections with %s', (_label, garbage) => {
-    expect(validateProjectFile({ ...validFile(), edges: [garbage] })).toEqual(
-      fail(MISSING_ENDPOINT),
-    )
-  })
+    ['null first', null, MISSING_CONNECTION_ID],
+    ['a number first', 5, MISSING_CONNECTION_ID],
+    ['a string first', 'x', MISSING_CONNECTION_ID],
+    ['an array first', [], MISSING_CONNECTION_ID],
+    [
+      'an object with object endpoints first',
+      { id: 'e', source: {}, target: [] },
+      MISSING_ENDPOINT,
+    ],
+  ])(
+    'returns a failure instead of throwing for connections with %s',
+    (_label, garbage, message) => {
+      expect(validateProjectFile({ ...validFile(), edges: [garbage] })).toEqual(fail(message))
+    },
+  )
 
   it.each([
     ['a string project', { ...validFile(), project: 'Delivery' }, NO_PROJECT_NAME],
