@@ -81,7 +81,7 @@ All criteria are in `docs/specs/ui-shell.md`. Each line is ticked at PR review.
 - [ ] AC28–AC30: export
 - [ ] AC31–AC37: import, with every replace confirmed (S16)
 - [ ] AC38–AC40: focus, control names, axe
-- [ ] AC41–AC46: schema SemVer, upgrade chain, fixtures, CI enforcement, bump rules
+- [ ] AC41–AC46: schema SemVer, upgrade chain, fixtures, fixture guard run by the CI workflow, bump rules
 - [ ] AC47–AC49: content hash on export, edited-outside warning on import
 
 ## Slices
@@ -1313,6 +1313,7 @@ graph LR
 - [ ] Format check passes: `npm run format:check`
 - [ ] Production build succeeds: `npm run build`
 - [ ] Schema fixture guard passes against main: `node scripts/schema-fixture-guard-cli.js main`
+- [ ] CI workflow runs the fixture guard: `grep -n schema-fixture-guard-cli .github/workflows/ci.yml`
 - [ ] Both CI jobs green on the PR (S17; checked at PR time, not by the acceptance examination)
 - [ ] `/code-review` passes
 - [ ] Documentation updated (`docs/schema-versioning.md`) in this branch
@@ -1361,19 +1362,89 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC12 — indeterminate
+### AC10 — indeterminate
 
 ```
-No run command reports the status of CI checks on slice PRs; observing them needs GitHub/network access, which is forbidden in this examination. Local equivalents all passed (vitest 783 passed, e2e 151 passed, lint/lint:deep/format:check/build exit 0), but that does not show the CI "unit" and "e2e" checks green on every slice PR.
+CI enforcement is not observable from any local run command; it needs a pull request's CI checks (unit/e2e green and red), and network calls are out of scope. Everything that could be checked locally passed: npx vitest run --reporter=verbose gave 'Tests 783 passed (783)', including '✓ src/flow/schema/version.test.js > parseSemver ...', '✓ src/flow/schema/upgrades.test.js > the real registry > lets every released version reach the current version', '✓ ... the 0.0.0 fixture > upgrades to its expec…
+```
+
+### AC1 — met
+
+```
+$ npm run test:e2e
+✓ e2e/shell.spec.js:15:1 › the header shows the mark, the brand, a divider, and the project name; ✓ e2e/shell.spec.js:26:1 › the document title names the project and the app; ✓ e2e/shell.spec.js:38:1 › a long project name truncates without hiding the brand; ✓ e2e/export-import.spec.js:582:1 › a 100-character project name is truncated and keeps Import and Export in view at 1024px; ✓ e2e/export-import.spec.js:34:1 › the header offers Export with a descriptive accessible name; ✓ e2e/export-import.s…
+```
+
+### AC2 — met
+
+```
+$ npm run test:e2e
+✓ e2e/shell.spec.js:110:1 › the three help sections start collapsed; ✓ e2e/shell.spec.js:124:3 › with every help section expanded › the glossary has exactly the required entries; ✓ ...the glossary defines Step ... Needs attention (16 terms); ✓ e2e/shell.spec.js:139:5 › with every help section expanded › How to use has text; ✓ ... › Help has text; ✓ e2e/shell.spec.js:153:3 › with every help section expanded › the help menu has no buttons or links; 151 passed (18.6s)
+```
+
+### AC3 — met
+
+```
+$ npm run test:e2e
+✓ e2e/cards.spec.js:16:1 › the Build card shows its title and PT, LT and %C&A values; ✓ e2e/cards.spec.js:50:1 › the Build card rows are spoken as their full names; ✓ e2e/cards.spec.js:61:1 › Idea's queue badge Q 20 is named and sits in the card's upper-left quarter; ✓ e2e/cards.spec.js:76:1 › only Production has a batch badge B 3, named and in the card's upper-right quarter; ✓ e2e/cards.spec.js:104:1 › the default view with step cards has no accessibility violations. Unit run also shows ✓ src/f…
+```
+
+### AC4 — met
+
+```
+$ npm run test:e2e
+✓ e2e/connections.spec.js:26:1 › connecting Idea to Test adds an edge whose end has an arrowhead marker; ✓ e2e/connections.spec.js:37:1 › Test has two incoming connections once Idea connects to it as well as Build; ✓ invalid connections leave the edge count unchanged › Production right to Plan left (loop) / Idea right to Plan left (duplicate) / Plan right to Plan left (self) / Idea right to empty canvas / Test left to Build right (target to source); ✓ e2e/connections.spec.js:79:1 › successive co…
+```
+
+### AC5 — met
+
+```
+$ npm run test:e2e
+✓ e2e/metrics.spec.js:20:1 › the starter metrics show seven tiles in spec order as term and description pairs; ✓ e2e/metrics.spec.js:29:1 › deleting Idea updates the card count and every tile in the same update; ✓ with every step deleted › every tile shows a dash and no status text; ✓ with every step deleted › the canvas explains the empty map in a status region; ✓ at 1200px / 1024px the tiles occupy one row without clipping a value; ✓ at 1023px / 800px the tiles occupy more than one row without…
+```
+
+### AC6 — met
+
+```
+$ npm run test:e2e
+✓ e2e/shell.spec.js:50:1 › reloading after deleting Idea restores six steps and stores nothing (470ms)
+```
+
+### AC7 — met
+
+```
+$ npm run test:e2e
+✓ e2e/export-import.spec.js:59:3 › exporting the starter project after selecting Build › downloads untitled-project.ai-enabler.json at schema 0.0.0 with the project identity; ✓ e2e/export-import.spec.js:75:3 › ... › carries no React Flow runtime fields on nodes and only id, source, target on edges; ✓ e2e/export-import.spec.js:90:3 › ... › announces the exported file name in the live region; ✓ e2e/export-import.spec.js:190:1 › exporting then importing that file and confirming leaves the nodes, ed…
+```
+
+### AC8 — met
+
+```
+$ npm run test:e2e
+✓ importing a file with three steps › a same-name file asks first, with focus on Cancel and both project names in the body; ✓ ... › replacing shows the three cards in the canvas, keeps the project id, then announces and shows the outcome; ✓ ... › a different-name file asks, then takes the name and id and recomputes every tile; ✓ ... › a file whose id matches the open project still asks the different-name question; ✓ ... › name matching is exact: a case-different name asks the different-name ques…
+```
+
+### AC9 — met
+
+```
+$ npm run test:e2e
+✓ e2e/a11y.spec.js:38:1 › the default view has no axe violations; ✓ all three help sections expanded have no axe violations; ✓ an import error has no axe violations; ✓ the import confirmation open has no axe violations; ✓ the empty map has no axe violations; ✓ an imported map with On target and Needs attention tiles has no axe violations; ✓ a selected step and a selected connection have no axe violations; ✓ every control shows a visible focus indicator › the Import button / Export button / help …
+```
+
+### AC11 — met
+
+```
+$ npm run test:e2e
+✓ e2e/export-import.spec.js:646:3 › edit detection › an exported file carries a contentHash that recomputes from the rest of the file; ✓ ... › an untouched export imports with no mention of outside changes; ✓ ... › when a step label was edited the confirmation warns, Replace map still works, and the outcome repeats the warning; ✓ ... › when the contentHash was removed ...; ✓ ... › when the contentHash is a number ...; ✓ invalid files are rejected with a plain message › connection #2 with no id /…
 ```
 
 ### Audit details
 
 - Overall: indeterminate
-- Binding hash: e992ab9146bf9db678ac83c2887907a28957a7fd88adc2f0531e1b6d2f6f4206
-- Inputs digest: 1697adabc1fa39e135dd5090c7e2532a3fa1ba8d88c13b8e7a8a2afc03bf4ee3
-- Agent: a00757ffed8c7bbf1
-- Recorded at: 2026-11-14T22:45:34+00:00
+- Binding hash: bef7402aa5dff0f0b9cc09d91896a47296eefe1f7c4051441428ea45ae8d78fe
+- Inputs digest: 24efd6298d33378db2bd2189ad75aa71643190556fabac3eeb9f08c1e4b6dfed
+- Agent: a0cb11cf0dd59a1d2
+- Recorded at: 2026-11-14T22:53:47+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
