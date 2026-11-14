@@ -1270,12 +1270,12 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
   - [x] Step 2.3: Render the shell grid and the header
   - [x] Step 2.4: Add the help menu
 
-- [ ] Slice 3: Pure value stream logic
+- [x] Slice 3: Pure value stream logic
   - [x] Step 3.1: Format working-day durations
-  - [ ] Step 3.2: Give starter steps their sample data and node type
-  - [ ] Step 3.3: Compute and rate the metrics as tiles
-  - [ ] Step 3.4: Build the card view of a step
-  - [ ] Step 3.5: Check connections
+  - [x] Step 3.2: Give starter steps their sample data and node type
+  - [x] Step 3.3: Compute and rate the metrics as tiles
+  - [x] Step 3.4: Build the card view of a step
+  - [x] Step 3.5: Check connections
 
 ### Wave 2
 
