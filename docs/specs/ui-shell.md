@@ -179,6 +179,7 @@ These items are out of scope, and each gets a separate spec:
   - Where present, `data.pt`, `data.lt`, `data.queue`, and `data.batch` are non-negative integers.
   - Where present, `data.ca` is a number from 0 to 100.
   - Node ids are unique.
+  - Every edge has a non-empty string `id`, and edge ids are unique.
   - Every edge references existing node ids.
   - The edges satisfy AC15.
 
@@ -190,6 +191,12 @@ These items are out of scope, and each gets a separate spec:
 - **AC35:** Cancelling either import confirmation changes nothing.
 - **AC36:** The `project.id` in an imported file never decides matching. Matching is by name, per AC33–34. [S5, S6]
 - **AC37:** Every outcome of an import (replaced, cancelled, or error) is announced in a polite live region. Focus returns to the Import control. [H §UX notes a11y 4.1.3]
+
+### Edit detection
+
+- **AC47:** Export writes a top-level `contentHash`: `sha256-` followed by the lowercase hex SHA-256 of the file's canonical JSON without `contentHash`. Canonical JSON sorts object keys at every level and has no whitespace. Because no schema version is released yet, the field belongs to schema `0.0.0`. [User request]
+- **AC48:** On import, the app recomputes the hash over the file as read, before any upgrade, excluding `contentHash`. If `contentHash` is missing, is not a string, or does not match, the file counts as edited outside the app. The confirmation (AC33–34) then adds the line "This file was changed outside AI Enabler after it was exported." The user can still replace. The outcome announcement (AC37) includes the same line. Validation (AC31) is unchanged and still decides whether a file can be imported at all. [User request]
+- **AC49:** The hash detects edits made outside the app. It is not a security control: anyone can recompute it. `docs/schema-versioning.md` says so. [Inferred]
 
 ### Schema versioning and upgrades
 

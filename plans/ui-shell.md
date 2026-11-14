@@ -82,6 +82,7 @@ All criteria are in `docs/specs/ui-shell.md`. Each line is ticked at PR review.
 - [ ] AC31–AC37: import, with every replace confirmed (S16)
 - [ ] AC38–AC40: focus, control names, axe
 - [ ] AC41–AC46: schema SemVer, upgrade chain, fixtures, CI enforcement, bump rules
+- [ ] AC47–AC49: content hash on export, edited-outside warning on import
 - [ ] CI: both jobs green on every slice PR (S17)
 
 ## Slices
@@ -1174,6 +1175,102 @@ Also the 320px reflow check.
 **Covers**: AC38, AC40
 **Commit**: `feat: verify focus indicators and reflow`
 
+### Slice 9: Edge id validation and edit detection
+
+**Depends-on:** 8
+**Added:** 2026-11-14 at the backstop review, on the user's request. AC31 gained the edge id rule. AC47–AC49 are new.
+**Files:** `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`, `src/flow/contentHash.js`, `src/flow/contentHash.test.js`, `src/flow/projectFile.js`, `src/flow/projectFile.test.js`, `src/flow/importFile.js`, `src/flow/importFile.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/useProject.js`, `src/shell/ConfirmDialog.jsx`, `src/flow/schema/fixtures/0.0.0.json`, `src/flow/schema/fixtures/expected/0.0.0.json`, `e2e/export-import.spec.js`, `e2e/fixtures/*.json`, `docs/schema-versioning.md`
+
+- **D12. Edge id messages** follow D8's node wording: "Connection <n> is missing an id." and "Two connections share the id \"<id>\"." They are checked after node ids are unique and before edge references (AC31 order).
+- **D13. Hash:** `contentHash(file, { digest })` in `src/flow/contentHash.js` is pure apart from the injected `digest` (default `crypto.subtle.digest('SHA-256', bytes)`). The value is canonical JSON with keys sorted at every level, no whitespace, and `contentHash` dropped, encoded as UTF-8. Export becomes async. The 0.0.0 fixture and its expected output carry a valid hash. The e2e fixtures carry valid hashes unless a test needs an edited file.
+- **D14. Edited flag:** `parseImport` returns `edited: boolean` beside the project. The flag is computed from the file text as read, before upgrade. The confirming state carries it. The dialog body and the outcome announcement add the AC48 line when it is true.
+
+**Behavior:**
+
+```gherkin
+Feature: Edge ids and edit detection
+
+  Scenario Outline: An edge id problem rejects the import
+    Given a project file whose <problem>
+    When the user imports it
+    Then nothing changes
+    And the error reads "<message>"
+
+    Examples:
+      | problem                                | message                                   |
+      | second connection has no id            | Connection 2 is missing an id.            |
+      | second connection has id 42            | Connection 2 is missing an id.            |
+      | second connection has id ""            | Connection 2 is missing an id.            |
+      | two connections share the id "a->b"    | Two connections share the id "a->b".      |
+
+  Scenario: An exported file carries a matching hash
+    When the user exports the project
+    Then the file has a contentHash starting with "sha256-"
+    And recomputing the hash over the file without contentHash gives the same value
+
+  Scenario: An untouched export imports without a warning
+    Given a file exported by the app
+    When the user imports it
+    Then the confirmation does not mention outside changes
+
+  Scenario Outline: An edited file warns but can still be imported
+    # Still passes if: the warning also appears in the outcome line
+    Given an exported file whose <change>
+    When the user imports it
+    Then the confirmation says "This file was changed outside AI Enabler after it was exported."
+    And Replace map still replaces the map
+    And the announcement includes the same line
+
+    Examples:
+      | change                         |
+      | step label was edited          |
+      | contentHash was removed        |
+      | contentHash is a number        |
+```
+
+**Steps:**
+
+#### Step 9.1: Validate edge ids
+
+**Complexity**: standard
+**IMPLEMENT**: Add the D12 rules to the ordered rule table in `validate.js`.
+**TEST**: Vitest rows for missing, non-string, empty and duplicate edge ids, with the bad edge at position #2. A file with a node-id problem and an edge-id problem reports the node problem.
+**REFACTOR**: Share the duplicate-id finder between nodes and edges.
+**Files**: `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`
+**Covers**: AC31, AC32
+**Commit**: `feat: validate connection ids on import`
+
+#### Step 9.2: Hash project files
+
+**Complexity**: standard
+**IMPLEMENT**: Add `src/flow/contentHash.js` (D13).
+**TEST**: Vitest:
+
+- Key order does not change the hash.
+- Any change to a value or key changes the hash.
+- `contentHash` itself is excluded.
+- The output format is `sha256-` plus 64 lowercase hex characters.
+- A known vector: the hash of `{}` equals sha256 of `{}`.
+  **REFACTOR**: Keep canonicalization a separate exported pure function.
+  **Files**: `src/flow/contentHash.js`, `src/flow/contentHash.test.js`
+  **Covers**: AC47
+  **Commit**: `feat: hash project files canonically`
+
+#### Step 9.3: Write the hash on export and warn on edited imports
+
+**Complexity**: complex
+**IMPLEMENT**:
+
+- Export writes `contentHash`; `toProjectFile` stays pure and the hook adds the hash.
+- `parseImport` returns `edited` (D14). importFlow carries it.
+- ConfirmDialog and the announcement add the AC48 line.
+- Update the fixtures and `docs/schema-versioning.md` (AC49, and that the hash is part of 0.0.0).
+  **TEST**: Vitest for the edited flag: matching, missing, non-string, mismatched, and an upgraded file using the pre-upgrade hash. Playwright for the Gherkin above.
+  **REFACTOR**: One source for the AC48 line.
+  **Files**: the slice files except `validate.*` and `contentHash.*`
+  **Covers**: AC47, AC48, AC49
+  **Commit**: `feat: warn when an imported file was edited outside the app`
+
 ## Parallelization
 
 <!-- derived by scripts/plan_waves.py -->
@@ -1188,6 +1285,7 @@ graph LR
   S4 --> S7[7 Export + import]
   S6 --> S7
   S7 --> S8[8 a11y sweep]
+  S8 --> S9[9 Edge ids + edit detection]
 ```
 
 | Wave | Slices  | Notes           |
@@ -1197,6 +1295,7 @@ graph LR
 | 3    | 6       |                 |
 | 4    | 7       |                 |
 | 5    | 8       |                 |
+| 6    | 9       |                 |
 
 ## Complexity Classification
 
@@ -1310,3 +1409,10 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 - [x] Slice 8: Accessibility sweep
   - [x] Step 8.1: Sweep the axe scans across all views
   - [x] Step 8.2: Audit focus indicators and reflow
+
+### Wave 6
+
+- [ ] Slice 9: Edge id validation and edit detection
+  - [ ] Step 9.1: Validate edge ids
+  - [ ] Step 9.2: Hash project files
+  - [ ] Step 9.3: Write the hash on export and warn on edited imports
