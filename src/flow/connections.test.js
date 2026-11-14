@@ -89,4 +89,12 @@ describe('findEdgeProblems', () => {
     const edges = [edge('A', 'B'), edge('B', 'C'), edge('C', 'A')]
     expect(findEdgeProblems(edges)).toEqual([{ kind: 'loop', edge: edges[2] }])
   })
+
+  it('handles a 5,000-edge reverse-ordered chain', () => {
+    const chainLength = 5000
+    const edges = Array.from({ length: chainLength }, (_, i) =>
+      edge(`step-${chainLength - i - 1}`, `step-${chainLength - i}`),
+    )
+    expect(findEdgeProblems(edges)).toEqual([])
+  })
 })

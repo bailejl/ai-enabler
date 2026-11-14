@@ -40,6 +40,14 @@ const withEdges = (...pairs) => ({
 
 const withProject = (patch) => ({ ...validFile(), project: { ...validFile().project, ...patch } })
 
+const deepFreeze = (value) => {
+  if (typeof value === 'object' && value !== null) {
+    Object.values(value).forEach(deepFreeze)
+    Object.freeze(value)
+  }
+  return value
+}
+
 const fail = (message) => ({ ok: false, message })
 
 describe('validateProjectFile: whole file', () => {
@@ -82,6 +90,7 @@ describe('validateProjectFile: steps', () => {
     ['pt a string', withData(2, { pt: '5' }), 'Step "Plan" (#2) has an invalid process time.'],
     ['pt null', withData(3, { pt: null }), 'Step "Build" (#3) has an invalid process time.'],
     ['lt -1', withData(3, { lt: -1 }), 'Step "Build" (#3) has an invalid lead time.'],
+    ['queue -1', withData(2, { queue: -1 }), 'Step "Plan" (#2) has an invalid queue.'],
     ['queue 1.5', withData(2, { queue: 1.5 }), 'Step "Plan" (#2) has an invalid queue.'],
     ['batch -2', withData(3, { batch: -2 }), 'Step "Build" (#3) has an invalid batch size.'],
     ['%C&A 100.5', withData(3, { ca: 100.5 }), 'Step "Build" (#3) has an invalid %C&A.'],
@@ -128,6 +137,7 @@ describe('validateProjectFile: steps', () => {
       'Step #3 is missing a label.',
     ],
     ['a numeric label', withData(2, { label: 5 }), 'Step #2 is missing a label.'],
+    ['data null', withStep(2, (node) => ({ ...node, data: null })), 'Step #2 is missing a label.'],
     ['a null step', withStep(2, () => null), 'Step #2 is missing an id.'],
     [
       'a blank label on a bad step',
@@ -141,7 +151,11 @@ describe('validateProjectFile: steps', () => {
   it.each([
     ['type absent', withStep(2, (node) => withoutKey(node, 'type'))],
     ['optional fields absent', withStep(2, (node) => ({ ...node, data: { label: 'Plan' } }))],
-    ['numbers at their lower bounds', withData(2, { pt: 0, lt: 0, queue: 0, batch: 0, ca: 0 })],
+    ['pt 0', withData(2, { pt: 0 })],
+    ['lt 0', withData(2, { lt: 0 })],
+    ['queue 0', withData(2, { queue: 0 })],
+    ['batch 0', withData(2, { batch: 0 })],
+    ['%C&A 0', withData(2, { ca: 0 })],
     ['%C&A at its upper bound', withData(2, { ca: 100 })],
     ['a fractional %C&A', withData(2, { ca: 87.5 })],
   ])('accepts a step with %s', (_label, file) => {
@@ -208,7 +222,7 @@ describe('validateProjectFile: ids and connections', () => {
     expect(validateProjectFile(file)).toEqual({ ok: true })
   })
 
-  it('names the step of a self-connection by its position, not its first match', () => {
+  it('names a self-connection at step #3', () => {
     const file = withEdges(['build', 'build'])
     expect(validateProjectFile(file)).toEqual(fail('Step "Build" (#3) connects to itself.'))
   })
@@ -232,7 +246,7 @@ describe('validateProjectFile: first problem wins', () => {
       'The project name is empty.',
     ],
     [
-      'a bad queue on step 2 and a bad process time on step 3',
+      'a bad queue on step 2 and a bad process time on step 3 (the earlier rule wins on a later step)',
       withData(2, { queue: -1 }, withData(3, { pt: -1 })),
       'Step "Build" (#3) has an invalid process time.',
     ],
@@ -252,6 +266,64 @@ describe('validateProjectFile: first problem wins', () => {
       'A connection appears twice.',
     ],
     [
+      'a missing position on step 2 and a missing id on step 3',
+      withStep(
+        2,
+        (node) => withoutKey(node, 'position'),
+        withStep(3, (node) => withoutKey(node, 'id')),
+      ),
+      'Step "Build" (#3) is missing an id.',
+    ],
+    [
+      'a missing label on step 2 and a missing position on step 3',
+      withStep(
+        2,
+        (node) => ({ ...node, data: {} }),
+        withStep(3, (node) => withoutKey(node, 'position')),
+      ),
+      'Step "Build" (#3) is missing a position.',
+    ],
+    [
+      'an unknown type on step 2 and a missing label on step 3',
+      withStep(
+        2,
+        (node) => ({ ...node, type: 'group' }),
+        withStep(3, (node) => ({ ...node, data: {} })),
+      ),
+      'Step #3 is missing a label.',
+    ],
+    [
+      'a bad process time on step 2 and an unknown type on step 3',
+      withData(
+        2,
+        { pt: -1 },
+        withStep(3, (node) => ({ ...node, type: 'group' })),
+      ),
+      'Step "Build" (#3) has an unknown type.',
+    ],
+    [
+      'a duplicate id and a bad %C&A on step 3',
+      withData(
+        3,
+        { ca: -1 },
+        withStep(3, (node) => ({ ...node, id: 'plan' })),
+      ),
+      'Step "Build" (#3) has an invalid %C&A.',
+    ],
+    [
+      'a missing step and a duplicate id',
+      {
+        ...withStep(3, (node) => ({ ...node, id: 'plan' })),
+        edges: withEdges(['plan', 'ghost']).edges,
+      },
+      'Two steps share the id "plan".',
+    ],
+    [
+      'a self-connection and a missing step',
+      withEdges(['plan', 'plan'], ['plan', 'ghost']),
+      'A connection points to a step that is not there.',
+    ],
+    [
       'a missing step and an empty project id',
       { ...withEdges(['plan', 'ghost']), project: { id: '', name: 'Delivery' } },
       'A connection points to a step that is not there.',
@@ -267,31 +339,61 @@ describe('validateProjectFile: first problem wins', () => {
 })
 
 describe('validateProjectFile: untrusted input', () => {
+  const MISSING_ID = 'Step #1 is missing an id.'
+  const NO_PROJECT_NAME = 'The project name is empty.'
+  const MISSING_ENDPOINT = 'A connection points to a step that is not there.'
+
   it.each([
+    ['null first', null, MISSING_ID],
+    ['a number first', 5, MISSING_ID],
+    ['a string first', 'x', MISSING_ID],
+    ['an array first', [], MISSING_ID],
+    ['an object with only data first', { data: 7 }, MISSING_ID],
     [
-      'nested garbage in steps',
-      {
-        ...validFile(),
-        nodes: [null, 5, 'x', [], { data: 7 }, { id: 'a', position: [], data: null }],
-      },
+      'an object with an array position and null data first',
+      { id: 'a', position: [], data: null },
+      'Step #1 is missing a position.',
     ],
-    [
-      'nested garbage in connections',
-      { ...validFile(), edges: [null, 5, 'x', [], { source: {}, target: [] }] },
-    ],
-    ['a string project', { ...validFile(), project: 'Delivery' }],
-    ['an array project', { ...validFile(), project: [] }],
-    ['an empty object', {}],
-    ['a deep object', { a: { b: { c: [1, { d: null }] } } }],
-    ['a step data array', withStep(2, (node) => ({ ...node, data: ['Plan'] }))],
-    ['a null position', withStep(2, (node) => ({ ...node, position: null }))],
-    ['an object project id', withProject({ id: {} })],
-  ])('returns a failure instead of throwing for %s', (_label, file) => {
-    expect(validateProjectFile(file)).toEqual({ ok: false, message: expect.any(String) })
+  ])('returns a failure instead of throwing for steps with %s', (_label, garbage, message) => {
+    expect(validateProjectFile({ ...validFile(), nodes: [garbage] })).toEqual(fail(message))
   })
 
-  it('does not change the file it validates', () => {
-    const file = withEdges(['plan', 'build'], ['build', 'plan'])
+  it.each([
+    ['null first', null],
+    ['a number first', 5],
+    ['a string first', 'x'],
+    ['an array first', []],
+    ['an object with object endpoints first', { source: {}, target: [] }],
+  ])('returns a failure instead of throwing for connections with %s', (_label, garbage) => {
+    expect(validateProjectFile({ ...validFile(), edges: [garbage] })).toEqual(
+      fail(MISSING_ENDPOINT),
+    )
+  })
+
+  it.each([
+    ['a string project', { ...validFile(), project: 'Delivery' }, NO_PROJECT_NAME],
+    ['an array project', { ...validFile(), project: [] }, NO_PROJECT_NAME],
+    ['an empty object', {}, NO_PROJECT_NAME],
+    ['a deep object', { a: { b: { c: [1, { d: null }] } } }, NO_PROJECT_NAME],
+    [
+      'a step data array',
+      withStep(2, (node) => ({ ...node, data: ['Plan'] })),
+      'Step #2 is missing a label.',
+    ],
+    [
+      'a null position',
+      withStep(2, (node) => ({ ...node, position: null })),
+      'Step "Plan" (#2) is missing a position.',
+    ],
+    ['an object project id', withProject({ id: {} }), 'The project id is missing.'],
+  ])('returns a failure instead of throwing for %s', (_label, file, message) => {
+    expect(validateProjectFile(file)).toEqual(fail(message))
+  })
+
+  it.each([
+    ['an invalid file', withEdges(['plan', 'build'], ['build', 'plan'])],
+    ['a valid, deep-frozen file', deepFreeze(validFile())],
+  ])('does not change %s', (_label, file) => {
     const before = structuredClone(file)
     validateProjectFile(file)
     expect(file).toEqual(before)

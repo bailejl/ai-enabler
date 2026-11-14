@@ -38,8 +38,14 @@ const hasBadOptionalField = (field, isValid) => (node) => {
 
 const invalidField = (noun) => (name) => `${name} has an invalid ${noun}.`
 
-const findDuplicateId = (nodes) =>
-  nodes.map((node) => node.id).find((id, index, ids) => ids.indexOf(id) !== index)
+const findDuplicateId = (nodes) => {
+  const seen = new Set()
+  for (const { id } of nodes) {
+    if (seen.has(id)) return id
+    seen.add(id)
+  }
+  return undefined
+}
 
 const hasMissingEndpoint = (nodes) => {
   const ids = new Set(nodes.map((node) => node.id))
