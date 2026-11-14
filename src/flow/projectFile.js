@@ -17,14 +17,14 @@ const pick = (source, fields) =>
   )
 
 // D6: an absent node type means a step, so every export names it.
-const toExportNode = (node) => ({
+export const toExportNode = (node) => ({
   id: node.id,
   type: STEP_TYPE,
   position: pick(node.position, POSITION_FIELDS),
   data: pick(node.data, DATA_FIELDS),
 })
 
-const toExportEdge = (edge) => pick(edge, EDGE_FIELDS)
+export const toExportEdge = (edge) => pick(edge, EDGE_FIELDS)
 
 /**
  * @param {{ project: { id: string, name: string }, nodes: object[], edges: object[], now: Date }} input

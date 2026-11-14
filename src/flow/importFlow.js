@@ -1,0 +1,92 @@
+import { toExportEdge, toExportNode } from './projectFile.js'
+
+export const IMPORT_IDLE = 'idle'
+export const IMPORT_CONFIRMING = 'confirming'
+export const IMPORT_ERROR = 'error'
+
+export const IMPORT_CANCELLED = 'Import cancelled'
+
+export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
+
+// The allowlist an export writes is the allowlist an import reads: unknown keys in the file
+// (style, className, hidden, ...) never reach React Flow.
+export const fromProjectFile = (file) => ({
+  nodes: file.nodes.map(toExportNode),
+  edges: file.edges.map(toExportEdge),
+})
+
+const describeImported = (name, stepCount) =>
+  `Imported ${name}, ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}`
+
+// D2: exact match, no case folding, no trimming. The file's id never decides.
+const isSameName = (current, incoming) => current.name === incoming.name
+
+const describeConfirmation = (isSame, incomingName) =>
+  isSame
+    ? `Replace current map with the imported version of ${incomingName}?`
+    : `Replace current map with ${incomingName}?`
+
+// A transition returns the next state plus what to do about it: the text to speak (or null) and
+// the project and map to apply (or null). Only `confirm` from `confirming` replaces anything.
+const transition = (state, { announcement = null, replacement = null } = {}) => ({
+  state,
+  announcement,
+  replacement,
+})
+
+const stay = (state) => transition(state)
+
+const receiveFile = ({ result, project }) => {
+  if (!result.ok) {
+    return transition(
+      { type: IMPORT_ERROR, message: result.message },
+      { announcement: result.message },
+    )
+  }
+  const { file } = result
+  const isSame = isSameName(project, file.project)
+  return transition({
+    type: IMPORT_CONFIRMING,
+    file,
+    currentName: project.name,
+    incomingName: file.project.name,
+    message: describeConfirmation(isSame, file.project.name),
+    // Same name keeps the open project's id; a different name takes the file's name and id.
+    project: isSame
+      ? { id: project.id, name: project.name }
+      : { id: file.project.id, name: file.project.name },
+  })
+}
+
+const confirmReplace = (state) => {
+  const announcement = describeImported(state.project.name, state.file.nodes.length)
+  return transition(
+    { type: IMPORT_IDLE, status: announcement },
+    { announcement, replacement: { project: state.project, ...fromProjectFile(state.file) } },
+  )
+}
+
+const HANDLERS = {
+  fileParsed: { from: null, run: (state, event) => receiveFile(event) },
+  confirm: { from: IMPORT_CONFIRMING, run: confirmReplace },
+  cancel: {
+    from: IMPORT_CONFIRMING,
+    run: () => transition(INITIAL_IMPORT_STATE, { announcement: IMPORT_CANCELLED }),
+  },
+  dismiss: { from: IMPORT_ERROR, run: () => transition(INITIAL_IMPORT_STATE) },
+}
+
+/**
+ * Pure import flow.
+ * State: { type: 'idle', status } | { type: 'confirming', file, currentName, incomingName,
+ *   message, project } | { type: 'error', message }.
+ * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
+ *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.
+ * @returns {{ state: object, announcement: string | null,
+ *   replacement: { project: { id: string, name: string }, nodes: object[], edges: object[] } | null }}
+ */
+export const reduceImport = (state, event) => {
+  const handler = HANDLERS[event.type]
+  const isHandled = handler && (handler.from === null || handler.from === state.type)
+  return isHandled ? handler.run(state, event) : stay(state)
+}
