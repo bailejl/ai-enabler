@@ -191,6 +191,7 @@ Feature: App shell
       | header text       | header background | 4.5   |
       | focus ring        | header background | 3     |
       | focus ring        | page background   | 3     |
+      | focus ring        | menu background   | 3     |
       | menu text         | menu background   | 4.5   |
 ```
 
@@ -1100,7 +1101,7 @@ Same-name keeps the current id; different-name takes the file's name and id. Mat
 3. **Feedback.** The Announcer speaks after the dialog closes. `ImportStatus` shows the visible outcome or error with Dismiss; Dismiss returns focus to Import. A success line stays until the next import.
 4. **After import.** `useProject` applies `fromProjectFile` from `importFlow`, runs `fitView` after a replace, and returns focus to Import.
 
-**TEST**: Playwright `e2e/export-import.spec.js`: every import scenario in this slice, including the two axe scans. Fixture files live in `e2e/fixtures/`.
+**TEST**: Playwright `e2e/export-import.spec.js`: every import scenario in this slice, including the two axe scans, plus an assertion that the Import control's accessible name is "Import project (JSON)" (AC39). Fixture files live in `e2e/fixtures/`.
 **REFACTOR**: Keep the components free of decision logic, which lives in `importFlow`.
 **Files**: `src/shell/useProject.js`, `src/shell/Header.jsx`, `src/shell/ConfirmDialog.jsx`, `src/shell/ImportStatus.jsx`, `src/App.jsx`, `src/index.css`, `e2e/export-import.spec.js`, `e2e/fixtures/*.json`
 **Covers**: AC1, AC2, AC3, AC8, AC12, AC20, AC32, AC33, AC34, AC35, AC37, AC40
