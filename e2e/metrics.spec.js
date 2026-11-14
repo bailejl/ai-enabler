@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
-
-const STARTER_STEP_COUNT = 6
-const EMPTY_MAP_MESSAGE =
-  'No steps on this map. Import a project, or reload to restore the starter map.'
+import { cards } from './canvas.js'
+import { EMPTY_MAP_MESSAGE, STARTER_STEP_COUNT } from './views.js'
 
 const STARTER_TILES = [
   ['Total lead time', '12d 4h'],
@@ -15,7 +13,6 @@ const STARTER_TILES = [
   ['Steps', '6'],
 ]
 
-const cards = (page) => page.locator('.react-flow__node')
 const tiles = (page) => page.getByRole('region', { name: 'Metrics' }).locator('dl > div')
 const tileValue = (page, label) =>
   tiles(page).filter({ has: page.getByText(label, { exact: true }) })

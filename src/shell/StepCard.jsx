@@ -1,5 +1,5 @@
 import { Handle, Position, useConnection, useNodeConnections } from '@xyflow/react'
-import { stepView } from '../flow/stepView.js'
+import { toStepView } from '../flow/stepView.js'
 
 function Badge({ badge, variant }) {
   return (
@@ -17,7 +17,7 @@ const handleClassName = ({ isConnected, isConnectionInProgress }) =>
     : 'step-card__handle'
 
 export default function StepCard({ data }) {
-  const { title, rows, queueBadge, batchBadge } = stepView(data)
+  const { title, rows, queueBadge, batchBadge } = toStepView(data)
   const isConnectionInProgress = useConnection((connection) => connection.inProgress)
   const hasIncoming = useNodeConnections({ handleType: 'target' }).length > 0
   const hasOutgoing = useNodeConnections({ handleType: 'source' }).length > 0

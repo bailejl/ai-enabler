@@ -1,17 +1,25 @@
 import { toExportEdge, toExportNode } from './projectFile.js'
+import { withAriaLabel } from './step.js'
 
 export const IMPORT_IDLE = 'idle'
 export const IMPORT_CONFIRMING = 'confirming'
 export const IMPORT_ERROR = 'error'
+
+export const IMPORT_EVENT = Object.freeze({
+  fileParsed: 'fileParsed',
+  confirm: 'confirm',
+  cancel: 'cancel',
+  dismiss: 'dismiss',
+})
 
 export const IMPORT_CANCELLED = 'Import cancelled'
 
 export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
 
 // The allowlist an export writes is the allowlist an import reads: unknown keys in the file
-// (style, className, hidden, ...) never reach React Flow.
+// (style, className, hidden, ...) never reach React Flow. Each node is named by its step title.
 export const fromProjectFile = (file) => ({
-  nodes: file.nodes.map(toExportNode),
+  nodes: file.nodes.map((node) => withAriaLabel(toExportNode(node))),
   edges: file.edges.map(toExportEdge),
 })
 
@@ -72,13 +80,10 @@ const cancelConfirmation = (state) =>
   transition({ type: IMPORT_IDLE, status: state.status }, { announcement: IMPORT_CANCELLED })
 
 const HANDLERS = {
-  fileParsed: { from: null, run: receiveFile },
-  confirm: { from: IMPORT_CONFIRMING, run: confirmReplace },
-  cancel: {
-    from: IMPORT_CONFIRMING,
-    run: cancelConfirmation,
-  },
-  dismiss: { from: IMPORT_ERROR, run: () => transition(INITIAL_IMPORT_STATE) },
+  [IMPORT_EVENT.fileParsed]: { from: null, run: receiveFile },
+  [IMPORT_EVENT.confirm]: { from: IMPORT_CONFIRMING, run: confirmReplace },
+  [IMPORT_EVENT.cancel]: { from: IMPORT_CONFIRMING, run: cancelConfirmation },
+  [IMPORT_EVENT.dismiss]: { from: IMPORT_ERROR, run: () => transition(INITIAL_IMPORT_STATE) },
 }
 
 /**

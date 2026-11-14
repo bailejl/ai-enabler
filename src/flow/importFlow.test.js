@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  IMPORT_EVENT,
   INITIAL_IMPORT_STATE,
   describeImportStatus,
   fromProjectFile,
@@ -25,9 +26,13 @@ const projectFile = (project, nodes = [step('a', 'Plan'), step('b', 'Build')]) =
   edges: [{ id: 'a->b', source: 'a', target: 'b' }],
 })
 
-const parsed = (file) => ({ type: 'fileParsed', result: { ok: true, file }, project: OPEN_PROJECT })
+const parsed = (file) => ({
+  type: IMPORT_EVENT.fileParsed,
+  result: { ok: true, file },
+  project: OPEN_PROJECT,
+})
 const failed = (message) => ({
-  type: 'fileParsed',
+  type: IMPORT_EVENT.fileParsed,
   result: { ok: false, message },
   project: OPEN_PROJECT,
 })
@@ -89,7 +94,7 @@ describe('reduceImport outcomes', () => {
   it('replaces the map on confirm, keeping the open id for a same-name file', () => {
     const { state, announcement, replacement } = reduceAll([
       parsed(sameNameFile),
-      { type: 'confirm' },
+      { type: IMPORT_EVENT.confirm },
     ])
 
     expect(replacement).toEqual({
@@ -102,27 +107,27 @@ describe('reduceImport outcomes', () => {
 
   it('replaces the project name and id on confirm for a different-name file', () => {
     const file = projectFile({ id: 'abc', name: 'Checkout Revamp' })
-    const { replacement } = reduceAll([parsed(file), { type: 'confirm' }])
+    const { replacement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
     expect(replacement.project).toEqual({ id: 'abc', name: 'Checkout Revamp' })
   })
 
   it('says "1 step" for a single step', () => {
     const file = projectFile({ id: 'x', name: 'Solo' }, [step('a', 'Plan')])
-    expect(reduceAll([parsed(file), { type: 'confirm' }]).announcement).toBe(
+    expect(reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }]).announcement).toBe(
       'Imported Solo, 1 step',
     )
   })
 
   it('restores the earlier success status on cancel', () => {
-    const afterSuccess = reduceAll([parsed(sameNameFile), { type: 'confirm' }]).state
-    const { state } = reduceAll([parsed(sameNameFile), { type: 'cancel' }], afterSuccess)
+    const afterSuccess = reduceAll([parsed(sameNameFile), { type: IMPORT_EVENT.confirm }]).state
+    const { state } = reduceAll([parsed(sameNameFile), { type: IMPORT_EVENT.cancel }], afterSuccess)
     expect(state).toEqual({ type: 'idle', status: 'Imported Untitled Project, 2 steps' })
   })
 
   it('changes nothing on cancel and announces it', () => {
     const { state, announcement, replacement } = reduceAll([
       parsed(sameNameFile),
-      { type: 'cancel' },
+      { type: IMPORT_EVENT.cancel },
     ])
 
     expect(state).toEqual(INITIAL_IMPORT_STATE)
@@ -147,18 +152,22 @@ describe('reduceImport outcomes', () => {
   })
 
   it('clears an error after a later success', () => {
-    const { state } = reduceAll([failed(NOT_JSON), parsed(sameNameFile), { type: 'confirm' }])
+    const { state } = reduceAll([
+      failed(NOT_JSON),
+      parsed(sameNameFile),
+      { type: IMPORT_EVENT.confirm },
+    ])
     expect(state).toEqual({ type: 'idle', status: 'Imported Untitled Project, 2 steps' })
   })
 
   it('clears an error on dismiss without announcing', () => {
-    const { state, announcement } = reduceAll([failed(NOT_JSON), { type: 'dismiss' }])
+    const { state, announcement } = reduceAll([failed(NOT_JSON), { type: IMPORT_EVENT.dismiss }])
     expect(state).toEqual(INITIAL_IMPORT_STATE)
     expect(announcement).toBeNull()
   })
 
   it('replaces a prior success status when a new file fails', () => {
-    const afterSuccess = reduceAll([parsed(sameNameFile), { type: 'confirm' }]).state
+    const afterSuccess = reduceAll([parsed(sameNameFile), { type: IMPORT_EVENT.confirm }]).state
     expect(reduceImport(afterSuccess, failed(NOT_JSON)).state).toEqual({
       type: 'error',
       message: NOT_JSON,
@@ -166,18 +175,18 @@ describe('reduceImport outcomes', () => {
   })
 
   it.each([
-    ['confirm', INITIAL_IMPORT_STATE],
-    ['cancel', INITIAL_IMPORT_STATE],
-    ['dismiss', { type: 'idle', status: 'Imported A, 1 step' }],
-    ['confirm', { type: 'error', message: NOT_JSON }],
-    ['cancel', { type: 'error', message: NOT_JSON }],
+    [IMPORT_EVENT.confirm, INITIAL_IMPORT_STATE],
+    [IMPORT_EVENT.cancel, INITIAL_IMPORT_STATE],
+    [IMPORT_EVENT.dismiss, { type: 'idle', status: 'Imported A, 1 step' }],
+    [IMPORT_EVENT.confirm, { type: 'error', message: NOT_JSON }],
+    [IMPORT_EVENT.cancel, { type: 'error', message: NOT_JSON }],
   ])('ignores %s in a state that cannot take it', (type, state) => {
     expect(reduceImport(state, { type })).toEqual({ state, announcement: null, replacement: null })
   })
 
   it('ignores dismiss while confirming', () => {
     const confirming = confirmFor(sameNameFile).state
-    expect(reduceImport(confirming, { type: 'dismiss' }).state).toBe(confirming)
+    expect(reduceImport(confirming, { type: IMPORT_EVENT.dismiss }).state).toBe(confirming)
   })
 })
 
@@ -204,6 +213,7 @@ describe('fromProjectFile', () => {
           type: 'step',
           position: { x: 1, y: 2 },
           data: { label: 'Plan', pt: 5, lt: 9, ca: 80, queue: 2, batch: 3 },
+          ariaLabel: 'Plan',
         },
       ],
       edges: [{ id: 'e', source: 'a', target: 'a' }],
@@ -215,7 +225,13 @@ describe('fromProjectFile', () => {
       { id: 'a', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
     ])
     expect(fromProjectFile(file).nodes).toEqual([
-      { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
+      {
+        id: 'a',
+        type: 'step',
+        position: { x: 0, y: 0 },
+        data: { label: 'Plan' },
+        ariaLabel: 'Plan',
+      },
     ])
   })
 })
@@ -234,7 +250,7 @@ describe('describeImportStatus', () => {
 
   it('shows the last outcome after a replace, as a non-error', () => {
     const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
-    const { state } = reduceAll([parsed(file), { type: 'confirm' }])
+    const { state } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
     expect(describeImportStatus(state)).toEqual({
       text: 'Imported Checkout Revamp, 2 steps',
       isError: false,
@@ -248,16 +264,18 @@ describe('describeImportStatus', () => {
 
   it('shows nothing after a cancel when nothing was imported before', () => {
     const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
-    expect(describeImportStatus(reduceAll([parsed(file), { type: 'cancel' }]).state)).toBeNull()
+    expect(
+      describeImportStatus(reduceAll([parsed(file), { type: IMPORT_EVENT.cancel }]).state),
+    ).toBeNull()
   })
 
   it('keeps the earlier success line after a cancel', () => {
     const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
     const { state } = reduceAll([
       parsed(file),
-      { type: 'confirm' },
+      { type: IMPORT_EVENT.confirm },
       parsed(file),
-      { type: 'cancel' },
+      { type: IMPORT_EVENT.cancel },
     ])
     expect(describeImportStatus(state)).toEqual({
       text: 'Imported Checkout Revamp, 2 steps',

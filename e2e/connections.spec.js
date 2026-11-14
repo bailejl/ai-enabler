@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
 import {
   cardByTitle,
+  cards,
   connect,
   dragHandleOverEmptyCanvas,
   dragHandleToEmptyCanvas,
@@ -9,15 +10,16 @@ import {
   edges,
   leftHandle,
   rightHandle,
+  selectEdge,
 } from './canvas.js'
+import { STARTER_STEP_COUNT } from './views.js'
 
-const STARTER_STEP_COUNT = 6
 const STARTER_EDGE_COUNT = 5
 const MIN_HANDLE_HIT_SIZE = 20
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
 })
 
@@ -138,21 +140,6 @@ test.describe('handle visibility', () => {
   })
 })
 
-const selectEdge = async (page, from, to) => {
-  const edge = edgeBetween(page, from, to)
-  // The interaction path is an invisible stroke (flat for a straight edge), so Playwright's
-  // actionability checks reject a locator click; click its midpoint after checking what is there.
-  const box = await edge.locator('.react-flow__edge-interaction').boundingBox()
-  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-  const labelAtPoint = await page.evaluate(
-    ({ x, y }) => document.elementFromPoint(x, y)?.closest('.react-flow__edge')?.ariaLabel,
-    point,
-  )
-  expect(labelAtPoint).toBe(`Edge from ${from} to ${to}`)
-  await page.mouse.click(point.x, point.y)
-  await expect(edge).toHaveClass(/selected/)
-}
-
 const selectStep = async (page, title) => {
   await cardByTitle(page, title).click()
   await expect(cardByTitle(page, title)).toHaveClass(/selected/)
@@ -183,6 +170,16 @@ test.describe('selected items are deleted with either key', () => {
       await expect(leftHandle(page, 'Test')).toHaveCSS('opacity', '0')
     })
   }
+})
+
+test('deleting a connection from the keyboard moves focus to the step it started from', async ({
+  page,
+}) => {
+  await selectEdge(page, 'plan', 'build')
+  await page.keyboard.press('Backspace')
+  await expect(edgeBetween(page, 'plan', 'build')).toHaveCount(0)
+
+  await expect(cardByTitle(page, 'Plan')).toBeFocused()
 })
 
 test('a handle with another connection stays visible after one of its edges is deleted', async ({

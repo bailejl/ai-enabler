@@ -1,8 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
-import { cardByTitle, settledBox } from './canvas.js'
-
-const STARTER_STEP_COUNT = 6
+import { cardByTitle, cards, settledBox } from './canvas.js'
+import { STARTER_STEP_COUNT } from './views.js'
 
 // The badge's visible letters, not its visually hidden name.
 const badgeIn = (card, text) => card.getByText(text, { exact: true })
@@ -11,7 +10,7 @@ const centerOf = ({ x, y, width, height }) => ({ x: x + width / 2, y: y + height
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 })
 
 test('the Build card shows its title and PT, LT and %C&A values', async ({ page }) => {
@@ -19,6 +18,37 @@ test('the Build card shows its title and PT, LT and %C&A values', async ({ page 
   await expect(card.getByRole('heading', { name: 'Build' })).toBeVisible()
   await expect(card.locator('dd')).toHaveText(['1d', '2d 4h', '90%'])
   await expect(card.locator('dt > [aria-hidden="true"]')).toHaveText(['PT', 'LT', '%C&A'])
+})
+
+const STARTER_TITLES = ['Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production']
+
+for (const title of STARTER_TITLES) {
+  test(`the ${title} card's accessible name is its step title`, async ({ page }) => {
+    await expect(page.getByRole('group', { name: title, exact: true })).toHaveCount(1)
+  })
+}
+
+test.describe('after a step is deleted from the keyboard', () => {
+  const focusedStepTitle = (page) =>
+    page.evaluate(() => document.activeElement?.closest('.react-flow__node')?.textContent ?? null)
+
+  test('focus moves to the next step instead of the page body', async ({ page }) => {
+    await cardByTitle(page, 'Build').click()
+    await page.keyboard.press('Backspace')
+    await expect(cardByTitle(page, 'Build')).toHaveCount(0)
+
+    await expect.poll(() => focusedStepTitle(page)).toContain('Test')
+  })
+
+  test('focus lands on the canvas, inside it, once no step is left', async ({ page }) => {
+    for (let remaining = STARTER_STEP_COUNT; remaining > 0; remaining -= 1) {
+      await cards(page).first().click()
+      await page.keyboard.press('Backspace')
+      await expect(cards(page)).toHaveCount(remaining - 1)
+    }
+
+    await expect(page.getByRole('main')).toBeFocused()
+  })
 })
 
 test('the Build card rows are spoken as their full names', async ({ page }) => {
@@ -62,17 +92,17 @@ test("only Production has a batch badge B 3, named and in the card's upper-right
 })
 
 test('each card has one left target handle and one right source handle', async ({ page }) => {
-  const cards = page.locator('.react-flow__node')
-  await expect(cards.locator('.react-flow__handle')).toHaveCount(STARTER_STEP_COUNT * 2)
-  await expect(cards.locator('.react-flow__handle-left.target')).toHaveCount(STARTER_STEP_COUNT)
-  await expect(cards.locator('.react-flow__handle-right.source')).toHaveCount(STARTER_STEP_COUNT)
+  const allCards = cards(page)
+  await expect(allCards.locator('.react-flow__handle')).toHaveCount(STARTER_STEP_COUNT * 2)
+  await expect(allCards.locator('.react-flow__handle-left.target')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(allCards.locator('.react-flow__handle-right.source')).toHaveCount(STARTER_STEP_COUNT)
   // Every card holds exactly one of each, so none has two of one kind and none of the other.
-  await expect(cards.filter({ has: page.locator('.react-flow__handle-left.target') })).toHaveCount(
-    STARTER_STEP_COUNT,
-  )
-  await expect(cards.filter({ has: page.locator('.react-flow__handle-right.source') })).toHaveCount(
-    STARTER_STEP_COUNT,
-  )
+  await expect(
+    allCards.filter({ has: page.locator('.react-flow__handle-left.target') }),
+  ).toHaveCount(STARTER_STEP_COUNT)
+  await expect(
+    allCards.filter({ has: page.locator('.react-flow__handle-right.source') }),
+  ).toHaveCount(STARTER_STEP_COUNT)
 })
 
 test('the default view with step cards has no accessibility violations', async ({ page }) => {

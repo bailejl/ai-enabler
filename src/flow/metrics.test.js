@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { initialNodes } from './initialFlow.js'
-import { computeMetrics, metricTiles, rateMetric } from './metrics.js'
+import { computeMetrics, toMetricTiles, rateMetric } from './metrics.js'
 
 const stepsOf = (nodes) => nodes.map((node) => node.data)
-const tileByKey = (steps, key) => metricTiles(steps).find((tile) => tile.key === key)
+const tileByKey = (steps, key) => toMetricTiles(steps).find((tile) => tile.key === key)
 
-describe('metricTiles', () => {
+describe('toMetricTiles', () => {
   it('produces the spec tiles for the starter steps, in order', () => {
-    const tiles = metricTiles(stepsOf(initialNodes)).map(({ label, text, statusLabel }) => ({
+    const tiles = toMetricTiles(stepsOf(initialNodes)).map(({ label, text, statusLabel }) => ({
       label,
       text,
       statusLabel,
@@ -25,7 +25,7 @@ describe('metricTiles', () => {
   })
 
   it('exposes stable keys and status values', () => {
-    const tiles = metricTiles(stepsOf(initialNodes))
+    const tiles = toMetricTiles(stepsOf(initialNodes))
 
     expect(tiles.map(({ key }) => key)).toEqual([
       'totalLeadTime',
@@ -47,7 +47,7 @@ describe('metricTiles', () => {
   })
 
   it('shows a dash with no status on every tile when there are no steps', () => {
-    const tiles = metricTiles([])
+    const tiles = toMetricTiles([])
 
     expect(tiles).toHaveLength(7)
     expect(tiles.map(({ text }) => text)).toEqual(Array(7).fill('—'))

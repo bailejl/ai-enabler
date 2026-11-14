@@ -4,17 +4,20 @@ const typeOf = (value) => {
   return typeof value
 }
 
-// Appends "path:type" entries for the value and everything below it. Array elements share the
+// The "path:type" entries for the value and everything below it. Array elements share the
 // path "<path>[]", so each element adds its key paths to the same union.
-const collectEntries = (value, path, entries) => {
+const collectEntries = (value, path) => {
   const type = typeOf(value)
-  entries.add(`${path}:${type}`)
-  if (type === 'array') value.forEach((element) => collectEntries(element, `${path}[]`, entries))
+  const own = [`${path}:${type}`]
+  if (type === 'array') {
+    return own.concat(...value.map((element) => collectEntries(element, `${path}[]`)))
+  }
   if (type === 'object') {
-    Object.entries(value).forEach(([key, child]) =>
-      collectEntries(child, `${path}.${key}`, entries),
+    return own.concat(
+      ...Object.entries(value).map(([key, child]) => collectEntries(child, `${path}.${key}`)),
     )
   }
+  return own
 }
 
 /**
@@ -25,7 +28,5 @@ const collectEntries = (value, path, entries) => {
  * @returns {string[]}
  */
 export const shapeOf = (value) => {
-  const entries = new Set()
-  collectEntries(value, '$', entries)
-  return [...entries].sort()
+  return [...new Set(collectEntries(value, '$'))].sort()
 }

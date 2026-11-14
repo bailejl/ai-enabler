@@ -1,13 +1,22 @@
-import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import path from 'node:path'
 import { test, expect } from '@playwright/test'
 import { initialNodes } from '../src/flow/initialFlow.js'
-import { metricTiles } from '../src/flow/metrics.js'
+import { toMetricTiles } from '../src/flow/metrics.js'
+import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
-import { cardByTitle, edgeBetween, settledBox } from './canvas.js'
+import { cardByTitle, cards, edgeBetween, selectEdge, settledBox } from './canvas.js'
+import {
+  asUpload,
+  chooseFile,
+  confirmDialog,
+  fixturePath,
+  importAndConfirm,
+  importStatus,
+  metricRegion,
+  readFixture,
+  STARTER_STEP_COUNT,
+} from './views.js'
 
-const STARTER_STEP_COUNT = 6
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
 const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -30,7 +39,7 @@ test('the header offers Export with a descriptive accessible name', async ({ pag
 
 test('the default view with the Export control passes the axe scan', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   expect(await scan(page)).toEqual([])
 })
 
@@ -46,13 +55,13 @@ test.describe('exporting the starter project after selecting Build', () => {
     return { download, startedAt, finishedAt: Date.now() }
   }
 
-  test('downloads untitled-project.ai-enabler.json at schema 0.0.0 with the project identity', async ({
+  test(`downloads untitled-project.ai-enabler.json at schema ${CURRENT_SCHEMA_VERSION} with the project identity`, async ({
     page,
   }) => {
     const { download, startedAt, finishedAt } = await exportAfterSelectingBuild(page)
     expect(download.suggestedFilename()).toBe(EXPORT_FILE_NAME)
     const file = await readDownloadedJson(download)
-    expect(file.schemaVersion).toBe('0.0.0')
+    expect(file.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
     expect(file.exportedAt).toMatch(ISO_UTC_TIMESTAMP)
     const exportedAtMs = Date.parse(file.exportedAt)
     expect(exportedAtMs).toBeGreaterThanOrEqual(startedAt)
@@ -86,11 +95,12 @@ test.describe('exporting the starter project after selecting Build', () => {
 })
 
 const IMPORT_BUTTON_NAME = 'Import project (JSON)'
-const FIXTURES_DIR = path.join(import.meta.dirname, 'fixtures')
 const STARTER_PROJECT_NAME = 'Untitled Project'
 const SAME_NAME_QUESTION = `Replace current map with the imported version of ${STARTER_PROJECT_NAME}?`
 const CHECKOUT_NAME = 'Checkout Revamp'
 const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
+const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
+const SLOW_READ_MS = 500
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 const NOT_JSON_MESSAGE = 'This file is not valid JSON.'
 const NOT_A_PROJECT_MESSAGE = 'This is not a project file. Choose a file exported from AI Enabler.'
@@ -108,28 +118,14 @@ const UNREADABLE_MESSAGE = 'This file could not be read.'
 const LONG_NAME_LENGTH = 100
 const NARROW_VIEWPORT = { width: 1024, height: 768 }
 
-const fixturePath = (name) => path.join(FIXTURES_DIR, name)
-const readFixture = (name) => JSON.parse(readFileSync(fixturePath(name), 'utf8'))
 const fixtureSteps = (name) => readFixture(name).nodes.map((node) => node.data)
 
 const importButton = (page) => page.getByRole('button', { name: IMPORT_BUTTON_NAME, exact: true })
 const fileInput = (page) => page.locator('input[type="file"]')
-const confirmDialog = (page) => page.getByRole('dialog')
-const importStatus = (page) => page.getByRole('region', { name: 'Import status' })
 const projectNameInHeader = (page) => page.locator('.header__project')
-const cards = (page) => page.locator('.react-flow__node')
-const metricRegion = (page) => page.getByRole('region', { name: 'Metrics' })
 
 // The Announcer is the only polite live region that carries import and export messages.
 const announcer = (page) => page.locator('[aria-live="polite"]')
-
-const asUpload = (value) => ({
-  name: 'chosen.json',
-  mimeType: 'application/json',
-  buffer: Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)),
-})
-
-const chooseFile = (page, file) => fileInput(page).setInputFiles(file)
 
 // Records every non-empty text the live region takes, so a repeated message counts again.
 const recordAnnouncements = async (page) => {
@@ -152,14 +148,9 @@ const exportProjectFile = async (page) => {
 
 const tileTexts = (page) => metricRegion(page).locator('dd').allTextContents()
 const expectedTileTexts = (steps) =>
-  metricTiles(steps).map(({ text, statusLabel }) => (statusLabel ? `${text} ${statusLabel}` : text))
-
-const importAndConfirm = async (page, file, question) => {
-  await chooseFile(page, file)
-  await expect(confirmDialog(page)).toHaveAccessibleName(question)
-  await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
-  await expect(confirmDialog(page)).toHaveCount(0)
-}
+  toMetricTiles(steps).map(({ text, statusLabel }) =>
+    statusLabel ? `${text} ${statusLabel}` : text,
+  )
 
 const expectInside = (inner, outer) => {
   expect(inner.x).toBeGreaterThanOrEqual(outer.x)
@@ -169,12 +160,9 @@ const expectInside = (inner, outer) => {
 }
 
 const deleteEdge = async (page, from, to) => {
-  const edge = edgeBetween(page, from, to)
-  const box = await edge.locator('.react-flow__edge-interaction').boundingBox()
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-  await expect(edge).toHaveClass(/selected/)
+  await selectEdge(page, from, to)
   await page.keyboard.press('Backspace')
-  await expect(edge).toHaveCount(0)
+  await expect(edgeBetween(page, from, to)).toHaveCount(0)
 }
 
 const dragCardBy = async (page, title, { dx, dy }) => {
@@ -214,6 +202,12 @@ test('exporting then importing that file and confirming leaves the nodes, edges 
   expect(first.nodes.find((node) => node.id === 'build').position).not.toEqual(
     starterBuild.position,
   )
+
+  // Change the map after exporting, so the import has to restore what was exported.
+  await cardByTitle(page, 'Production').click()
+  await page.keyboard.press('Backspace')
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT - 1)
+  expect(await tileTexts(page)).not.toEqual(tilesBefore)
 
   await importAndConfirm(page, await download.path(), SAME_NAME_QUESTION)
   await expect(importStatus(page)).toHaveText(`Imported ${STARTER_PROJECT_NAME}, 6 steps`)
@@ -299,9 +293,7 @@ test.describe('importing a file with three steps', () => {
   }) => {
     await page.goto('/')
     await chooseFile(page, fixturePath('different-case-name.json'))
-    await expect(confirmDialog(page)).toHaveAccessibleName(
-      'Replace current map with untitled project?',
-    )
+    await expect(confirmDialog(page)).toHaveAccessibleName(DIFFERENT_CASE_QUESTION)
   })
 })
 
@@ -388,8 +380,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         schemaVersion: '9.0.0',
         nodes: [{ id: 'broken', data: {} }],
       },
-      message:
-        'This file uses schema 9.0.0; this app supports up to 0.0.0. Update the app or re-export the file.',
+      message: `This file uses schema 9.0.0; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update the app or re-export the file.`,
     },
     {
       name: 'step #3 "Build" with no position',
@@ -443,6 +434,43 @@ test('the visible import status is not itself a live region', async ({ page }) =
   const status = importStatus(page)
   await expect(status).toBeVisible()
   await expect(status.locator('[aria-live], [role="status"], [role="alert"]')).toHaveCount(0)
+  await expect(status).not.toHaveAttribute('aria-live', /.*/)
+})
+
+test('when two files are chosen in a row, only the last one chosen asks for confirmation', async ({
+  page,
+}) => {
+  // The first read is slow, so that file finishes after the second. It reads as `slowText`, and
+  // the real reader is back in place for every read after it.
+  const slowFile = JSON.stringify(readFixture('different-name.json'))
+  await page.addInitScript(
+    ({ delayMs, slowText }) => {
+      const readText = Blob.prototype.text
+      Blob.prototype.text = () => {
+        Blob.prototype.text = readText
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            window.slowReadSettled = true
+            resolve(slowText)
+          }, delayMs)
+        })
+      }
+    },
+    { delayMs: SLOW_READ_MS, slowText: slowFile },
+  )
+  await page.goto('/')
+
+  await chooseFile(page, asUpload(slowFile))
+  await chooseFile(page, fixturePath('different-case-name.json'))
+  await expect(confirmDialog(page)).toHaveAccessibleName(DIFFERENT_CASE_QUESTION)
+
+  await page.waitForFunction(() => window.slowReadSettled === true)
+  // Two frames let React apply anything the slow read would have dispatched.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  )
+  await expect(confirmDialog(page)).toHaveAccessibleName(DIFFERENT_CASE_QUESTION)
+  await expect(confirmDialog(page)).not.toContainText(CHECKOUT_NAME)
 })
 
 test('choosing the same invalid file again shows and announces the error again', async ({

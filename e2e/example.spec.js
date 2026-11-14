@@ -1,18 +1,18 @@
 import { test, expect } from '@playwright/test'
-import { settledBox } from './canvas.js'
+import { cards, settledBox } from './canvas.js'
 import { initialEdges, initialNodes } from '../src/flow/initialFlow.js'
 
 test('value stream canvas shows the starter stages and links', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveTitle('Untitled Project · AI Enabler')
   await expect(page.getByRole('main')).toHaveAccessibleName('Value stream map')
-  await expect(page.locator('.react-flow__node')).toHaveCount(initialNodes.length)
+  await expect(cards(page)).toHaveCount(initialNodes.length)
   await expect(page.locator('.react-flow__edge')).toHaveCount(initialEdges.length)
   await expect(page.getByText('Idea', { exact: true })).toBeVisible()
   await expect(page.getByText('Production', { exact: true })).toBeVisible()
 })
 
-const nodeByLabel = (page, label) => page.locator('.react-flow__node').filter({ hasText: label })
+const nodeByLabel = (page, label) => cards(page).filter({ hasText: label })
 
 const DRAG_DX = 80
 const DRAG_DY = 120

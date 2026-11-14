@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { initialNodes } from './initialFlow.js'
-import { stepView } from './stepView.js'
+import { toStepView } from './stepView.js'
 
 const baseStep = { label: 'Step', pt: 60, lt: 120, ca: 90 }
 const rowText = (view, key) => view.rows.find((row) => row.key === key).text
 
-describe('stepView badges', () => {
+describe('toStepView badges', () => {
   it.each([
     {
       field: 'queue',
@@ -21,11 +21,11 @@ describe('stepView badges', () => {
     { field: 'batch', value: undefined, badge: 'batchBadge', shown: null },
     { field: 'batch', value: null, badge: 'batchBadge', shown: null },
   ])('$field $value gives $badge $shown', ({ field, value, badge, shown }) => {
-    expect(stepView({ ...baseStep, [field]: value })[badge]).toEqual(shown)
+    expect(toStepView({ ...baseStep, [field]: value })[badge]).toEqual(shown)
   })
 })
 
-describe('stepView %C&A', () => {
+describe('toStepView %C&A', () => {
   it.each([
     { ca: 87.4, text: '87%' },
     { ca: 87.5, text: '88%' },
@@ -34,27 +34,27 @@ describe('stepView %C&A', () => {
     { ca: undefined, text: '—' },
     { ca: null, text: '—' },
   ])('%C&A $ca shows $text', ({ ca, text }) => {
-    expect(rowText(stepView({ ...baseStep, ca }), 'ca')).toBe(text)
+    expect(rowText(toStepView({ ...baseStep, ca }), 'ca')).toBe(text)
   })
 })
 
-describe('stepView PT and LT', () => {
+describe('toStepView PT and LT', () => {
   it.each([
     { key: 'pt', absent: undefined, text: '—' },
     { key: 'lt', absent: undefined, text: '—' },
     { key: 'pt', absent: null, text: '—' },
     { key: 'lt', absent: null, text: '—' },
   ])('$key of $absent shows $text', ({ key, absent, text }) => {
-    expect(rowText(stepView({ ...baseStep, [key]: absent }), key)).toBe(text)
+    expect(rowText(toStepView({ ...baseStep, [key]: absent }), key)).toBe(text)
   })
 
   it('a zero duration shows 0m, not a dash', () => {
-    expect(rowText(stepView({ ...baseStep, pt: 0 }), 'pt')).toBe('0m')
+    expect(rowText(toStepView({ ...baseStep, pt: 0 }), 'pt')).toBe('0m')
   })
 })
 
-describe('stepView of the Build starter step', () => {
-  const build = stepView(initialNodes.find((node) => node.id === 'build').data)
+describe('toStepView of the Build starter step', () => {
+  const build = toStepView(initialNodes.find((node) => node.id === 'build').data)
 
   it('shows the title and the three values', () => {
     expect([build.title, rowText(build, 'pt'), rowText(build, 'lt'), rowText(build, 'ca')]).toEqual(

@@ -12,7 +12,7 @@ export default function ImportStatus({ state, onDismiss }) {
     >
       <p className="import-status__text">{status.text}</p>
       {status.isError && (
-        <button type="button" className="import-status__dismiss" onClick={onDismiss}>
+        <button type="button" className="button" onClick={onDismiss}>
           Dismiss
         </button>
       )}

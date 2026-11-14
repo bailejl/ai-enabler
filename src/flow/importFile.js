@@ -1,5 +1,6 @@
 import { REGISTRY, upgradeToCurrent } from './schema/upgrades.js'
-import { isObject, validateProjectFile } from './schema/validate.js'
+import { isObject } from './schema/primitives.js'
+import { NOT_A_PROJECT_FILE, validateProjectFile } from './schema/validate.js'
 import {
   CURRENT_SCHEMA_VERSION,
   RELEASED_SCHEMA_VERSIONS,
@@ -8,7 +9,6 @@ import {
 } from './schema/version.js'
 
 const NOT_JSON = 'This file is not valid JSON.'
-const NOT_A_PROJECT_FILE = 'This is not a project file. Choose a file exported from AI Enabler.'
 
 const fail = (message) => ({ ok: false, message })
 const succeed = (file) => ({ ok: true, file })

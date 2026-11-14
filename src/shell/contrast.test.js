@@ -40,8 +40,6 @@ const contrastPairs = [
   ['tileText', 'statusNoneBackground', TEXT_MINIMUM],
   ['tileBorder', 'pageBackground', NON_TEXT_MINIMUM],
   ['cardText', 'cardBackground', TEXT_MINIMUM],
-  ['cardBorder', 'cardBackground', NON_TEXT_MINIMUM],
-  ['cardBorder', 'pageBackground', NON_TEXT_MINIMUM],
   ['queueBadgeText', 'queueBadgeBackground', TEXT_MINIMUM],
   ['batchBadgeText', 'batchBadgeBackground', TEXT_MINIMUM],
   ['queueBadgeBorder', 'pageBackground', NON_TEXT_MINIMUM],
@@ -54,6 +52,10 @@ const contrastPairs = [
 describe('theme token contrast', () => {
   it.each(contrastPairs)('%s on %s is at least %d:1', (foreground, background, minimum) => {
     expect(contrastRatio(tokens[foreground], tokens[background])).toBeGreaterThanOrEqual(minimum)
+  })
+
+  it('card border is decorative and subdued, below 3:1', () => {
+    expect(contrastRatio(tokens.cardBorder, tokens.cardBackground)).toBeLessThan(NON_TEXT_MINIMUM)
   })
 
   it('has a token for every name in the pair table', () => {

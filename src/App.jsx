@@ -16,13 +16,15 @@ import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
 import { isValidConnection } from './flow/connections.js'
 import { IMPORT_CONFIRMING } from './flow/importFlow.js'
+import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
+import { useFocusAfterDelete } from './shell/useFocusAfterDelete.js'
 import { useProject } from './shell/useProject.js'
 
 // Module-level so React Flow sees one stable object across renders.
-const nodeTypes = { step: StepCard }
+const nodeTypes = { [STEP_TYPE]: StepCard }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: tokens.arrowhead } }
 const DELETE_KEYS = ['Delete', 'Backspace']
 const themeProperties = toCssCustomProperties(tokens)
@@ -32,6 +34,7 @@ const EMPTY_MAP_MESSAGE =
 function Shell() {
   const { message, announce } = useAnnouncer()
   const importButtonRef = useRef(null)
+  const canvasRef = useRef(null)
   const {
     project,
     nodes,
@@ -46,6 +49,7 @@ function Shell() {
     cancelImport,
     dismissImportError,
   } = useProject({ announce, importButtonRef })
+  const handleDelete = useFocusAfterDelete({ nodes, canvasRef })
   const handleExport = useCallback(
     () => announce(`Exported ${exportProject()}`),
     [announce, exportProject],
@@ -74,7 +78,7 @@ function Shell() {
       )}
       <HelpMenu />
       <MetricsBar steps={nodes.map((node) => node.data)} />
-      <main aria-label="Value stream map" className="canvas">
+      <main ref={canvasRef} tabIndex={-1} aria-label="Value stream map" className="canvas">
         <h1 className="visually-hidden">ai-enabler value stream map</h1>
         <p role="status" className="canvas__empty">
           {nodes.length === 0 ? EMPTY_MAP_MESSAGE : ''}
@@ -86,6 +90,7 @@ function Shell() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onDelete={handleDelete}
           isValidConnection={isValidForEdges}
           deleteKeyCode={DELETE_KEYS}
           defaultEdgeOptions={defaultEdgeOptions}

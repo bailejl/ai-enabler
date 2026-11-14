@@ -86,6 +86,11 @@ describe('toProjectFile', () => {
     expect(node.type).toBe('step')
   })
 
+  it('leaves the accessible name out of an exported node', () => {
+    const [node] = exportNodes([{ ...runtimeNode, ariaLabel: 'Build' }])
+    expect(sortedKeys(node)).toEqual(['data', 'id', 'position', 'type'])
+  })
+
   it('keeps exactly id, source, and target on an edge', () => {
     const edge = {
       id: 'idea->plan',

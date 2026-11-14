@@ -39,7 +39,7 @@ const toBadge = (count, letter, spokenName) =>
  *   batchBadge: { text: string, name: string } | null,
  * }}
  */
-export const stepView = (data) => ({
+export const toStepView = (data) => ({
   title: data.label,
   rows: ROWS.map(toRow(data)),
   queueBadge: toBadge(data.queue, 'Q', (count) => `${count} items waiting`),

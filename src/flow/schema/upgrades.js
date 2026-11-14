@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION, compareSemver, parseSemver } from './version.js'
-import { isObject } from './validate.js'
+import { isObject } from './primitives.js'
 
 // Ordered upgrade hops, oldest first. Each is { from, to, upgrade }, where upgrade takes a file at
 // `from` and returns a new file in the `to` shape. It must not mutate its input. upgradeToCurrent

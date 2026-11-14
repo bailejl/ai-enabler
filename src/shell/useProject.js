@@ -1,6 +1,11 @@
 import { addEdge, useEdgesState, useNodesState, useReactFlow } from '@xyflow/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { IMPORT_CONFIRMING, INITIAL_IMPORT_STATE, reduceImport } from '../flow/importFlow.js'
+import {
+  IMPORT_CONFIRMING,
+  IMPORT_EVENT,
+  INITIAL_IMPORT_STATE,
+  reduceImport,
+} from '../flow/importFlow.js'
 import { parseImport } from '../flow/importFile.js'
 import { initialEdges, initialNodes } from '../flow/initialFlow.js'
 import { createStarterProject } from '../flow/project.js'
@@ -49,15 +54,21 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       const requestId = latestRequestId.current
       const result = await readImport(file)
       if (requestId === latestRequestId.current) {
-        dispatchImport({ type: 'fileParsed', result, project })
+        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project })
       }
     },
     [dispatchImport, project],
   )
-  const confirmImport = useCallback(() => dispatchImport({ type: 'confirm' }), [dispatchImport])
-  const cancelImport = useCallback(() => dispatchImport({ type: 'cancel' }), [dispatchImport])
+  const confirmImport = useCallback(
+    () => dispatchImport({ type: IMPORT_EVENT.confirm }),
+    [dispatchImport],
+  )
+  const cancelImport = useCallback(
+    () => dispatchImport({ type: IMPORT_EVENT.cancel }),
+    [dispatchImport],
+  )
   const dismissImportError = useCallback(
-    () => dispatchImport({ type: 'dismiss' }),
+    () => dispatchImport({ type: IMPORT_EVENT.dismiss }),
     [dispatchImport],
   )
 

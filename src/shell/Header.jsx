@@ -39,7 +39,7 @@ export default function Header({ projectName, onExport, onImportFile, importButt
         <button
           ref={importButtonRef}
           type="button"
-          className="header__button"
+          className="button"
           aria-label="Import project (JSON)"
           onClick={() => fileInputRef.current.click()}
         >
@@ -54,7 +54,7 @@ export default function Header({ projectName, onExport, onImportFile, importButt
         />
         <button
           type="button"
-          className="header__button"
+          className="button"
           aria-label="Export project (JSON)"
           onClick={onExport}
         >

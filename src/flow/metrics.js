@@ -99,7 +99,7 @@ const TILES = [
   { key: 'steps', label: 'Steps', format: String },
 ]
 
-export const metricTiles = (steps) => {
+export const toMetricTiles = (steps) => {
   const metrics = computeMetrics(steps)
   const hasSteps = steps.length > 0
   return TILES.map(({ key, label, format }) => {

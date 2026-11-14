@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test'
 import { contrastRatio } from '../src/shell/contrast.js'
 import { tokens } from '../src/shell/tokens.js'
 import { scan } from './axe.js'
-import { cardByTitle, edgeBetween } from './canvas.js'
+import { cardByTitle, edgeBetween, selectEdge } from './canvas.js'
 import {
   asUpload,
   chooseFile,
-  clickEdge,
   confirmDialog,
   deleteAllSteps,
+  EMPTY_MAP_MESSAGE,
   fixturePath,
   importAndConfirm,
   importStatus,
@@ -16,6 +16,7 @@ import {
   openAllHelpSections,
   openBadgesView,
   openStarterView,
+  replaceQuestion,
 } from './views.js'
 
 const MULTI_SELECT_KEY = 'ControlOrMeta'
@@ -26,10 +27,9 @@ const MAX_TAB_PRESSES = 40
 const MAX_DIALOG_TAB_PRESSES = 6
 const NARROW_VIEWPORT = { width: 320, height: 640 }
 const STACKING_BREAKPOINT_WIDTH = 640
+const LONG_PROJECT_NAME_LENGTH = 100
 const IMPORT_BUTTON_NAME = 'Import project (JSON)'
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
-const EMPTY_MAP_MESSAGE =
-  'No steps on this map. Import a project, or reload to restore the starter map.'
 
 const namedButton = (page, name) => page.getByRole('button', { name, exact: true })
 
@@ -71,7 +71,11 @@ test('an imported map with On target and Needs attention tiles has no axe violat
   page,
 }) => {
   await openStarterView(page)
-  await importAndConfirm(page, fixturePath('on-target-and-needs-attention.json'))
+  await importAndConfirm(
+    page,
+    fixturePath('on-target-and-needs-attention.json'),
+    replaceQuestion('Status Check'),
+  )
   await expect(metricRegion(page).getByText('On target').first()).toBeVisible()
   await expect(metricRegion(page).getByText('Needs attention').first()).toBeVisible()
   await expectNoViolations(page)
@@ -89,7 +93,7 @@ test('an imported map with queue and batch badges and a Watch tile has no axe vi
 test('a selected step and a selected connection have no axe violations', async ({ page }) => {
   await openStarterView(page)
   await cardByTitle(page, 'Plan').click()
-  await clickEdge(page, 'build', 'test', MULTI_SELECT_KEY)
+  await selectEdge(page, 'build', 'test', MULTI_SELECT_KEY)
   await expect(cardByTitle(page, 'Plan')).toHaveClass(/selected/)
   await expect(edgeBetween(page, 'build', 'test')).toHaveClass(/selected/)
   await expectNoViolations(page)
@@ -124,7 +128,7 @@ const focusStops = [
   })),
   {
     name: 'the Plan card',
-    identity: 'plan',
+    identity: 'Plan',
     surface: 'pageBackground',
     find: (page) => cardByTitle(page, 'Plan'),
   },
@@ -157,7 +161,7 @@ const openConfirmation = async (page) => {
   await expect(confirmDialog(page)).toBeVisible()
 }
 
-// What the focused element is called: its accessible name, else its React Flow node id, else its text.
+// What the focused element is called: its accessible name (cards are named by step title), else its React Flow node id, else its text.
 const activeIdentity = (page) =>
   page.evaluate(() => {
     const element = document.activeElement
@@ -302,7 +306,11 @@ test.describe('the page reflows at 320 pixels', () => {
     page,
   }) => {
     await openStarterView(page)
-    await importAndConfirm(page, fixturePath('long-name.json'))
+    await importAndConfirm(
+      page,
+      fixturePath('long-name.json'),
+      replaceQuestion('A'.repeat(LONG_PROJECT_NAME_LENGTH)),
+    )
     await expect(namedButton(page, IMPORT_BUTTON_NAME)).toBeInViewport({ ratio: 1 })
     await expect(namedButton(page, EXPORT_BUTTON_NAME)).toBeInViewport({ ratio: 1 })
     await expectNoHorizontalScroll(page)

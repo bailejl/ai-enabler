@@ -1,11 +1,9 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
+import { STEP_TYPE } from '../step.js'
+import { isObject } from './primitives.js'
 
-const NOT_A_PROJECT_FILE = 'This is not a project file. Choose a file exported from AI Enabler.'
-
-export const STEP_TYPE = 'step'
-
-export const isObject = (value) =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+export const NOT_A_PROJECT_FILE =
+  'This is not a project file. Choose a file exported from AI Enabler.'
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''
 

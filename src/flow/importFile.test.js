@@ -71,8 +71,7 @@ describe('parseImport', () => {
     })
     expect(parse(file)).toEqual({
       ok: false,
-      message:
-        'This file uses schema 9.0.0; this app supports up to 0.0.0. Update the app or re-export the file.',
+      message: `This file uses schema 9.0.0; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update the app or re-export the file.`,
     })
   })
 

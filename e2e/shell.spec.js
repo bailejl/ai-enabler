@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test'
 import { scan } from './axe.js'
+import { cards } from './canvas.js'
+import { openAllHelpSections, STARTER_STEP_COUNT } from './views.js'
 
-const STARTER_STEP_COUNT = 6
 const PROJECT_NAME = 'Untitled Project'
 const LONG_PROJECT_NAME_LENGTH = 100
 const HOW_TO_USE_LINES = 5
 
 const expectStarterViewAccessible = async (page) => {
-  await expect(page.locator('.react-flow__node')).toHaveCount(STARTER_STEP_COUNT)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   expect(await scan(page)).toEqual([])
 }
 
@@ -48,7 +49,7 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
 
 test('reloading after deleting Idea restores six steps and stores nothing', async ({ page }) => {
   await page.goto('/')
-  const steps = page.locator('.react-flow__node')
+  const steps = cards(page)
   await expect(steps).toHaveCount(STARTER_STEP_COUNT)
   await steps.filter({ hasText: 'Idea' }).click()
   await page.keyboard.press('Backspace')
@@ -73,6 +74,7 @@ test('the default view has no accessibility violations', async ({ page }) => {
 const HELP_SECTIONS = ['How to use', 'Glossary', 'Help']
 
 const REQUIRED_TERMS = [
+  ['Step', 'A stage of the value stream, shown as a card on the canvas'],
   ['PT (process time)', 'Actual work time spent on an item at a step'],
   [
     'LT (lead time)',
@@ -91,6 +93,11 @@ const REQUIRED_TERMS = [
   ],
   ['Total queue', 'Sum of the queues of all steps'],
   ['Avg process time', 'Total PT ÷ number of steps'],
+  ['Working day (d)', '8 hours, used for all duration display'],
+  ['Project', 'A named value stream map with an internal id'],
+  ['On target', 'The metric meets its goal. No action is needed'],
+  ['Watch', 'The metric is below its goal but not yet a problem'],
+  ['Needs attention', 'The metric is far from its goal and needs action'],
 ]
 
 const helpNav = (page) => page.getByRole('navigation', { name: 'Help' })
@@ -99,15 +106,6 @@ const helpSection = (page, title) =>
   helpNav(page)
     .locator('details')
     .filter({ has: page.locator('summary', { hasText: title }) })
-
-const openAllHelpSections = async (page) => {
-  const sections = helpNav(page).locator('details')
-  await expect(sections).toHaveCount(HELP_SECTIONS.length)
-  for (const section of await sections.all()) {
-    await section.locator('summary').click()
-  }
-  await expect(helpNav(page).locator('details[open]')).toHaveCount(HELP_SECTIONS.length)
-}
 
 test('the three help sections start collapsed', async ({ page }) => {
   await page.goto('/')
@@ -121,6 +119,10 @@ test.describe('with every help section expanded', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await openAllHelpSections(page)
+  })
+
+  test('the glossary has exactly the required entries', async ({ page }) => {
+    await expect(helpNav(page).locator('dl > div')).toHaveCount(REQUIRED_TERMS.length)
   })
 
   for (const [term, definition] of REQUIRED_TERMS) {

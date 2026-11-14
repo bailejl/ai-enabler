@@ -42,10 +42,10 @@ export default function ConfirmDialog({ message, currentName, incomingName, onCo
           <strong>{incomingName}</strong>.
         </p>
         <div className="dialog__actions">
-          <button type="button" className="dialog__button" onClick={onConfirm}>
+          <button type="button" className="button" onClick={onConfirm}>
             Replace map
           </button>
-          <button ref={cancelButtonRef} type="button" className="dialog__button" onClick={onCancel}>
+          <button ref={cancelButtonRef} type="button" className="button" onClick={onCancel}>
             Cancel
           </button>
         </div>

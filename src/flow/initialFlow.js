@@ -1,4 +1,4 @@
-import { STEP_TYPE } from './schema/validate.js'
+import { STEP_TYPE, withAriaLabel } from './step.js'
 
 /**
  * Starter value stream: the stages from idea to production, left to right.
@@ -18,15 +18,17 @@ export const STAGE_SPACING = 200
 
 /**
  * @param {{ id: string, label: string }[]} stages every field besides id becomes node data
- * @returns {{ id: string, type: string, position: { x: number, y: number }, data: { label: string } }[]}
+ * @returns {{ id: string, type: string, position: { x: number, y: number }, data: { label: string }, ariaLabel: string }[]}
  */
 export const toNodes = (stages) =>
-  stages.map(({ id, ...data }, i) => ({
-    id,
-    type: STEP_TYPE,
-    position: { x: i * STAGE_SPACING, y: 0 },
-    data,
-  }))
+  stages.map(({ id, ...data }, i) =>
+    withAriaLabel({
+      id,
+      type: STEP_TYPE,
+      position: { x: i * STAGE_SPACING, y: 0 },
+      data,
+    }),
+  )
 
 /**
  * Connect each node to the next one in order.

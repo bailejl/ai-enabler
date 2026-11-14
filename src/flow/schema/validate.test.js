@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { validateProjectFile } from './validate.js'
 import { initialNodes, initialEdges } from '../initialFlow.js'
+import { STEP_DATA_FIELDS } from '../step.js'
 
 const step = (id, label, index) => ({
   id,
@@ -99,6 +100,14 @@ describe('validateProjectFile: steps', () => {
   ])('rejects %s', (_label, file, message) => {
     expect(validateProjectFile(file)).toEqual(fail(message))
   })
+
+  // A field added to STEP_DATA_FIELDS without a validator rule fails here.
+  it.each(STEP_DATA_FIELDS.filter((field) => field !== 'label'))(
+    'rejects an optional field "%s" holding a string that is not a number',
+    (field) => {
+      expect(validateProjectFile(withData(2, { [field]: 'not a number' })).ok).toBe(false)
+    },
+  )
 
   it.each([
     [

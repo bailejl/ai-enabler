@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
-import { STEP_TYPE } from './schema/validate.js'
+import { STEP_DATA_FIELDS, STEP_TYPE } from './step.js'
 
 const FALLBACK_FILE_SLUG = 'project'
 const FILE_SUFFIX = '.ai-enabler.json'
@@ -7,7 +7,6 @@ const FILE_SUFFIX = '.ai-enabler.json'
 // The only fields an export carries; React Flow runtime fields (selected, measured, ...) are dropped.
 const PROJECT_FIELDS = ['id', 'name']
 const POSITION_FIELDS = ['x', 'y']
-const DATA_FIELDS = ['label', 'pt', 'lt', 'ca', 'queue', 'batch']
 const EDGE_FIELDS = ['id', 'source', 'target']
 
 // Copies the listed fields that are present; absent optional fields stay absent.
@@ -21,7 +20,7 @@ export const toExportNode = (node) => ({
   id: node.id,
   type: STEP_TYPE,
   position: pick(node.position, POSITION_FIELDS),
-  data: pick(node.data, DATA_FIELDS),
+  data: pick(node.data, STEP_DATA_FIELDS),
 })
 
 export const toExportEdge = (edge) => pick(edge, EDGE_FIELDS)

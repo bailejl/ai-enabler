@@ -10,9 +10,21 @@ describe('toNodes', () => {
         { id: 'c', label: 'C' },
       ]),
     ).toEqual([
-      { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'A' } },
-      { id: 'b', type: 'step', position: { x: STAGE_SPACING, y: 0 }, data: { label: 'B' } },
-      { id: 'c', type: 'step', position: { x: STAGE_SPACING * 2, y: 0 }, data: { label: 'C' } },
+      { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'A' }, ariaLabel: 'A' },
+      {
+        id: 'b',
+        type: 'step',
+        position: { x: STAGE_SPACING, y: 0 },
+        data: { label: 'B' },
+        ariaLabel: 'B',
+      },
+      {
+        id: 'c',
+        type: 'step',
+        position: { x: STAGE_SPACING * 2, y: 0 },
+        data: { label: 'C' },
+        ariaLabel: 'C',
+      },
     ])
   })
 
@@ -39,6 +51,10 @@ describe('toEdges', () => {
 })
 
 describe('initial flow', () => {
+  it('names every starter node for assistive technology by its step title', () => {
+    expect(initialNodes.map((n) => n.ariaLabel)).toEqual(initialNodes.map((n) => n.data.label))
+  })
+
   it('runs from Idea to Production in order', () => {
     expect(initialNodes.map((n) => n.data.label)).toEqual([
       'Idea',
