@@ -5,7 +5,7 @@
 
 ## Project: ai-enabler
 
-**Stack:** JavaScript (ES modules, `"type": "module"`), Node 24 (`.nvmrc`, `engines`), npm. Frontend web app: React 19 + React Flow (`@xyflow/react`) on Vite (dev server on :3000, prototype server on :3001).
+**Stack:** JavaScript (ES modules, `"type": "module"`), Node 24 (`.nvmrc`, `engines`), npm. Frontend web app: React 19 + React Flow (`@xyflow/react`) on Vite (dev server on :3000, prototype server on :3001, or next free port).
 
 ### Conventions
 - Functional style: no classes, no `this`, prefer `const`, no param reassignment (enforced by ESLint).
@@ -33,7 +33,7 @@ Dev-team entry points (orchestrator, `/design-doc`, `/specs`, `/plan`, `/build`,
 | Task | Command |
 |---|---|
 | Dev server | `npm run dev` |
-| Prototype dev server (:3001) | `npm run dev:prototype` |
+| Prototype dev server (:3001+) | `npm run dev:prototype` |
 | Build | `npm run build` |
 | Unit tests | `npm test` |
 | Coverage | `npm run test:coverage` |

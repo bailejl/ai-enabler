@@ -16,7 +16,7 @@ Add a project skill, `.claude/skills/prototype/SKILL.md`, invoked as `/prototype
 subcommands.
 
 1. `/prototype start <name>` creates a local branch `proto/<name>` from `main`. It then starts
-   `npm run dev:prototype` in the background so you can view the app at `http://localhost:3001`.
+   `npm run dev:prototype` in the background so you can view the app at `http://localhost:3001` (or the next free port).
 2. `/prototype` (or any request while on a `proto/*` branch) iterates fast. Claude edits code
    directly. No tests, no review agents, no plan. Claude commits each working step so you can step
    back. Claude drives the running prototype with the Playwright MCP tools: it opens the page,
@@ -74,9 +74,13 @@ them into acceptance criteria. You can also ask for any of them during iteration
 ### Ports
 
 `npm run dev` stays on port 3000. A new script, `npm run dev:prototype`, runs Vite on port 3001
-with `strictPort`. The e2e tests reuse any server already on port 3000, so the prototype must never
-use that port. One prototype server runs at a time; a second one fails to start instead of taking a
-random port.
+and moves up to the next free port if 3001 is taken. The e2e tests reuse any server already on port
+3000, so the prototype must never use that port; counting up from 3001 keeps it off 3000. The skill
+finds its server by process and repo cwd and reads the real port.
+
+Superseded (2026-11-14): this section first said `strictPort`, one prototype server at a time, and a
+second one fails to start. That made a busy port 3001 block the prototype, so the port now falls
+back instead.
 
 ## Alternatives considered
 
@@ -120,7 +124,7 @@ random port.
 
 None. Resolved:
 
-- The skill runs `npm run dev:prototype` in the background on port 3001 and stops it at graduate.
+- The skill runs `npm run dev:prototype` in the background on port 3001 or the next free port and stops it at graduate.
 - You delete old `proto/*` branches yourself.
 - Graduate offers the advisory agents, with yes as the default.
 
@@ -133,7 +137,7 @@ In scope:
 - The Claude Code `PreToolUse` guard: `.claude/settings.json` and `scripts/claude-push-guard*.js`.
 - The `SKIP_REPOWISE` switch in `.husky/pre-commit`.
 - The handoff template, inside the skill.
-- The `dev:prototype` script in `package.json` (Vite on port 3001, `strictPort`).
+- The `dev:prototype` script in `package.json` (Vite on port 3001, falling back to the next free port).
 - The advisory agent offer at graduate.
 - The GitHub issue created at graduate, and the `prototype` label if it does not exist.
 - A short note in `README.md` and `.claude/CLAUDE.md` listing `/prototype`.

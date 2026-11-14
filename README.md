@@ -28,22 +28,22 @@ npx playwright install chromium
 
 ## Commands
 
-| Task                     | Command                 |
-| ------------------------ | ----------------------- |
-| Dev server (:3000)       | `npm run dev`           |
-| Prototype server (:3001) | `npm run dev:prototype` |
-| Production build         | `npm run build`         |
-| Preview build            | `npm run preview`       |
-| Unit tests               | `npm test`              |
-| Unit tests (watch)       | `npm run test:watch`    |
-| Coverage                 | `npm run test:coverage` |
-| E2E tests                | `npm run test:e2e`      |
-| Lint                     | `npm run lint`          |
-| Lint (deep, ESLint)      | `npm run lint:deep`     |
-| Lint fix                 | `npm run lint:fix`      |
-| Format                   | `npm run format`        |
-| Check formatting         | `npm run format:check`  |
-| Mutation testing         | `npx stryker run`       |
+| Task                      | Command                 |
+| ------------------------- | ----------------------- |
+| Dev server (:3000)        | `npm run dev`           |
+| Prototype server (:3001+) | `npm run dev:prototype` |
+| Production build          | `npm run build`         |
+| Preview build             | `npm run preview`       |
+| Unit tests                | `npm test`              |
+| Unit tests (watch)        | `npm run test:watch`    |
+| Coverage                  | `npm run test:coverage` |
+| E2E tests                 | `npm run test:e2e`      |
+| Lint                      | `npm run lint`          |
+| Lint (deep, ESLint)       | `npm run lint:deep`     |
+| Lint fix                  | `npm run lint:fix`      |
+| Format                    | `npm run format`        |
+| Check formatting          | `npm run format:check`  |
+| Mutation testing          | `npx stryker run`       |
 
 Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}` and `scripts/**/*.js`,
 excluding test files, `scripts/**/*-cli.js`, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
@@ -102,7 +102,7 @@ write a spec.
   prototype server. On `proto/*` branches only, Claude skips tests and review.
 - `/prototype graduate` writes a handoff under `docs/prototypes/` and commits it on `feat/<name>`.
   If you approve, it pushes that branch and opens a GitHub issue for `/dev-team:specs`.
-- `npm run dev:prototype` serves on port 3001. `npm run dev` stays on port 3000.
+- `npm run dev:prototype` serves on port 3001, or the next free port if 3001 is taken. `npm run dev` stays on port 3000.
 
 Prototype branches are meant to stay local. Two guards block pushes of them:
 

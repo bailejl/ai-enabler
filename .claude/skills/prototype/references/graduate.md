@@ -36,11 +36,8 @@ first.
 Commits: run `SKIP_REPOWISE=1 git commit ...` so the pre-commit hook does not add Repowise files to
 a handoff-only commit. Never use `--no-verify`.
 
-Listeners: `lsof -ti tcp:3001 -sTCP:LISTEN` prints the pids.
-
-This repo's Vite: a pid whose `ps -o command= -p <pid>` contains `vite`, and whose cwd equals
-`git rev-parse --show-toplevel`. Get the cwd from `lsof -a -p <pid> -d cwd -Fn` and strip the
-leading `n`.
+Prototype server: Find, Start, Stop, and the prototype URL are defined in `SKILL.md` under
+Prototype server. The port is not always 3001.
 
 ## Entry
 
@@ -61,18 +58,15 @@ Run these checks in order. Change nothing until all pass. Stop at the first fail
    `feat/<feat_name>`.
    - Pass: ask whether to reuse that branch. Yes: `git switch feat/<feat_name>`, then step 6, then step 7.
    - Fail, or the user says no: ask for another `feat_name`, check it, and run this check again.
-4. The server is up.
-   - Nothing is listening: run `npm run dev:prototype` in the background. Poll
-     `curl -sf http://localhost:3001` for up to about 30 seconds. If the server never answers, stop and show the server output.
-   - A pid is listening and it is this repo's Vite: use it.
-   - A pid is listening and is not this repo's Vite: show its command and ask whether to stop that process. Yes: `kill` that process and start the server as above. No: stop.
+4. The server is up. Find the prototype server and use its URL. If none is running, start it. If
+   it fails to start, stop and show the server output.
 
 ## 2. Advisory agents
 
 Ask one question: "Run ui-ux-designer, a11y-review, and exploratory-testing against the
 prototype? Default is yes. Reply with agent names to drop, or 'no' for none."
 
-Run the accepted ones in parallel. Give each `http://localhost:3001` and `git diff main...HEAD`.
+Run the accepted ones in parallel. Give each the prototype URL and `git diff main...HEAD`.
 
 - `dev-team:ui-ux-designer` and `dev-team:a11y-review`: run as subagents.
 - `dev-team:exploratory-testing`: invoke with the Skill tool and
@@ -90,7 +84,7 @@ made. Treat a "skip" or "unsure" answer as unanswered and add it to Open questio
 
 ## 4. Screenshots
 
-Use the Playwright MCP tools to capture each distinct state at `http://localhost:3001`. Save the
+Use the Playwright MCP tools to capture each distinct state at the prototype URL. Save the
 PNG files to `.playwright-mcp/` in the repo root, which is gitignored. The tool saves only under
 the repo root. Give each a short kebab-case name and a one-line description.
 
@@ -106,9 +100,7 @@ the repo root. Give each a short kebab-case name and a one-line description.
 
 ## 6. Stop the server
 
-Run the listeners command. If that command prints nothing, go on.
-
-For each pid, stop it with `kill <pid>` only if it is this repo's Vite. Otherwise show its command and ask before stopping that process.
+Stop the prototype server. If Find returns nothing, go on.
 
 ## 7. Preview
 
