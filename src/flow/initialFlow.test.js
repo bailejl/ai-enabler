@@ -48,6 +48,26 @@ describe('initial flow', () => {
     ])
   })
 
+  it.each([
+    ['idea', { label: 'Idea', pt: 120, lt: 1440, ca: 90, queue: 20 }],
+    ['plan', { label: 'Plan', pt: 360, lt: 960, ca: 90, queue: 3 }],
+    ['build', { label: 'Build', pt: 480, lt: 1200, ca: 90, queue: 4 }],
+    ['test', { label: 'Test', pt: 240, lt: 1200, ca: 90, queue: 5 }],
+    ['deploy', { label: 'Deploy', pt: 240, lt: 720, ca: 90, queue: 1 }],
+    ['production', { label: 'Production', pt: 120, lt: 480, ca: 90, queue: 1, batch: 3 }],
+  ])('gives %s its starter data in minutes', (id, expected) => {
+    expect(initialNodes.find((n) => n.id === id).data).toStrictEqual(expected)
+  })
+
+  it('leaves batch absent on every step except Production', () => {
+    const withBatch = initialNodes.filter((n) => 'batch' in n.data).map((n) => n.id)
+    expect(withBatch).toEqual(['production'])
+  })
+
+  it('does not set a node type yet', () => {
+    expect(initialNodes.every((n) => !('type' in n))).toBe(true)
+  })
+
   it('links each stage to the next', () => {
     expect(initialEdges.map((e) => [e.source, e.target])).toEqual([
       ['idea', 'plan'],
