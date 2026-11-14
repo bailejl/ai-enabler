@@ -1,4 +1,4 @@
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useConnection, useNodeConnections } from '@xyflow/react'
 import { stepView } from '../flow/stepView.js'
 
 function Badge({ badge, variant }) {
@@ -10,12 +10,25 @@ function Badge({ badge, variant }) {
   )
 }
 
+// Unconnected handles stay hidden until hovered, unless a connection drag is in progress.
+const handleClassName = ({ isConnected, isConnectionInProgress }) =>
+  isConnected || isConnectionInProgress
+    ? 'step-card__handle step-card__handle--shown'
+    : 'step-card__handle'
+
 export default function StepCard({ data }) {
   const { title, rows, queueBadge, batchBadge } = stepView(data)
+  const isConnectionInProgress = useConnection((connection) => connection.inProgress)
+  const hasIncoming = useNodeConnections({ handleType: 'target' }).length > 0
+  const hasOutgoing = useNodeConnections({ handleType: 'source' }).length > 0
 
   return (
     <div className="step-card">
-      <Handle type="target" position={Position.Left} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={handleClassName({ isConnected: hasIncoming, isConnectionInProgress })}
+      />
       {queueBadge && <Badge badge={queueBadge} variant="queue" />}
       {batchBadge && <Badge badge={batchBadge} variant="batch" />}
       <h2 className="step-card__title">{title}</h2>
@@ -30,7 +43,11 @@ export default function StepCard({ data }) {
           </div>
         ))}
       </dl>
-      <Handle type="source" position={Position.Right} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={handleClassName({ isConnected: hasOutgoing, isConnectionInProgress })}
+      />
     </div>
   )
 }

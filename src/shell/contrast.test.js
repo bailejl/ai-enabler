@@ -43,6 +43,9 @@ const contrastPairs = [
   ['batchBadgeText', 'batchBadgeBackground', TEXT_MINIMUM],
   ['queueBadgeBorder', 'pageBackground', NON_TEXT_MINIMUM],
   ['batchBadgeBorder', 'pageBackground', NON_TEXT_MINIMUM],
+  ['edgeStroke', 'pageBackground', NON_TEXT_MINIMUM],
+  ['arrowhead', 'pageBackground', NON_TEXT_MINIMUM],
+  ['handleDot', 'pageBackground', NON_TEXT_MINIMUM],
 ]
 
 describe('theme token contrast', () => {

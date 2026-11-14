@@ -16,6 +16,9 @@
   --card-width: 9rem;
   --card-padding: 1.75rem 0.5rem 0.5rem;
   --badge-inset: 0.25rem;
+  --handle-hit-size: 20px;
+  --handle-dot-size: 8px;
+  --edge-width: 2px;
 }
 
 html,
@@ -227,6 +230,48 @@ body,
   border-color: var(--batch-badge-border);
   background: var(--batch-badge-background);
   color: var(--batch-badge-text);
+}
+
+.react-flow__edge-path {
+  stroke: var(--edge-stroke);
+  stroke-width: var(--edge-width);
+}
+
+.step-card__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--handle-hit-size);
+  height: var(--handle-hit-size);
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.step-card__handle::after {
+  content: '';
+  width: var(--handle-dot-size);
+  height: var(--handle-dot-size);
+  border-radius: 100%;
+  background: var(--handle-dot);
+}
+
+.step-card__handle:hover,
+.step-card__handle--shown {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .step-card__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-card__handle {
+    transition: none;
+  }
 }
 
 .canvas {

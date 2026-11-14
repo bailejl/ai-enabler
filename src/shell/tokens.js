@@ -20,6 +20,9 @@ export const tokens = {
   batchBadgeBackground: '#bfdbfe',
   batchBadgeText: '#172554',
   batchBadgeBorder: '#1d4ed8',
+  edgeStroke: '#64748b',
+  arrowhead: '#475569',
+  handleDot: '#475569',
 }
 
 const toKebabCase = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)

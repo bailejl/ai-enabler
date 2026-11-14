@@ -10,6 +10,7 @@ export default defineConfig({
   retries: 0,
   use: {
     headless: true,
+    reducedMotion: 'reduce',
     baseURL,
   },
   webServer: {
