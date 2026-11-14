@@ -1307,6 +1307,6 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 5
 
-- [ ] Slice 8: Accessibility sweep
-  - [ ] Step 8.1: Sweep the axe scans across all views
-  - [ ] Step 8.2: Audit focus indicators and reflow
+- [x] Slice 8: Accessibility sweep
+  - [x] Step 8.1: Sweep the axe scans across all views
+  - [x] Step 8.2: Audit focus indicators and reflow
