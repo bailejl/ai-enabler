@@ -1279,16 +1279,16 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 2
 
-- [ ] Slice 4: Schema versions, validation, upgrades, and the fixture guard
-  - [ ] Step 4.1: Parse and compare SemVer schema versions
-  - [ ] Step 4.2: Validate a current-version project file
-  - [ ] Step 4.3: Build the upgrade chain and its coverage checks
-  - [ ] Step 4.4: Serialize for export and check the export shape
-  - [ ] Step 4.5: Guard released fixtures in CI
-  - [ ] Step 4.6: Document schema bumps
+- [x] Slice 4: Schema versions, validation, upgrades, and the fixture guard
+  - [x] Step 4.1: Parse and compare SemVer schema versions
+  - [x] Step 4.2: Validate a current-version project file
+  - [x] Step 4.3: Build the upgrade chain and its coverage checks
+  - [x] Step 4.4: Serialize for export and check the export shape
+  - [x] Step 4.5: Guard released fixtures in CI
+  - [x] Step 4.6: Document schema bumps
 
 - [ ] Slice 5: Metrics bar
-  - [ ] Step 5.1: Render the metrics bar from tiles
+  - [x] Step 5.1: Render the metrics bar from tiles
 
 ### Wave 3
 
