@@ -1287,7 +1287,7 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
   - [x] Step 4.5: Guard released fixtures in CI
   - [x] Step 4.6: Document schema bumps
 
-- [ ] Slice 5: Metrics bar
+- [x] Slice 5: Metrics bar
   - [x] Step 5.1: Render the metrics bar from tiles
 
 ### Wave 3
