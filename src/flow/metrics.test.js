@@ -36,8 +36,14 @@ describe('metricTiles', () => {
       'avgProcessTime',
       'steps',
     ])
-    expect(tiles[2]).toMatchObject({ status: 'watch', statusLabel: 'Watch' })
-    expect(tiles[0]).toMatchObject({ status: null, statusLabel: null })
+    expect(tiles.find(({ key }) => key === 'flowEfficiency')).toMatchObject({
+      status: 'watch',
+      statusLabel: 'Watch',
+    })
+    expect(tiles.find(({ key }) => key === 'totalLeadTime')).toMatchObject({
+      status: null,
+      statusLabel: null,
+    })
   })
 
   it('shows a dash with no status on every tile when there are no steps', () => {
@@ -61,41 +67,42 @@ describe('metricTiles', () => {
   })
 
   it('rates and displays flow efficiency from the one-decimal value', () => {
-    // 699.6 / 1000 = 69.96% -> displays 70.0% -> On target
+    // 6996 / 10000 = 69.96% -> displays 70.0% -> On target
     const tile = tileByKey([{ pt: 6996, lt: 10000 }], 'flowEfficiency')
 
     expect(tile).toMatchObject({ text: '70.0%', status: 'on-target' })
   })
+})
 
-  it('totals every step whatever the connections', () => {
-    const steps = stepsOf([
-      { data: { label: 'A', pt: 10, lt: 100, ca: 100, queue: 1 } },
-      { data: { label: 'B', pt: 20, lt: 200, ca: 100, queue: 2 } },
-      { data: { label: 'C', pt: 30, lt: 300, ca: 100, queue: 3 } },
-      { data: { label: 'D (unconnected)', pt: 40, lt: 400, ca: 100, queue: 4 } },
-    ])
+describe('computeMetrics', () => {
+  it('counts a missing PT, LT, and queue as 0 and a missing %C&A as 100', () => {
+    const metrics = computeMetrics([{ label: 'Bare' }, { pt: 60, lt: 240, ca: 50, queue: 2 }])
+
+    expect(metrics).toMatchObject({
+      totalProcessTime: 60,
+      totalLeadTime: 240,
+      totalQueue: 2,
+      firstPassYield: 50,
+      flowEfficiency: 25,
+      avgProcessTime: 30,
+      steps: 2,
+    })
+  })
+
+  it('sums lead time over every step, including one with no connections', () => {
+    // A and B feed C; D has no connections. Totals depend on steps only, not edges.
+    const steps = [
+      { label: 'A', pt: 10, lt: 100, ca: 100, queue: 1 },
+      { label: 'B', pt: 20, lt: 200, ca: 100, queue: 2 },
+      { label: 'C', pt: 30, lt: 300, ca: 100, queue: 3 },
+      { label: 'D (unconnected)', pt: 40, lt: 400, ca: 100, queue: 4 },
+    ]
 
     expect(computeMetrics(steps)).toMatchObject({
       totalLeadTime: 1000,
       totalProcessTime: 100,
       totalQueue: 10,
       steps: 4,
-    })
-  })
-})
-
-describe('computeMetrics', () => {
-  it('counts a missing PT, LT, and queue as 0 and a missing %C&A as 100', () => {
-    const metrics = computeMetrics([{ label: 'Bare' }, { pt: 60, lt: 120, ca: 50, queue: 2 }])
-
-    expect(metrics).toMatchObject({
-      totalProcessTime: 60,
-      totalLeadTime: 120,
-      totalQueue: 2,
-      firstPassYield: 50,
-      flowEfficiency: 50,
-      avgProcessTime: 30,
-      steps: 2,
     })
   })
 
@@ -139,7 +146,11 @@ describe('rateMetric', () => {
     expect(rateMetric(key, value)).toBe(status)
   })
 
-  it('gives no status when the value is null', () => {
-    expect(rateMetric('flowEfficiency', null)).toBeNull()
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['NaN', NaN],
+  ])('gives no status when the value is %s', (_name, value) => {
+    expect(rateMetric('flowEfficiency', value)).toBeNull()
   })
 })

@@ -1,6 +1,5 @@
-import { formatDuration } from './duration.js'
+import { formatDuration, NO_VALUE_TEXT } from './duration.js'
 
-const NO_VALUE_TEXT = '—'
 const DEFAULT_PERCENT_COMPLETE_ACCURATE = 100
 const PERCENT = 100
 
@@ -53,7 +52,7 @@ const roundTo = (value, digits) => {
 const isInBand = (value, { min = -Infinity, max = Infinity }) => value >= min && value <= max
 
 export const rateMetric = (key, rawValue) => {
-  if (!Object.hasOwn(THRESHOLDS, key) || rawValue === null) return null
+  if (!Object.hasOwn(THRESHOLDS, key) || !Number.isFinite(rawValue)) return null
   const threshold = THRESHOLDS[key]
   const value = roundTo(rawValue, threshold.digits)
   return threshold.bands.find((band) => isInBand(value, band)).status

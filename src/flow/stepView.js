@@ -1,6 +1,4 @@
-import { formatDuration } from './duration.js'
-
-const NO_VALUE_TEXT = '—'
+import { formatDuration, NO_VALUE_TEXT } from './duration.js'
 
 const formatPercent = (value) => `${Math.round(value)}%`
 

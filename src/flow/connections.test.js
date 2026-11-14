@@ -61,6 +61,7 @@ describe('reachable', () => {
 
   it('terminates on cyclic input', () => {
     const cycle = [edge('A', 'B'), edge('B', 'C'), edge('C', 'A')]
+    expect(reachable(cycle, 'A', 'C')).toBe(true)
     expect(reachable(cycle, 'A', 'Z')).toBe(false)
   })
 })

@@ -1,3 +1,5 @@
+export const NO_VALUE_TEXT = '—'
+
 const MINUTES_PER_HOUR = 60
 const HOURS_PER_DAY = 8
 const MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY

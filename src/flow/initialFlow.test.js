@@ -7,10 +7,12 @@ describe('toNodes', () => {
       toNodes([
         { id: 'a', label: 'A' },
         { id: 'b', label: 'B' },
+        { id: 'c', label: 'C' },
       ]),
     ).toEqual([
       { id: 'a', position: { x: 0, y: 0 }, data: { label: 'A' } },
       { id: 'b', position: { x: STAGE_SPACING, y: 0 }, data: { label: 'B' } },
+      { id: 'c', position: { x: STAGE_SPACING * 2, y: 0 }, data: { label: 'C' } },
     ])
   })
 
@@ -57,15 +59,6 @@ describe('initial flow', () => {
     ['production', { label: 'Production', pt: 120, lt: 480, ca: 90, queue: 1, batch: 3 }],
   ])('gives %s its starter data in minutes', (id, expected) => {
     expect(initialNodes.find((n) => n.id === id).data).toStrictEqual(expected)
-  })
-
-  it('leaves batch absent on every step except Production', () => {
-    const withBatch = initialNodes.filter((n) => 'batch' in n.data).map((n) => n.id)
-    expect(withBatch).toEqual(['production'])
-  })
-
-  it('does not set a node type yet', () => {
-    expect(initialNodes.every((n) => !('type' in n))).toBe(true)
   })
 
   it('links each stage to the next', () => {

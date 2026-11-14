@@ -15,9 +15,11 @@ describe('stepView badges', () => {
     },
     { field: 'queue', value: 0, badge: 'queueBadge', shown: null },
     { field: 'queue', value: undefined, badge: 'queueBadge', shown: null },
+    { field: 'queue', value: null, badge: 'queueBadge', shown: null },
     { field: 'batch', value: 3, badge: 'batchBadge', shown: { text: 'B 3', name: 'Batch size 3' } },
     { field: 'batch', value: 0, badge: 'batchBadge', shown: null },
     { field: 'batch', value: undefined, badge: 'batchBadge', shown: null },
+    { field: 'batch', value: null, badge: 'batchBadge', shown: null },
   ])('$field $value gives $badge $shown', ({ field, value, badge, shown }) => {
     expect(stepView({ ...baseStep, [field]: value })[badge]).toEqual(shown)
   })
@@ -30,6 +32,7 @@ describe('stepView %C&A', () => {
     { ca: 0, text: '0%' },
     { ca: 100, text: '100%' },
     { ca: undefined, text: '—' },
+    { ca: null, text: '—' },
   ])('%C&A $ca shows $text', ({ ca, text }) => {
     expect(rowText(stepView({ ...baseStep, ca }), 'ca')).toBe(text)
   })
@@ -37,10 +40,12 @@ describe('stepView %C&A', () => {
 
 describe('stepView PT and LT', () => {
   it.each([
-    { key: 'pt', text: '—' },
-    { key: 'lt', text: '—' },
-  ])('absent $key shows $text', ({ key, text }) => {
-    expect(rowText(stepView({ ...baseStep, [key]: undefined }), key)).toBe(text)
+    { key: 'pt', absent: undefined, text: '—' },
+    { key: 'lt', absent: undefined, text: '—' },
+    { key: 'pt', absent: null, text: '—' },
+    { key: 'lt', absent: null, text: '—' },
+  ])('$key of $absent shows $text', ({ key, absent, text }) => {
+    expect(rowText(stepView({ ...baseStep, [key]: absent }), key)).toBe(text)
   })
 
   it('a zero duration shows 0m, not a dash', () => {
