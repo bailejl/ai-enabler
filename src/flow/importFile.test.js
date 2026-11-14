@@ -21,10 +21,8 @@ const validFile = (overrides = {}) => ({
   ...overrides,
 })
 
-const withoutPosition = (node) => {
-  const { position: _position, ...rest } = node
-  return rest
-}
+const withoutPosition = (node) =>
+  Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'position'))
 
 const parse = (file, settings) => parseImport(JSON.stringify(file), settings)
 
@@ -86,6 +84,13 @@ describe('parseImport', () => {
       ok: false,
       message: 'Step "Build" (#3) is missing a position.',
     })
+  })
+
+  it('names a step with no label by number only', () => {
+    const file = validFile({
+      nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition({ ...step('c'), data: {} })],
+    })
+    expect(parse(file)).toEqual({ ok: false, message: 'Step #3 is missing a position.' })
   })
 
   it('rejects connections that form a loop', () => {
@@ -175,6 +180,10 @@ describe('parseImport', () => {
   })
 
   describe('released fixtures', () => {
+    it('finds at least one fixture to import', () => {
+      expect(fixtureVersions.length).toBeGreaterThan(0)
+    })
+
     it.each(fixtureVersions)('imports the %s fixture', (version) => {
       const result = parseImport(fixtures[`./schema/fixtures/${version}.json`])
       expect(result.ok).toBe(true)

@@ -52,7 +52,7 @@ const runStages = (first, settings) =>
 
 /**
  * Turns the text of a chosen file into a validated project file at the current schema version.
- * Never throws.
+ * Never throws on any file contents; the injected settings are trusted.
  * @returns {{ ok: true, file: object } | { ok: false, message: string }}
  */
 export const parseImport = (

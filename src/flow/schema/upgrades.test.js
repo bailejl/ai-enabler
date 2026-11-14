@@ -292,6 +292,10 @@ describe('findRegistryProblems', () => {
 })
 
 describe('the real registry', () => {
+  it('releases the current version', () => {
+    expect(RELEASED_SCHEMA_VERSIONS).toContain(CURRENT_SCHEMA_VERSION)
+  })
+
   it('has no structural problems', () => {
     expect(findRegistryProblems(REGISTRY, CURRENT_SCHEMA_VERSION)).toEqual([])
   })
