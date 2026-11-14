@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 const HEADING_ID = 'confirm-dialog-heading'
+const BODY_ID = 'confirm-dialog-body'
 
 // Mounted only while a confirmation is pending, so closing it is just unmounting it.
 export default function ConfirmDialog({ message, currentName, incomingName, onConfirm, onCancel }) {
@@ -28,6 +29,7 @@ export default function ConfirmDialog({ message, currentName, incomingName, onCo
       ref={dialogRef}
       className="dialog"
       aria-labelledby={HEADING_ID}
+      aria-describedby={BODY_ID}
       onCancel={handleCancelEvent}
       onClick={handleClick}
     >
@@ -35,7 +37,7 @@ export default function ConfirmDialog({ message, currentName, incomingName, onCo
         <h2 id={HEADING_ID} className="dialog__heading">
           {message}
         </h2>
-        <p>
+        <p id={BODY_ID}>
           Current project: <strong>{currentName}</strong>. Incoming project:{' '}
           <strong>{incomingName}</strong>.
         </p>

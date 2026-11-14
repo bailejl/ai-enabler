@@ -113,6 +113,12 @@ describe('reduceImport outcomes', () => {
     )
   })
 
+  it('restores the earlier success status on cancel', () => {
+    const afterSuccess = reduceAll([parsed(sameNameFile), { type: 'confirm' }]).state
+    const { state } = reduceAll([parsed(sameNameFile), { type: 'cancel' }], afterSuccess)
+    expect(state).toEqual({ type: 'idle', status: 'Imported Untitled Project, 2 steps' })
+  })
+
   it('changes nothing on cancel and announces it', () => {
     const { state, announcement, replacement } = reduceAll([
       parsed(sameNameFile),
@@ -240,8 +246,22 @@ describe('describeImportStatus', () => {
     expect(describeImportStatus(reduceAll([parsed(file)]).state)).toBeNull()
   })
 
-  it('shows nothing after a cancel', () => {
+  it('shows nothing after a cancel when nothing was imported before', () => {
     const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
     expect(describeImportStatus(reduceAll([parsed(file), { type: 'cancel' }]).state)).toBeNull()
+  })
+
+  it('keeps the earlier success line after a cancel', () => {
+    const file = projectFile({ id: 'file-id', name: 'Checkout Revamp' })
+    const { state } = reduceAll([
+      parsed(file),
+      { type: 'confirm' },
+      parsed(file),
+      { type: 'cancel' },
+    ])
+    expect(describeImportStatus(state)).toEqual({
+      text: 'Imported Checkout Revamp, 2 steps',
+      isError: false,
+    })
   })
 })

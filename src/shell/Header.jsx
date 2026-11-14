@@ -16,8 +16,11 @@ export default function Header({ projectName, onExport, onImportFile, importButt
   const handleFileChosen = async (event) => {
     const input = event.target
     const [file] = input.files
-    if (file) await onImportFile(file)
-    input.value = ''
+    try {
+      if (file) await onImportFile(file)
+    } finally {
+      input.value = ''
+    }
   }
 
   return (

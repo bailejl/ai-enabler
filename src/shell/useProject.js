@@ -8,12 +8,23 @@ import { projectFileName, toProjectFile } from '../flow/projectFile.js'
 import { downloadTextFile } from './download.js'
 
 const JSON_INDENT = 2
+const UNREADABLE_FILE = Object.freeze({ ok: false, message: 'This file could not be read.' })
+
+// A file the browser cannot read is reported like any other file that cannot be imported.
+const readImport = async (file) => {
+  try {
+    return parseImport(await file.text())
+  } catch {
+    return UNREADABLE_FILE
+  }
+}
 
 // Runs import events through the pure reducer and performs what it asks for: speak, replace the
 // map, and hand focus back to the Import button once the dialog (if any) has gone.
 const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
   const previousState = useRef(importState)
+  const latestRequestId = useRef(0)
 
   useEffect(() => {
     const hasChanged = previousState.current !== importState
@@ -31,9 +42,16 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
     [importState, announce, applyReplacement],
   )
 
+  // When two reads overlap, only the one started last may change the state.
   const importFile = useCallback(
-    async (file) =>
-      dispatchImport({ type: 'fileParsed', result: parseImport(await file.text()), project }),
+    async (file) => {
+      latestRequestId.current += 1
+      const requestId = latestRequestId.current
+      const result = await readImport(file)
+      if (requestId === latestRequestId.current) {
+        dispatchImport({ type: 'fileParsed', result, project })
+      }
+    },
     [dispatchImport, project],
   )
   const confirmImport = useCallback(() => dispatchImport({ type: 'confirm' }), [dispatchImport])
@@ -51,6 +69,8 @@ export const useProject = ({ announce, importButtonRef }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const { fitView } = useReactFlow()
+  // Fitting must wait for React Flow to hold the replaced nodes, so a replacement only asks for it.
+  const [fitRequestCount, setFitRequestCount] = useState(0)
   const onConnect = useCallback(
     (params) => setEdges((currentEdges) => addEdge(params, currentEdges)),
     [setEdges],
@@ -60,10 +80,13 @@ export const useProject = ({ announce, importButtonRef }) => {
       setProject(replacement.project)
       setNodes(replacement.nodes)
       setEdges(replacement.edges)
-      fitView()
+      setFitRequestCount((count) => count + 1)
     },
-    [setNodes, setEdges, fitView],
+    [setNodes, setEdges],
   )
+  useEffect(() => {
+    if (fitRequestCount > 0) fitView()
+  }, [fitRequestCount, fitView])
   const importFlow = useImportFlow({
     project,
     applyReplacement,

@@ -36,7 +36,7 @@ const transition = (state, { announcement = null, replacement = null } = {}) => 
 
 const stay = (state) => transition(state)
 
-const receiveFile = ({ result, project }) => {
+const receiveFile = (state, { result, project }) => {
   if (!result.ok) {
     return transition(
       { type: IMPORT_ERROR, message: result.message },
@@ -47,6 +47,8 @@ const receiveFile = ({ result, project }) => {
   const isSame = isSameName(project, file.project)
   return transition({
     type: IMPORT_CONFIRMING,
+    // The last outcome, so a cancel puts it back: a success line stays until the next import.
+    status: state.status ?? null,
     file,
     currentName: project.name,
     incomingName: file.project.name,
@@ -66,12 +68,15 @@ const confirmReplace = (state) => {
   )
 }
 
+const cancelConfirmation = (state) =>
+  transition({ type: IMPORT_IDLE, status: state.status }, { announcement: IMPORT_CANCELLED })
+
 const HANDLERS = {
-  fileParsed: { from: null, run: (state, event) => receiveFile(event) },
+  fileParsed: { from: null, run: receiveFile },
   confirm: { from: IMPORT_CONFIRMING, run: confirmReplace },
   cancel: {
     from: IMPORT_CONFIRMING,
-    run: () => transition(INITIAL_IMPORT_STATE, { announcement: IMPORT_CANCELLED }),
+    run: cancelConfirmation,
   },
   dismiss: { from: IMPORT_ERROR, run: () => transition(INITIAL_IMPORT_STATE) },
 }
@@ -89,8 +94,8 @@ export const describeImportStatus = (state) => {
 
 /**
  * Pure import flow.
- * State: { type: 'idle', status } | { type: 'confirming', file, currentName, incomingName,
- *   message, project } | { type: 'error', message }.
+ * State: { type: 'idle', status } | { type: 'confirming', status, file, currentName,
+ *   incomingName, message, project } | { type: 'error', message }.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
  *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.
  * @returns {{ state: object, announcement: string | null,

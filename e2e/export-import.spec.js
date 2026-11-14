@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { initialNodes } from '../src/flow/initialFlow.js'
 import { metricTiles } from '../src/flow/metrics.js'
 import { scan } from './axe.js'
 import { cardByTitle, edgeBetween, settledBox } from './canvas.js'
@@ -10,14 +11,7 @@ const STARTER_STEP_COUNT = 6
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
 const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-const RUNTIME_NODE_FIELDS = [
-  'selected',
-  'measured',
-  'width',
-  'height',
-  'dragging',
-  'positionAbsolute',
-]
+const EXPORT_NODE_FIELDS = ['data', 'id', 'position', 'type']
 const EDGE_FIELDS = ['id', 'source', 'target']
 
 const readDownloadedJson = async (download) => {
@@ -44,30 +38,39 @@ test.describe('exporting the starter project after selecting Build', () => {
   const exportAfterSelectingBuild = async (page) => {
     await page.goto('/')
     await cardByTitle(page, 'Build').click()
+    await expect(cardByTitle(page, 'Build')).toHaveClass(/selected/)
+    const startedAt = Date.now()
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: EXPORT_BUTTON_NAME }).click()
-    return downloadPromise
+    const download = await downloadPromise
+    return { download, startedAt, finishedAt: Date.now() }
   }
 
   test('downloads untitled-project.ai-enabler.json at schema 0.0.0 with the project identity', async ({
     page,
   }) => {
-    const download = await exportAfterSelectingBuild(page)
+    const { download, startedAt, finishedAt } = await exportAfterSelectingBuild(page)
     expect(download.suggestedFilename()).toBe(EXPORT_FILE_NAME)
     const file = await readDownloadedJson(download)
     expect(file.schemaVersion).toBe('0.0.0')
     expect(file.exportedAt).toMatch(ISO_UTC_TIMESTAMP)
-    expect(file.project.id).toBeTruthy()
+    const exportedAtMs = Date.parse(file.exportedAt)
+    expect(exportedAtMs).toBeGreaterThanOrEqual(startedAt)
+    expect(exportedAtMs).toBeLessThanOrEqual(finishedAt)
+    expect(typeof file.project.id).toBe('string')
+    expect(file.project.id).not.toBe('')
     expect(file.project.name).toBe('Untitled Project')
   })
 
   test('carries no React Flow runtime fields on nodes and only id, source, target on edges', async ({
     page,
   }) => {
-    const file = await readDownloadedJson(await exportAfterSelectingBuild(page))
+    const { download } = await exportAfterSelectingBuild(page)
+    const file = await readDownloadedJson(download)
     expect(file.nodes).toHaveLength(STARTER_STEP_COUNT)
-    const nodeFields = new Set(file.nodes.flatMap((node) => Object.keys(node)))
-    expect(RUNTIME_NODE_FIELDS.filter((field) => nodeFields.has(field))).toEqual([])
+    expect(file.nodes.map((node) => Object.keys(node).sort())).toEqual(
+      file.nodes.map(() => EXPORT_NODE_FIELDS),
+    )
     expect(file.edges.length).toBeGreaterThan(0)
     expect(file.edges.map((edge) => Object.keys(edge).sort())).toEqual(
       file.edges.map(() => [...EDGE_FIELDS].sort()),
@@ -91,6 +94,17 @@ const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 const NOT_JSON_MESSAGE = 'This file is not valid JSON.'
 const NOT_A_PROJECT_MESSAGE = 'This is not a project file. Choose a file exported from AI Enabler.'
+// What the three Checkout Revamp steps in different-name.json add up to, in tile order.
+const CHECKOUT_TILE_TEXTS = [
+  '1d 5h',
+  '3h 30m',
+  '25.9% Watch',
+  '72.0% On target',
+  '2 On target',
+  '1h 10m',
+  '3',
+]
+const UNREADABLE_MESSAGE = 'This file could not be read.'
 const LONG_NAME_LENGTH = 100
 const NARROW_VIEWPORT = { width: 1024, height: 768 }
 
@@ -118,14 +132,16 @@ const asUpload = (value) => ({
 const chooseFile = (page, file) => fileInput(page).setInputFiles(file)
 
 // Records every non-empty text the live region takes, so a repeated message counts again.
-const recordAnnouncements = (page) =>
-  page.evaluate(() => {
+const recordAnnouncements = async (page) => {
+  await announcer(page).waitFor({ state: 'attached' })
+  await page.evaluate(() => {
     const region = document.querySelector('[aria-live="polite"]')
     window.spokenMessages = []
     new MutationObserver(() => {
       if (region.textContent) window.spokenMessages.push(region.textContent)
     }).observe(region, { childList: true, characterData: true, subtree: true })
   })
+}
 const spokenMessages = (page) => page.evaluate(() => window.spokenMessages)
 
 const exportProjectFile = async (page) => {
@@ -194,6 +210,10 @@ test('exporting then importing that file and confirming leaves the nodes, edges 
   await page.getByRole('button', { name: EXPORT_BUTTON_NAME }).click()
   const download = await downloadPromise
   const first = await readDownloadedJson(download)
+  const starterBuild = initialNodes.find((node) => node.id === 'build')
+  expect(first.nodes.find((node) => node.id === 'build').position).not.toEqual(
+    starterBuild.position,
+  )
 
   await importAndConfirm(page, await download.path(), SAME_NAME_QUESTION)
   await expect(importStatus(page)).toHaveText(`Imported ${STARTER_PROJECT_NAME}, 6 steps`)
@@ -223,7 +243,6 @@ test.describe('importing a file with three steps', () => {
     page,
   }) => {
     await page.goto('/')
-    await recordAnnouncements(page)
     const before = await exportProjectFile(page)
     await importAndConfirm(page, fixturePath('same-name.json'), SAME_NAME_QUESTION)
 
@@ -243,6 +262,7 @@ test.describe('importing a file with three steps', () => {
     page,
   }) => {
     await page.goto('/')
+    const starterTiles = await tileTexts(page)
     await chooseFile(page, fixturePath('different-name.json'))
     const dialog = confirmDialog(page)
     await expect(dialog).toHaveAccessibleName(CHECKOUT_QUESTION)
@@ -254,7 +274,10 @@ test.describe('importing a file with three steps', () => {
     await expect(projectNameInHeader(page)).toHaveText(CHECKOUT_NAME)
     await expect(page).toHaveTitle(`${CHECKOUT_NAME} · AI Enabler`)
     await expect(importButton(page)).toBeFocused()
-    expect(await tileTexts(page)).toEqual(expectedTileTexts(fixtureSteps('different-name.json')))
+    const importedTiles = await tileTexts(page)
+    expect(importedTiles).toEqual(expectedTileTexts(fixtureSteps('different-name.json')))
+    expect(importedTiles).toEqual(CHECKOUT_TILE_TEXTS)
+    expect(importedTiles).not.toEqual(starterTiles)
     expect((await exportProjectFile(page)).project.id).toBe('abc')
   })
 
@@ -308,8 +331,7 @@ test.describe('cancelling the confirmation changes nothing', () => {
   for (const { kind, action, fixture, cancel } of CANCEL_PATHS) {
     test(`a ${kind} file, when the user ${action}`, async ({ page }) => {
       await page.goto('/')
-      await recordAnnouncements(page)
-      const nodesBefore = (await exportProjectFile(page)).nodes
+      const before = await exportProjectFile(page)
       const tilesBefore = await tileTexts(page)
       await chooseFile(page, fixturePath(fixture))
       await expect(confirmDialog(page)).toBeVisible()
@@ -323,7 +345,9 @@ test.describe('cancelling the confirmation changes nothing', () => {
       await expect(page).toHaveTitle(`${STARTER_PROJECT_NAME} · AI Enabler`)
       expect(await tileTexts(page)).toEqual(tilesBefore)
       const after = await exportProjectFile(page)
-      expect(after.nodes).toEqual(nodesBefore)
+      expect(after.nodes).toEqual(before.nodes)
+      expect(after.edges).toEqual(before.edges)
+      expect(after.project.id).toBe(before.project.id)
       expect(after.project.name).toBe(STARTER_PROJECT_NAME)
     })
   }
@@ -388,6 +412,8 @@ test.describe('invalid files are rejected with a plain message', () => {
   for (const { name, contents, message } of REJECTED_FILES) {
     test(`${name}`, async ({ page }) => {
       await page.goto('/')
+      const before = await exportProjectFile(page)
+      await expect(announcer(page)).toHaveText(`Exported ${EXPORT_FILE_NAME}`)
       await recordAnnouncements(page)
       const tilesBefore = await tileTexts(page)
 
@@ -401,8 +427,12 @@ test.describe('invalid files are rejected with a plain message', () => {
       await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
       await expect(projectNameInHeader(page)).toHaveText(STARTER_PROJECT_NAME)
       expect(await tileTexts(page)).toEqual(tilesBefore)
-      await expect.poll(() => spokenMessages(page)).toEqual([message])
       await expect(page.getByRole('status').filter({ hasText: message })).toHaveCount(1)
+      // Read once, after everything has settled: a poll would miss a later duplicate.
+      expect(await spokenMessages(page)).toEqual([message])
+      const after = await exportProjectFile(page)
+      expect(after.nodes).toEqual(before.nodes)
+      expect(after.edges).toEqual(before.edges)
     })
   }
 })
@@ -425,10 +455,27 @@ test('choosing the same invalid file again shows and announces the error again',
 
   await chooseFile(page, invalidFile)
   await expect.poll(() => spokenMessages(page)).toEqual([NOT_JSON_MESSAGE])
+  await expect(fileInput(page)).toHaveValue('')
   await chooseFile(page, invalidFile)
 
   await expect.poll(() => spokenMessages(page)).toEqual([NOT_JSON_MESSAGE, NOT_JSON_MESSAGE])
   await expect(importStatus(page)).toContainText(NOT_JSON_MESSAGE)
+})
+
+test('a file the browser cannot read shows the standard error and frees the input', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Blob.prototype.text = () => Promise.reject(new Error('unreadable'))
+  })
+  await page.goto('/')
+
+  await chooseFile(page, asUpload('{}'))
+
+  await expect(importStatus(page)).toContainText(UNREADABLE_MESSAGE)
+  await expect(importStatus(page).getByRole('button', { name: 'Dismiss' })).toBeVisible()
+  await expect(announcer(page)).toHaveText(UNREADABLE_MESSAGE)
+  await expect(fileInput(page)).toHaveValue('')
 })
 
 test('Dismiss removes the error and returns focus to Import', async ({ page }) => {
@@ -491,6 +538,7 @@ test('a 100-character project name is truncated and keeps Import and Export in v
     `Replace current map with ${longName}?`,
   )
 
+  await expect(projectNameInHeader(page)).toHaveText(longName)
   const brandLineCount = await page.locator('.header__brand').evaluate((element) => {
     const range = document.createRange()
     range.selectNodeContents(element)
@@ -512,14 +560,23 @@ test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and r
   page,
 }) => {
   await page.goto('/')
+  const file = readFixture('badges-and-rounding.json')
+  const queuedStep = {
+    id: 'queued',
+    type: 'step',
+    position: { x: 400, y: 100 },
+    data: { label: 'Queued', pt: 60, lt: 120, ca: 100, queue: 3 },
+  }
   await importAndConfirm(
     page,
-    fixturePath('badges-and-rounding.json'),
+    asUpload({ ...file, nodes: [...file.nodes, queuedStep] }),
     'Replace current map with Badge Check?',
   )
 
   const card = cardByTitle(page, 'Only')
   await expect(card).toBeVisible()
   await expect(card.locator('.badge')).toHaveCount(0)
+  // Guards the zero case: badges do render on a step whose counts are positive.
+  await expect(cardByTitle(page, 'Queued').locator('.badge')).toContainText('Q 3')
   await expect(card).toContainText('88%')
 })
