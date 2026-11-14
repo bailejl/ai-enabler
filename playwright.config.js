@@ -1,16 +1,21 @@
 import { defineConfig } from '@playwright/test'
 
+// PORT keeps parallel git worktrees from reusing each other's dev server.
+const port = Number(process.env.PORT) || 3000
+const baseURL = `http://localhost:${port}`
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   retries: 0,
   use: {
     headless: true,
-    baseURL: 'http://localhost:3000',
+    baseURL,
   },
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: baseURL,
+    env: { PORT: String(port) },
     reuseExistingServer: !process.env.CI,
   },
   projects: [

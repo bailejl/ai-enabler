@@ -65,3 +65,6 @@ graphify-out/
 test-results/
 playwright-report/
 .playwright-mcp/
+
+# Claude Code worktrees
+.claude/worktrees/
