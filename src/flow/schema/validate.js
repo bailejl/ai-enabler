@@ -2,9 +2,10 @@ import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from 
 
 const NOT_A_PROJECT_FILE = 'This is not a project file. Choose a file exported from AI Enabler.'
 
-const STEP_TYPE = 'step'
+export const STEP_TYPE = 'step'
 
-const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value)
+export const isObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''
 

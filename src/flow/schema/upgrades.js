@@ -1,9 +1,10 @@
 import { CURRENT_SCHEMA_VERSION, compareSemver, parseSemver } from './version.js'
+import { isObject } from './validate.js'
 
 // Ordered upgrade hops, oldest first. Each is { from, to, upgrade }, where upgrade takes a file at
 // `from` and returns a new file in the `to` shape. It must not mutate its input. upgradeToCurrent
 // stamps schemaVersion itself, so an upgrade only changes the data.
-export const REGISTRY = []
+export const REGISTRY = Object.freeze([])
 
 // The hops from a version up to current, or null when the chain breaks. Bounded by the registry
 // length, so a cyclic registry ends instead of looping.
@@ -19,13 +20,10 @@ const findPath = (registry, from, current) => {
   return version === current ? hops : null
 }
 
-const isPlainObject = (value) =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 // An upgrade that returns anything but an object counts as a failed upgrade, like a throw.
 const applyHop = (file, hop) => {
   const upgraded = hop.upgrade(file)
-  if (!isPlainObject(upgraded)) throw new TypeError('upgrade did not return an object')
+  if (!isObject(upgraded)) throw new TypeError('upgrade did not return an object')
   return { ...upgraded, schemaVersion: hop.to }
 }
 

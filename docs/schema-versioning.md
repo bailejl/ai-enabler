@@ -43,8 +43,12 @@ Then read the diff. A regenerated snapshot blesses whatever the upgrade now does
 
 A released fixture stands for files users already hold. Editing it would hide a break in the upgrade chain, so never change one after release. To change the schema, add a new version and fixture.
 
-`scripts/schema-fixture-guard-cli.js` enforces this in CI. It diffs against `origin/main` and fails on any status other than add for a top-level `src/flow/schema/fixtures/*.json` file (modify, delete, rename). `fixtures/expected/` is exempt.
+`scripts/schema-fixture-guard-cli.js` enforces this in CI on pull requests. It diffs against `origin/main` and fails on any status other than add for a top-level `src/flow/schema/fixtures/*.json` file (modify, delete, rename, copy, type change). `fixtures/expected/` is exempt.
+
+On a push to `main` the diff against `origin/main` is empty by design, so the guard passes. `main` relies on branch protection (required PR checks) to keep released fixtures unchanged.
 
 ## Export shape check
 
 `src/flow/schema/shape.test.js` compares the key paths and value types of a starter project export with the fixture for `CURRENT_SCHEMA_VERSION`. If the export shape changes without a version bump and a new fixture, that test fails.
+
+The test only catches changes to fields that the starter export or the fixture contains. A new optional data field that neither sets is not caught.

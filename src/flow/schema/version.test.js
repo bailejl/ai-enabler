@@ -11,6 +11,7 @@ describe('parseSemver', () => {
     ['0.0.0', [0, 0, 0]],
     ['1.12.3', [1, 12, 3]],
     ['999999.0.0', [999999, 0, 0]],
+    ['9007199254740991.0.0', [Number.MAX_SAFE_INTEGER, 0, 0]],
   ])('parses %j as %j', (value, expected) => {
     expect(parseSemver(value)).toEqual(expected)
   })
@@ -33,6 +34,7 @@ describe('parseSemver', () => {
     ['a trailing newline', '1.0.0\n'],
     ['a negative part', '-1.0.0'],
     ['a part beyond safe integers', '99999999999999999999.0.0'],
+    ['a part one past the largest safe integer', '9007199254740992.0.0'],
   ])('rejects %s', (_label, value) => {
     expect(parseSemver(value)).toBeNull()
   })

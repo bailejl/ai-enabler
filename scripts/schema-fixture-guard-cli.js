@@ -13,9 +13,28 @@ const gitFailureMessage = (base, result) => {
   return `Schema fixture guard could not diff against ${base}: ${detail || `git exited ${result.status}`}`
 }
 
-// Fails closed: any git failure is a failure, never a silent pass.
+const OPTION_PREFIX = '-'
+
+// core.quotePath=false keeps non-ASCII paths unquoted so they still match the fixture pattern.
+const diffArgs = (base) => [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '--name-status',
+  '--no-renames',
+  `${base}...HEAD`,
+]
+
+// Fails closed: any git failure is a failure, never a silent pass. A base that starts with "-"
+// would be read by git as an option, so it is rejected before git runs.
 export const runGuard = ({ run = runGit, base = DEFAULT_BASE } = {}) => {
-  const result = run(['diff', '--name-status', '--no-renames', `${base}...HEAD`])
+  if (base.startsWith(OPTION_PREFIX)) {
+    return {
+      exitCode: FAILURE,
+      message: `Schema fixture guard: base "${base}" looks like an option, not a ref.`,
+    }
+  }
+  const result = run(diffArgs(base))
   if (result.error || result.status !== SUCCESS) {
     return { exitCode: FAILURE, message: gitFailureMessage(base, result) }
   }

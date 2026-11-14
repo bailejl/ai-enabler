@@ -22,6 +22,15 @@ describe('findFixtureViolations', () => {
     expect(findFixtureViolations(diff)).toEqual([{ path: FIXTURE, status: 'R100' }])
   })
 
+  test('fails a rename onto a released fixture, naming the fixture path', () => {
+    const diff = row('R100', 'docs/old-fixture.json', FIXTURE)
+    expect(findFixtureViolations(diff)).toEqual([{ path: FIXTURE, status: 'R100' }])
+  })
+
+  test('fails closed on an unknown status', () => {
+    expect(findFixtureViolations(row('U', FIXTURE))).toEqual([{ path: FIXTURE, status: 'U' }])
+  })
+
   test('fails a copy that overwrites a released fixture', () => {
     const diff = row('C100', 'docs/seed.json', FIXTURE)
     expect(findFixtureViolations(diff)).toEqual([{ path: FIXTURE, status: 'C100' }])

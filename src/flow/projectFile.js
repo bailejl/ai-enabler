@@ -1,6 +1,6 @@
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
+import { STEP_TYPE } from './schema/validate.js'
 
-const STEP_TYPE = 'step'
 const FALLBACK_FILE_SLUG = 'project'
 const FILE_SUFFIX = '.ai-enabler.json'
 

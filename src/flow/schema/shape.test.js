@@ -23,9 +23,20 @@ describe('shapeOf', () => {
     expect(shapeOf({ a: 1, b: ['x'] })).toEqual(shapeOf({ a: 99, b: ['y', 'z'] }))
   })
 
-  it('unions the key paths of array elements', () => {
-    const withOptional = shapeOf([{ id: 'a' }, { id: 'b', batch: 3 }])
-    expect(withOptional).toEqual(shapeOf([{ id: 'a', batch: 3 }]))
+  it.each([
+    ['the element with the extra key first', [{ id: 'b', batch: 3 }, { id: 'a' }]],
+    ['the element with the extra key last', [{ id: 'a' }, { id: 'b', batch: 3 }]],
+  ])('unions the key paths of array elements with %s', (_name, value) => {
+    expect(shapeOf(value)).toEqual(['$:array', '$[].batch:number', '$[].id:string', '$[]:object'])
+  })
+
+  it('records every type an array element key takes', () => {
+    expect(shapeOf([{ id: 'a' }, { id: 1 }])).toEqual([
+      '$:array',
+      '$[].id:number',
+      '$[].id:string',
+      '$[]:object',
+    ])
   })
 
   it('records an empty array as an array', () => {
@@ -71,6 +82,8 @@ describe('export shape of the current schema version', () => {
     expect(shapeOf(starterExport())).toEqual(shapeOf(currentFixture))
   })
 
+  const starterShape = () => shapeOf(starterExport())
+
   it.each([
     ['gains a key', (file) => ({ ...file, notes: 'new' })],
     [
@@ -85,12 +98,20 @@ describe('export shape of the current schema version', () => {
         nodes: file.nodes.map((n) => ({ id: n.id, type: n.type, data: n.data })),
       }),
     ],
+    [
+      'gains an edge key',
+      (file) => ({ ...file, edges: file.edges.map((e) => ({ ...e, label: 'new' })) }),
+    ],
+    [
+      'loses an edge key',
+      (file) => ({ ...file, edges: file.edges.map((e) => ({ id: e.id, source: e.source })) }),
+    ],
     ['retypes a key', (file) => ({ ...file, schemaVersion: 0 })],
     [
       'retypes a node key',
       (file) => ({ ...file, nodes: file.nodes.map((n) => ({ ...n, position: [n.position.x] })) }),
     ],
   ])('fails when the export %s', (_name, change) => {
-    expect(shapeOf(change(starterExport()))).not.toEqual(shapeOf(currentFixture))
+    expect(shapeOf(change(starterExport()))).not.toEqual(starterShape())
   })
 })
