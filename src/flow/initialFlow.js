@@ -1,3 +1,5 @@
+import { STEP_TYPE } from './schema/validate.js'
+
 /**
  * Starter value stream: the stages from idea to production, left to right.
  * Ids are stable slugs so reordering or inserting stages does not change identity.
@@ -16,11 +18,12 @@ export const STAGE_SPACING = 200
 
 /**
  * @param {{ id: string, label: string }[]} stages every field besides id becomes node data
- * @returns {{ id: string, position: { x: number, y: number }, data: { label: string } }[]}
+ * @returns {{ id: string, type: string, position: { x: number, y: number }, data: { label: string } }[]}
  */
 export const toNodes = (stages) =>
   stages.map(({ id, ...data }, i) => ({
     id,
+    type: STEP_TYPE,
     position: { x: i * STAGE_SPACING, y: 0 },
     data,
   }))

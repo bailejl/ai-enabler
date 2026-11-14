@@ -3,9 +3,12 @@ import '@xyflow/react/dist/style.css'
 import Header from './shell/Header.jsx'
 import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
+import StepCard from './shell/StepCard.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
 import { useProject } from './shell/useProject.js'
 
+// Module-level so React Flow sees one stable object across renders.
+const nodeTypes = { step: StepCard }
 const themeProperties = toCssCustomProperties(tokens)
 const EMPTY_MAP_MESSAGE =
   'No steps on this map. Import a project, or reload to restore the starter map.'
@@ -24,6 +27,7 @@ function Shell() {
           {nodes.length === 0 ? EMPTY_MAP_MESSAGE : ''}
         </p>
         <ReactFlow
+          nodeTypes={nodeTypes}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}

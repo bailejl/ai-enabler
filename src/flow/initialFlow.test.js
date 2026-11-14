@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { STAGE_SPACING, toNodes, toEdges, initialNodes, initialEdges } from './initialFlow.js'
 
 describe('toNodes', () => {
-  it('lays stages out left to right, one spacing apart, keeping ids and labels', () => {
+  it('lays stages out left to right as step cards, one spacing apart, keeping ids and labels', () => {
     expect(
       toNodes([
         { id: 'a', label: 'A' },
@@ -10,9 +10,9 @@ describe('toNodes', () => {
         { id: 'c', label: 'C' },
       ]),
     ).toEqual([
-      { id: 'a', position: { x: 0, y: 0 }, data: { label: 'A' } },
-      { id: 'b', position: { x: STAGE_SPACING, y: 0 }, data: { label: 'B' } },
-      { id: 'c', position: { x: STAGE_SPACING * 2, y: 0 }, data: { label: 'C' } },
+      { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'A' } },
+      { id: 'b', type: 'step', position: { x: STAGE_SPACING, y: 0 }, data: { label: 'B' } },
+      { id: 'c', type: 'step', position: { x: STAGE_SPACING * 2, y: 0 }, data: { label: 'C' } },
     ])
   })
 

@@ -11,6 +11,15 @@ export const tokens = {
   statusWatchBackground: '#fef3c7',
   statusNeedsAttentionBackground: '#fee2e2',
   statusNoneBackground: '#ffffff',
+  cardBackground: '#ffffff',
+  cardText: '#0f172a',
+  cardBorder: '#cbd5e1',
+  queueBadgeBackground: '#fef08a',
+  queueBadgeText: '#422006',
+  queueBadgeBorder: '#a16207',
+  batchBadgeBackground: '#bfdbfe',
+  batchBadgeText: '#172554',
+  batchBadgeBorder: '#1d4ed8',
 }
 
 const toKebabCase = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
