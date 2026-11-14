@@ -1299,11 +1299,11 @@ Plan tier: complex. Reviewers: Acceptance, Design, UX, Strategic, Parallelizatio
 
 ### Wave 4
 
-- [ ] Slice 7: Export and import
-  - [ ] Step 7.1: Parse, check, upgrade, and validate an import
-  - [ ] Step 7.2: Model the import flow
-  - [ ] Step 7.3: Export from the header
-  - [ ] Step 7.4: Import with confirmation
+- [x] Slice 7: Export and import
+  - [x] Step 7.1: Parse, check, upgrade, and validate an import
+  - [x] Step 7.2: Model the import flow
+  - [x] Step 7.3: Export from the header
+  - [x] Step 7.4: Import with confirmation
 
 ### Wave 5
 
