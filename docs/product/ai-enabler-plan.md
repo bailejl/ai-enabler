@@ -19,7 +19,7 @@ This doc is the complete plan. It merges the original feature list, the VSM rese
 5. **It treats a separate recovery path as a defect.** Fixes should flow through the normal pipeline, so AIE shows the cost of any bypass.
 6. **Every feature ships with its help page and skills,** kept current by a Definition of Done rule.
 
-**Work item format.** Each item has an outcome as its title, a why, the original request where there was one, the scope, the skills it needs, open questions and labels. The labels are `ui` or `tooling`, plus a size: `prototype` (UI behavior still unclear), `spec` (clear but non-trivial) or `small`. IDs E1–E16 come from the original feature list, and N1–N20 are new.
+**Work item format.** Each item has an outcome as its title, a why, the original request where there was one, the scope, the skills it needs, open questions and labels. The labels are `ui` or `tooling`, plus a size: `size:prototype` (UI behavior still unclear), `spec` (clear but non-trivial) or `small`. IDs E1–E16 come from the original feature list, and N1–N20 are new.
 
 ## Guiding principles
 
@@ -210,7 +210,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 - **Scope:** Canvas CRUD for boxes, edges, queues and markers. Box fields: Name (verb + noun), Description, Owner role, Team, Headcount, Performer type (human, automated, human+AI, agent, gate), PT, WT, %C&A (as ranges, N16), WIP and oldest item, batch size, trigger (continuous, scheduled with interval, on demand), unit of work (N15), data source and confidence (N8). Lead time is computed as WT + PT, never typed. A soft warning past 15 boxes.
 - **Skills:** aie-facilitate (optional, fills boxes through an interview).
 - **Open questions:** Free-form canvas, ordered time ladder, or both? Proposed default: both views of the same data, canvas first, laid out like the horizontal worked example.
-- **Labels:** `ui` `prototype`
+- **Labels:** `ui` `size:prototype`
 
 ### N16 · Users enter low, typical and high values instead of one number
 
@@ -261,7 +261,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 - **Scope:** A guided start: target outcome ("from X to Y by when"), one-sentence scope with start and end triggers, sponsor, champion and work type. Then two paths: data-first (Phase 3 imports, then a gap conversation) or whiteboard (guided stages: scope, steps, time, quality, rework, review, future state). Outcome progress shows in E8 and E10.
 - **Skills:** aie-facilitate.
 - **Open questions:** How far does the app guide, and where does the skill take over? Proposed default: the app runs the stages; the skill does the interviewing and judgment.
-- **Labels:** `ui` `prototype`
+- **Labels:** `ui` `size:prototype`
 
 ### N4 · Maps show when work is deployed and when it is released
 
@@ -482,7 +482,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 - **Scope:** The project landing view: today's activity ratio, rolled %C&A and bypass use; the AI forecast (which queues grow, how far quality drops); the value available if the system is fixed, in hours and in dollars where cost of delay is known (N10); the top three fixes from the constraint ladder. Honest framing with ranges and sources.
 - **Skills:** aie-ai-stress-test, aie-report.
 - **Open questions:** How should it look before a project has enough data? Proposed default: a checklist of what's missing, not empty charts.
-- **Labels:** `ui` `prototype`
+- **Labels:** `ui` `size:prototype`
 
 ### N9 · Teams can see their mix of work and how much is failure demand
 
