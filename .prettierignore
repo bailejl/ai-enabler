@@ -6,3 +6,6 @@
 graphify-out/
 CLAUDE.md
 package-lock.json
+
+# Reference artifact kept byte-for-byte
+docs/product/worked-example-vsm.html
