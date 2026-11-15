@@ -7,5 +7,8 @@ graphify-out/
 CLAUDE.md
 package-lock.json
 
+# Reference artifact kept byte-for-byte
+docs/product/worked-example-vsm.html
+
 # Upgrade snapshots are JSON.stringify output, not hand-formatted
 src/flow/schema/fixtures/expected/
