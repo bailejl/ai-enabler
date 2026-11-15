@@ -83,8 +83,13 @@ body,
   stroke-width: 2;
 }
 
+/* The brand gives up width only after the project name is fully truncated, so a wide fallback
+   font can never push Import and Export out of view. */
 .header__brand {
-  flex: none;
+  flex: 0 0.001 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -233,9 +238,10 @@ body,
   font-size: 0.75rem;
 }
 
+/* Sized so the widest value fits a tile at 1024px even in wider Linux fallback fonts. */
 .metric__value {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -264,8 +270,12 @@ body,
 
   /* Tighter spacing keeps Import and Export inside a 320px viewport. */
   .header {
-    --header-gap: 0.5rem;
-    --header-padding: 0.75rem;
+    --header-gap: 0.375rem;
+    --header-padding: 0.5rem;
+  }
+
+  .header .button {
+    padding: 0.25rem 0.5rem;
   }
 }
 
@@ -273,6 +283,10 @@ body,
 @media (min-width: 1024px) {
   .metrics__list {
     flex-wrap: nowrap;
+  }
+
+  .metric {
+    padding-inline: 0.375rem;
   }
 }
 
