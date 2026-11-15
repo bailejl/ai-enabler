@@ -4,7 +4,7 @@
 **Branch**: feat/ui-shell
 **Status**: implemented
 **Gherkin persistence**: plan-file-only
-**Spec**: `docs/specs/ui-shell.md` (AC1–AC46, with amendments S16 and S17). The handoff is `docs/prototypes/ui-shell.md`. The prototype code on `proto/ui-shell` is reference only and is not merged.
+**Spec**: `docs/specs/ui-shell.md` (AC1–AC49, with amendments S16 and S17). The handoff is `docs/prototypes/ui-shell.md`. The prototype code on `proto/ui-shell` is reference only and is not merged.
 
 ## Goal
 
@@ -23,7 +23,7 @@ All decisions and view models live in pure modules under `src/flow/` with Vitest
 
 **Approach stances** (decision-defaults):
 
-- **Scope:** only the spec's AC1–AC46.
+- **Scope:** only the spec's AC1–AC49.
   - There is no persistence, no step editing, no project switching, and no keyboard connect path. Each of these has its own deferred spec.
   - There are no new runtime dependencies. The dev dependencies are `@axe-core/playwright` and an action linter.
 - **Migrate vs. edit:** the feature is rebuilt from the spec. Nothing is copied from `proto/ui-shell`.
@@ -654,7 +654,7 @@ Fixtures are discovered with `import.meta.glob('./fixtures/*.json')` in `upgrade
 - The CLI, with an injected runner: success, violations, and git failure.
 
 **REFACTOR**: Keep the path pattern as one constant.
-**Files**: `scripts/schema-fixture-guard.js`, `scripts/schema-fixture-guard.test.js`, `scripts/schema-fixture-guard-cli.js`, `scripts/schema-fixture-guard-cli.test.js`, `.github/workflows/ci.yml`
+**Files**: `scripts/schema-fixture-guard.js`, `scripts/schema-fixture-guard.test.js`, `scripts/schema-fixture-guard-cli.js`, `scripts/schema-fixture-guard-cli.test.js`, `scripts/ci-workflow.test.js`, `.github/workflows/ci.yml`
 **Covers**: AC45
 **Commit**: `ci: block edits to released schema fixtures`
 
@@ -1312,7 +1312,7 @@ graph LR
 - [ ] Deep linter passes: `npm run lint:deep`
 - [ ] Format check passes: `npm run format:check`
 - [ ] Production build succeeds: `npm run build`
-- [ ] Schema fixture guard passes against main: `node scripts/schema-fixture-guard-cli.js main`
+- [ ] Schema fixture guard passes against origin/main: `node scripts/schema-fixture-guard-cli.js origin/main`
 - [ ] Both CI jobs green on the PR (S17; checked at PR time, not by the acceptance examination)
 - [ ] `/code-review` passes
 - [ ] Documentation updated (`docs/schema-versioning.md`) in this branch
