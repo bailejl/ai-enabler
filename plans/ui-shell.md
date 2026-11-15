@@ -461,7 +461,7 @@ Feature: Value stream calculations
 ### Slice 4: Schema versions, validation, upgrades, and the fixture guard
 
 **Depends-on:** 1, 3
-**Files:** `src/flow/schema/version.js`, `src/flow/schema/version.test.js`, `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/upgrades.js`, `src/flow/schema/upgrades.test.js`, `src/flow/schema/shape.js`, `src/flow/schema/shape.test.js`, `src/flow/schema/fixtures/0.0.0.json`, `src/flow/schema/fixtures/expected/0.0.0.json`, `src/flow/projectFile.js`, `src/flow/projectFile.test.js`, `scripts/schema-fixture-guard.js`, `scripts/schema-fixture-guard.test.js`, `scripts/schema-fixture-guard-cli.js`, `scripts/schema-fixture-guard-cli.test.js`, `.github/workflows/ci.yml`, `docs/schema-versioning.md`
+**Files:** `src/flow/schema/version.js`, `src/flow/schema/version.test.js`, `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/upgrades.js`, `src/flow/schema/upgrades.test.js`, `src/flow/schema/shape.js`, `src/flow/schema/shape.test.js`, `src/flow/schema/fixtures/0.0.0.json`, `src/flow/schema/fixtures/expected/0.0.0.json`, `src/flow/projectFile.js`, `src/flow/projectFile.test.js`, `scripts/schema-fixture-guard.js`, `scripts/schema-fixture-guard.test.js`, `scripts/schema-fixture-guard-cli.js`, `scripts/schema-fixture-guard-cli.test.js`, `scripts/ci-workflow.test.js`, `.github/workflows/ci.yml`, `docs/schema-versioning.md`
 
 **Behavior:**
 

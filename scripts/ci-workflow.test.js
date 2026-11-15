@@ -38,8 +38,9 @@ describe('CI workflow', () => {
     expect(runSteps('e2e')).toContain(E2E_TEST_STEP)
   })
 
-  test('neither job tolerates a failing step', () => {
-    expect(jobBlock('unit')).not.toMatch(/continue-on-error:\s*true/)
-    expect(jobBlock('e2e')).not.toMatch(/continue-on-error:\s*true/)
+  test.each(['unit', 'e2e'])('the %s job does not tolerate a failing step', (name) => {
+    const block = jobBlock(name)
+    expect(block).not.toBe('')
+    expect(block).not.toMatch(/continue-on-error:\s*true/)
   })
 })
