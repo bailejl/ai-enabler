@@ -87,7 +87,7 @@ The repo ships two Husky hooks.
   regenerated `.claude/CLAUDE.md` and `.github/copilot-instructions.md` unless they had unstaged
   edits. It then runs `lint-staged`: oxlint and Prettier on JavaScript and JSX files, Prettier on JSON,
   Markdown, and YAML.
-- `.husky/pre-push` runs the proto push guard, then `npm test` and `npm run test:e2e`.
+- `.husky/pre-push` runs the proto push guard, then `npm test` and `npm run test:e2e`. The tests are skipped when every pushed ref is a delete.
 
 If Graphify is installed, it adds local `post-checkout`, `post-commit`, `post-merge`, and
 `post-rewrite` hooks in `.husky/` that rebuild `graphify-out/`. They are gitignored, so they only
