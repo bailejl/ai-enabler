@@ -1,3 +1,29 @@
+:root {
+  --header-height: 3rem;
+  --menu-width: 16rem;
+  --canvas-min-height: 24rem;
+  --menu-padding: 0.75rem;
+  --menu-body-padding: 0.5rem 0 0.5rem 0.75rem;
+  --header-gap: 0.75rem;
+  --header-padding: 1rem;
+  --mark-size: 1.5rem;
+  --divider-height: 1.5rem;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+  --metrics-padding: 0.5rem;
+  --metrics-gap: 0.5rem;
+  --metric-basis: 8rem;
+  --metric-padding: 0.5rem;
+  --card-width: 9rem;
+  --card-padding: 1.75rem 0.5rem 0.5rem;
+  --badge-inset: 0.25rem;
+  --handle-hit-size: 20px;
+  --handle-dot-size: 8px;
+  --edge-width: 2px;
+  --dialog-padding: 1rem;
+  --status-padding: 0.5rem 1rem;
+}
+
 html,
 body,
 #root {
@@ -5,8 +31,380 @@ body,
   height: 100%;
 }
 
-.canvas {
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--menu-width) minmax(0, 1fr);
+  grid-template-rows: var(--header-height) auto auto minmax(0, 1fr);
+  grid-template-areas:
+    'header header'
+    'status status'
+    'menu metrics'
+    'menu canvas';
   height: 100%;
+  background: var(--page-background);
+  font-family: system-ui, sans-serif;
+}
+
+/* React Flow's stylesheet removes the outline from nodes and edges (specificity 0,3,0). */
+.react-flow__node.selectable:focus-visible,
+.react-flow__edge:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* An outline on an SVG <g> is not reliably painted, so the focused edge also recolors its stroke.
+   The extra .shell outranks React Flow's own .selectable:focus-visible stroke rule. */
+.shell .react-flow__edge.selectable:focus-visible .react-flow__edge-path {
+  stroke: var(--focus-ring);
+  stroke-width: var(--focus-ring-width);
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: var(--header-gap);
+  padding: 0 var(--header-padding);
+  background: var(--header-background);
+  color: var(--header-text);
+}
+
+.header__mark {
+  flex: none;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  fill: var(--header-text);
+  stroke: var(--header-text);
+  stroke-width: 2;
+}
+
+/* The brand gives up width only after the project name is fully truncated, so a wide fallback
+   font can never push Import and Export out of view. */
+.header__brand {
+  flex: 0 0.001 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.header__divider {
+  flex: none;
+  height: var(--divider-height);
+  border-left: 1px solid var(--header-text);
+}
+
+.header__project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header__actions {
+  display: flex;
+  flex: none;
+  gap: var(--header-gap);
+  margin-left: auto;
+}
+
+.dialog {
+  max-width: 28rem;
+  padding: 0;
+  border: 1px solid var(--tile-border);
+  border-radius: 0.5rem;
+  background: var(--card-background);
+  color: var(--card-text);
+}
+
+.dialog__content {
+  padding: var(--dialog-padding);
+}
+
+.dialog__heading {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--header-gap);
+}
+
+/* Outlined button that takes the color of the surface it sits on. */
+.button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.import-status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: var(--header-gap);
+  padding: var(--status-padding);
+  background: var(--status-none-background);
+  color: var(--tile-text);
+}
+
+.import-status--error {
+  background: var(--status-needs-attention-background);
+}
+
+.import-status__text {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.menu {
+  grid-area: menu;
+  background: var(--menu-background);
+  color: var(--menu-text);
+  overflow-y: auto;
+  padding: var(--menu-padding);
+}
+
+.menu__summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.menu__body {
+  padding: var(--menu-body-padding);
+}
+
+.menu__body p,
+.menu__body dd {
+  margin: 0 0 0.5rem;
+}
+
+.menu__body dt {
+  font-weight: 600;
+}
+
+.metrics {
+  grid-area: metrics;
+  padding: var(--metrics-padding);
+}
+
+.metrics__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--metrics-gap);
+  margin: 0;
+}
+
+.metric {
+  flex: 1 1 var(--metric-basis);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--metric-padding);
+  border: 1px solid var(--tile-border);
+  border-radius: 0.375rem;
+  color: var(--tile-text);
+}
+
+.metric--on-target {
+  background: var(--status-on-target-background);
+}
+
+.metric--watch {
+  background: var(--status-watch-background);
+}
+
+.metric--needs-attention {
+  background: var(--status-needs-attention-background);
+}
+
+.metric--none {
+  background: var(--status-none-background);
+}
+
+.metric__label {
+  min-height: 2lh;
+  font-size: 0.75rem;
+}
+
+/* Sized so the widest value fits a tile at 1024px even in wider Linux fallback fonts. */
+.metric__value {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.metric__status {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Below this width the menu stacks above the canvas instead of taking a column beside it. */
+@media (max-width: 639px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--header-height) auto auto auto minmax(var(--canvas-min-height), 1fr);
+    grid-template-areas:
+      'header'
+      'status'
+      'menu'
+      'metrics'
+      'canvas';
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* Tighter spacing keeps Import and Export inside a 320px viewport. */
+  .header {
+    --header-gap: 0.375rem;
+    --header-padding: 0.5rem;
+  }
+
+  .header .button {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+/* Seven tiles share one row from this width; below it they wrap instead of squeezing. */
+@media (min-width: 1024px) {
+  .metrics__list {
+    flex-wrap: nowrap;
+  }
+
+  .metric {
+    padding-inline: 0.375rem;
+  }
+}
+
+.step-card {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--card-width);
+  padding: var(--card-padding);
+  border: 1px solid var(--card-border);
+  border-radius: 0.375rem;
+  background: var(--card-background);
+  color: var(--card-text);
+  font-size: 0.75rem;
+}
+
+.step-card__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.step-card__rows {
+  margin: 0;
+}
+
+.step-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.step-card__row dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.badge {
+  position: absolute;
+  top: var(--badge-inset);
+  padding: 0 0.375rem;
+  border: 1px solid;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--queue {
+  left: var(--badge-inset);
+  border-color: var(--queue-badge-border);
+  background: var(--queue-badge-background);
+  color: var(--queue-badge-text);
+}
+
+.badge--batch {
+  right: var(--badge-inset);
+  border-color: var(--batch-badge-border);
+  background: var(--batch-badge-background);
+  color: var(--batch-badge-text);
+}
+
+.react-flow__edge-path {
+  stroke: var(--edge-stroke);
+  stroke-width: var(--edge-width);
+}
+
+.step-card__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--handle-hit-size);
+  height: var(--handle-hit-size);
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.step-card__handle::after {
+  content: '';
+  width: var(--handle-dot-size);
+  height: var(--handle-dot-size);
+  border-radius: 100%;
+  background: var(--handle-dot);
+}
+
+.step-card__handle:hover,
+.step-card__handle--shown {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .step-card__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-card__handle {
+    transition: none;
+  }
+}
+
+.canvas {
+  grid-area: canvas;
+  position: relative;
+  min-height: 0;
+}
+
+.canvas__empty {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  margin: 0;
+  pointer-events: none;
+  color: var(--tile-text);
 }
 
 .visually-hidden {

@@ -1,0 +1,24 @@
+{
+  "contentHash": "sha256-2139d9405b96e84e45f946e9c848f7be0025a0dfaad7bd86b22edd7e92fef82f",
+  "schemaVersion": "0.0.0",
+  "exportedAt": "2026-11-14T12:00:00.000Z",
+  "project": {
+    "id": "file-id-statuses",
+    "name": "Status Check"
+  },
+  "nodes": [
+    {
+      "id": "draft",
+      "type": "step",
+      "position": { "x": 3000, "y": 2000 },
+      "data": { "label": "Draft", "pt": 80, "lt": 100, "ca": 40, "queue": 60 }
+    },
+    {
+      "id": "publish",
+      "type": "step",
+      "position": { "x": 3500, "y": 2000 },
+      "data": { "label": "Publish", "pt": 80, "lt": 100, "ca": 50 }
+    }
+  ],
+  "edges": [{ "id": "draft->publish", "source": "draft", "target": "publish" }]
+}
