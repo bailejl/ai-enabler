@@ -16,7 +16,7 @@
 - Unit tests: Vitest, colocated as `src/**/*.test.{js,jsx}` and `scripts/**/*.test.js`. E2E: Playwright in `e2e/` (starts the dev server itself).
 - Prototyping: `/prototype` (`.claude/skills/prototype`) skips tests and review on `proto/*` branches only. Both push guards, `proto-push-guard` (git pre-push) and `claude-push-guard` (Claude Code PreToolUse), keep proto branches local. See Prototype path.
 - `scripts/` holds Node tooling: a pure module plus a thin `*-cli.js` wrapper, colocated `scripts/**/*.test.js`. CLIs are excluded from coverage and mutation. No imports from `src/`.
-- Git hooks (Husky): pre-commit refreshes the Repowise index, then runs lint-staged (JS/JSX: oxlint --fix, then prettier; json/md/yaml: prettier); pre-push runs the proto push guard, then unit + e2e tests.
+- Git hooks (Husky): pre-commit refreshes the Repowise index, then runs lint-staged (JS/JSX: oxlint --fix, then prettier; json/md/yaml: prettier); pre-push runs the proto push guard, then unit + e2e tests (skipped when every pushed ref is a delete).
 - Repowise index: the pre-commit hook runs `repowise update` and stages the regenerated Repowise block and `.github/copilot-instructions.md` into the commit. `SKIP_REPOWISE=1` skips this step; `/prototype graduate` uses it so the handoff commit holds only handoff files. Do not install Repowise's own post-commit hook (`repowise hook install`); it updates after the commit and leaves this file dirty.
 
 ### Prototype path
