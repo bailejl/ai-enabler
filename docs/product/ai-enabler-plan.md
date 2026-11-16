@@ -130,20 +130,20 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 | 2     | N13 GitHub Pages hosting and routing          | 1     | —                                           |
 | 3     | N14 GoatCounter usage tracking                | 1     | N13                                         |
 | 4     | E1 Homepage                                   | 1     | N13, E13                                    |
-| 5     | E2 Project types and domain profile           | 1     | E13                                         |
-| 6     | E3 Canvas and data box                        | 1     | E2, E13                                     |
-| 7     | N16 Three-point ranges                        | 1     | E3                                          |
-| 8     | E5 Undo/redo                                  | 1     | E3                                          |
-| 9     | E6 Rework loops                               | 1     | E3                                          |
-| 10    | E7 Current and future states                  | 1     | E3                                          |
-| 11    | N4 Deployed and Released end markers          | 1     | E3                                          |
-| 12    | N7 Batch and cadence model                    | 1     | E3                                          |
-| 13    | N8 Metric definitions and confidence          | 1     | E3                                          |
-| 14    | N15 Units of work, split and join             | 1     | E3                                          |
-| 15    | N2 Outcome, charter and guided start          | 1     | E1, E3                                      |
-| 16    | N1 Map-health checks                          | 1     | E3, N2, N4, N8, N15, Default thresholds     |
-| 17    | E11 Monte Carlo v2                            | 1     | N16, N7, E6                                 |
-| 18    | N17 Help section                              | 1     | E1; then every item adds its page           |
+| 5     | N17 Help section                              | 1     | E1; then every item adds its page           |
+| 6     | E2 Project types and domain profile           | 1     | E13                                         |
+| 7     | E3 Canvas and data box                        | 1     | E2, E13                                     |
+| 8     | N16 Three-point ranges                        | 1     | E3                                          |
+| 9     | E5 Undo/redo                                  | 1     | E3                                          |
+| 10    | E6 Rework loops                               | 1     | E3                                          |
+| 11    | E7 Current and future states                  | 1     | E3                                          |
+| 12    | N4 Deployed and Released end markers          | 1     | E3                                          |
+| 13    | N7 Batch and cadence model                    | 1     | E3                                          |
+| 14    | N8 Metric definitions and confidence          | 1     | E3                                          |
+| 15    | N15 Units of work, split and join             | 1     | E3                                          |
+| 16    | N2 Outcome, charter and guided start          | 1     | E1, E3                                      |
+| 17    | N1 Map-health checks                          | 1     | E3, N2, N4, N8, N15, Default thresholds     |
+| 18    | E11 Monte Carlo v2                            | 1     | N16, N7, E6                                 |
 | 19    | E4 Software box library                       | 2     | E2, E3                                      |
 | 20    | N3 Two-sided %C&A                             | 2     | E4                                          |
 | 21    | N6 Gate and control attributes                | 2     | E4                                          |
@@ -152,8 +152,8 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 | 24    | N20 Anti-pattern diagnosis                    | 2     | E14, N5                                     |
 | 25    | N11 Kaizen bursts and plan                    | 2     | E7, E14                                     |
 | 26    | E8 Improvement report                         | 2     | E7, N2, N11                                 |
-| 27    | E12 GitHub export (gh extension)              | 3     | E13, E4                                     |
-| 28    | N12 Event-log import and reconciliation       | 3     | E13, N8                                     |
+| 27    | N12 Event-log import and reconciliation       | 3     | E13, N8                                     |
+| 28    | E12 GitHub export (gh extension)              | 3     | E13, E4, N12                                |
 | 29    | E9 Linked levels (VSM, process map, pipeline) | 3     | E3, E7                                      |
 | 30    | E16 Pipeline to VSM                           | 3     | E12, E4, E9                                 |
 | 31    | E10 Versions and trends                       | 3     | E7, N8; uses N12 when present               |
@@ -207,7 +207,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 
 - **Original request:** Refine canvas actions: create, edit, modify and delete items on the canvas. Add the basic general data for a process.
 - **Why:** A box without wait time, queue and %C&A turns the map into a process flow.
-- **Scope:** Canvas CRUD for boxes, edges, queues and markers. Box fields: Name (verb + noun), Description, Owner role, Team, Headcount, Performer type (human, automated, human+AI, agent, gate), PT, WT, %C&A (as ranges, N16), WIP and oldest item, batch size, trigger (continuous, scheduled with interval, on demand), unit of work (N15), data source and confidence (N8). Lead time is computed as WT + PT, never typed. A soft warning past 15 boxes.
+- **Scope:** Canvas CRUD for boxes, edges, queues and markers. Box fields: Name (verb + noun), Description, Owner role, Team, Headcount, Performer type (human, automated, human+AI, agent, gate), PT, WT, %C&A (as ranges, N16), WIP and oldest item, batch size, trigger (continuous, scheduled with interval, on demand), unit of work (N15), data source and confidence (N8). E3 starts with single values; N16, N15 and N8 extend these fields. Lead time is computed as WT + PT, never typed. A soft warning past 15 boxes.
 - **Skills:** aie-facilitate (optional, fills boxes through an interview).
 - **Open questions:** Free-form canvas, ordered time ladder, or both? Proposed default: both views of the same data, canvas first, laid out like the horizontal worked example.
 - **Labels:** `ui` `size:prototype`
@@ -242,7 +242,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 
 - **Original request:** Create as-is (current state) and to-be (future state) VSMs and related diagrams. VSM boxes appear as visual sections in the lower diagrams so relationships are clear.
 - **Why:** The future state is where the improvement case is made.
-- **Scope:** As requested. Copy the current state into one or more future states (near-term and target). VSM boxes appear as labelled sections around their child steps in lower-level diagrams (E9).
+- **Scope:** As requested. Copy the current state into one or more future states (near-term and target).
 - **Skills:** aie-future-state (Phase 2).
 - **Open questions:** none.
 - **Labels:** `ui` `spec`
@@ -393,7 +393,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 ### N11 · Every finding becomes a planned, owned improvement
 
 - **Why:** The transformation plan, not the map, is the deliverable.
-- **Scope:** Kaizen bursts on the map, tagged with waste type (Poppendieck), DORA capability and anti-pattern. Each becomes a plan item with owner, date, the box it changes and the expected metric change. The plan is sequenced by constraint and by the constraint ladder (N18).
+- **Scope:** Kaizen bursts on the map, tagged with waste type (Poppendieck), DORA capability and anti-pattern. Each becomes a plan item with owner, date, the box it changes and the expected metric change. The plan is sequenced by constraint and by the constraint ladder (N18) when present.
 - **Skills:** aie-future-state.
 - **Open questions:** Export plan items as GitHub issues? Proposed default: yes, through the aie-import-github skill.
 - **Labels:** `ui` `spec`
@@ -433,7 +433,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 
 - **Original request:** Lower-level maps tied back to the VSM, to dive into detail and to derive VSMs from lower-level maps.
 - **Why:** Detail is needed at the constraint, not everywhere.
-- **Scope:** As requested. Roll-up rules match E16, so drilling down and deriving give the same numbers. AIE suggests drilling down only into the constraint box, as DORA recommends.
+- **Scope:** As requested. VSM boxes appear as labelled sections around their child steps in lower-level diagrams. Roll-up rules match E16, so drilling down and deriving give the same numbers. AIE suggests drilling down only into the constraint box, as DORA recommends.
 - **Skills:** none.
 - **Open questions:** none.
 - **Labels:** `ui` `spec`
