@@ -68,3 +68,5 @@ playwright-report/
 
 # Claude Code worktrees
 .claude/worktrees/
+
+tmp/
