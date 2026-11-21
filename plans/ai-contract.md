@@ -1064,7 +1064,7 @@ graph TD
 - [ ] Slice 4: Pure command layer
   - [x] Step 4.1: Command result, argument checks and create project
   - [x] Step 4.2: Step commands
-  - [ ] Step 4.3: Connection commands
+  - [x] Step 4.3: Connection commands
 - [ ] Slice 5: Gate checks
   - [ ] Step 5.1: Gate registry and data-complete
 

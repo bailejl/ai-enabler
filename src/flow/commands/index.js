@@ -2,6 +2,7 @@ import { problem } from '../diagnostics/problem.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { isObject } from '../schema/primitives.js'
 import { shorten } from '../text.js'
+import { CONNECTION_COMMANDS } from './connections.js'
 import { STEP_COMMANDS } from './steps.js'
 
 // The command table: each name maps to the arguments it accepts and a pure `apply`. `apply` gets
@@ -17,6 +18,7 @@ const COMMANDS = {
     }),
   },
   ...STEP_COMMANDS,
+  ...CONNECTION_COMMANDS,
 }
 
 const COMMAND_NAMES = Object.keys(COMMANDS)

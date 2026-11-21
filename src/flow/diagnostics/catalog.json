@@ -263,6 +263,18 @@
     "status": "active",
     "since": "0.0.0"
   },
+  "CONN_NOT_FOUND": {
+    "code": "CONN_NOT_FOUND",
+    "severity": "error",
+    "title": "Connection does not exist",
+    "summary": "A command asked to remove a connection that no connection in the project matches.",
+    "message": "No connection joins step \"{source}\" to step \"{target}\".",
+    "fix": "Use the ids of two steps that are connected, source first.",
+    "docs": "#conn-not-found",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
   "MARK_NOT_AN_OBJECT": {
     "code": "MARK_NOT_AN_OBJECT",
     "severity": "error",
