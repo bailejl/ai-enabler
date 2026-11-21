@@ -1,5 +1,6 @@
 import { CURRENT_SCHEMA_VERSION, compareSemver, parseSemver } from './version.js'
 import { isObject } from './primitives.js'
+import { problem } from '../diagnostics/problem.js'
 
 // Ordered upgrade hops, oldest first. Each is { from, to, upgrade }, where upgrade takes a file at
 // `from` and returns a new file in the `to` shape. It must not mutate its input. upgradeToCurrent
@@ -33,20 +34,16 @@ export const upgradeToCurrent = (
 ) => {
   const hops = findPath(registry, file?.schemaVersion, current)
   if (!hops) {
-    return {
-      ok: false,
-      message: `This file uses schema ${file?.schemaVersion}, which this app cannot upgrade to ${current}.`,
-    }
+    const params = { version: file?.schemaVersion, current }
+    return { ok: false, problems: [problem('FILE_NO_UPGRADE_PATH', { params })] }
   }
   let upgraded = file
   for (const hop of hops) {
     try {
       upgraded = applyHop(upgraded, hop)
     } catch {
-      return {
-        ok: false,
-        message: `This file could not be upgraded from schema ${hop.from} to ${hop.to}.`,
-      }
+      const params = { from: hop.from, to: hop.to }
+      return { ok: false, problems: [problem('FILE_UPGRADE_FAILED', { params })] }
     }
   }
   return { ok: true, file: upgraded }

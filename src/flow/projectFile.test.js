@@ -144,7 +144,7 @@ describe('toProjectFile', () => {
       edges: initialEdges,
       now: NOW,
     })
-    expect(validateProjectFile(file)).toEqual({ ok: true })
+    expect(validateProjectFile(file)).toEqual({ ok: true, problems: [] })
   })
 
   it('does not change its input', () => {

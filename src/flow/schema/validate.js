@@ -1,9 +1,7 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
+import { problem } from '../diagnostics/problem.js'
 import { STEP_TYPE, stepPositionName } from '../step.js'
 import { isObject } from './primitives.js'
-
-export const NOT_A_PROJECT_FILE =
-  'This is not a project file. Choose a file exported from AI Enabler.'
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''
 
@@ -13,114 +11,223 @@ const isNonNegativeInteger = (value) => Number.isInteger(value) && value >= 0
 
 const isPercentage = (value) => Number.isFinite(value) && value >= 0 && value <= 100
 
-// Steps are named by label and 1-based position. A missing or blank label leaves the position.
-const stepName = (node, index) => {
-  const label = node?.data?.label
-  return isNonEmptyText(label) ? `Step "${label}" (#${index + 1})` : stepPositionName(index)
-}
-
-// A rule that flags the first step for which isProblem is true. describe gets the step name.
-const firstBadStep = (isProblem, describe) => (file) => {
-  const index = file.nodes.findIndex(isProblem)
-  return index === -1 ? null : describe(stepName(file.nodes[index], index))
-}
-
 const hasPosition = (node) =>
   Number.isFinite(node?.position?.x) && Number.isFinite(node?.position?.y)
 
+// User text echoed into a message is cut to this many characters, so a huge label or id cannot
+// flood the import status. The full text stays in `untrusted`.
+const MAX_ECHOED_TEXT = 80
+
+const shorten = (text) =>
+  text.length > MAX_ECHOED_TEXT ? `${text.slice(0, MAX_ECHOED_TEXT - 1)}…` : text
+
+// Steps are named by label and 1-based position. A missing or blank label leaves the position.
+const stepName = (node, index) => {
+  const label = node?.data?.label
+  return isNonEmptyText(label)
+    ? `Step "${shorten(label)}" (#${index + 1})`
+    : stepPositionName(index)
+}
+
+// A file that is not an object with step and connection lists is one problem and nothing else.
+const isProjectShaped = (file) =>
+  isObject(file) && Array.isArray(file.nodes) && Array.isArray(file.edges)
+
+// Per-item rules: every rule that fails is reported. `fails` takes the untrusted item and never
+// throws. `field` is the key the message names.
+const PROJECT_RULES = [
+  {
+    code: 'FILE_PROJECT_NAME_EMPTY',
+    field: 'project.name',
+    fails: (p) => !isNonEmptyText(p?.name),
+  },
+  { code: 'FILE_PROJECT_ID_MISSING', field: 'project.id', fails: (p) => !isNonEmptyString(p?.id) },
+]
+
 // Optional data fields are valid when absent; a present null or wrong type is invalid.
-const hasBadOptionalField = (field, isValid) => (node) => {
-  const value = node?.data?.[field]
-  return value !== undefined && !isValid(value)
-}
+const optionalFieldRule = (code, field, fieldLabel, isValid) => ({
+  code,
+  field,
+  fieldLabel,
+  fails: (node) => {
+    const value = node?.data?.[field]
+    return value !== undefined && !isValid(value)
+  },
+})
 
-const invalidField = (noun) => (name) => `${name} has an invalid ${noun}.`
-
-// The first id that an earlier item already used, or undefined. Items are untrusted: null is skipped.
-const findDuplicateId = (items) => {
-  const seen = new Set()
-  for (const item of items) {
-    if (seen.has(item?.id)) return item.id
-    seen.add(item?.id)
-  }
-  return undefined
-}
+const STEP_RULES = [
+  { code: 'STEP_ID_MISSING', field: 'id', fails: (node) => typeof node?.id !== 'string' },
+  { code: 'STEP_POSITION_MISSING', field: 'position', fails: (node) => !hasPosition(node) },
+  {
+    code: 'STEP_LABEL_MISSING',
+    field: 'label',
+    fails: (node) => typeof node?.data?.label !== 'string',
+  },
+  {
+    code: 'STEP_TYPE_UNKNOWN',
+    field: 'type',
+    fails: (node) => node?.type !== undefined && node.type !== STEP_TYPE,
+  },
+  optionalFieldRule('STEP_COUNT_INVALID', 'pt', 'process time', isNonNegativeInteger),
+  optionalFieldRule('STEP_COUNT_INVALID', 'lt', 'lead time', isNonNegativeInteger),
+  optionalFieldRule('STEP_COUNT_INVALID', 'queue', 'queue', isNonNegativeInteger),
+  optionalFieldRule('STEP_COUNT_INVALID', 'batch', 'batch size', isNonNegativeInteger),
+  optionalFieldRule('STEP_PERCENT_INVALID', 'ca', '%C&A', isPercentage),
+]
 
 const connectionName = (index) => `Connection ${index + 1}`
 
-const hasMissingEndpoint = (nodes) => {
-  const ids = new Set(nodes.map((node) => node.id))
-  return (edge) => !ids.has(edge?.source) || !ids.has(edge?.target)
-}
-
-// Describes the first rejected connection. A self-connection names its step.
-const EDGE_PROBLEM_MESSAGES = {
-  [PROBLEM_SELF]: (edge, nodes) => {
-    const index = nodes.findIndex((node) => node.id === edge.source)
-    return `${stepName(nodes[index], index)} connects to itself.`
-  },
-  [PROBLEM_DUPLICATE]: () => 'A connection appears twice.',
-  [PROBLEM_LOOP]: () => 'The connections form a loop.',
-}
-
-const findEdgeProblemMessage = (file) => {
-  const [first] = findEdgeProblems(file.edges)
-  return first ? EDGE_PROBLEM_MESSAGES[first.kind](first.edge, file.nodes) : null
-}
-
-// Ordered rules. The first one that finds a problem decides the message, so each rule may rely on
-// the rules above it. Every rule takes the whole file and returns a message, or null when it passes.
-// Inputs are untrusted JSON: rules read with optional chaining and never throw.
-const RULES = [
-  (file) => (isObject(file) ? null : NOT_A_PROJECT_FILE),
-  (file) => (isNonEmptyText(file.project?.name) ? null : 'The project name is empty.'),
-  (file) => (Array.isArray(file.nodes) ? null : 'The file has no list of steps.'),
-  (file) => (Array.isArray(file.edges) ? null : 'The file has no list of connections.'),
-  firstBadStep(
-    (node) => typeof node?.id !== 'string',
-    (name) => `${name} is missing an id.`,
-  ),
-  firstBadStep(
-    (node) => !hasPosition(node),
-    (name) => `${name} is missing a position.`,
-  ),
-  firstBadStep(
-    (node) => typeof node?.data?.label !== 'string',
-    (name) => `${name} is missing a label.`,
-  ),
-  firstBadStep(
-    (node) => node?.type !== undefined && node.type !== STEP_TYPE,
-    (name) => `${name} has an unknown type.`,
-  ),
-  firstBadStep(hasBadOptionalField('pt', isNonNegativeInteger), invalidField('process time')),
-  firstBadStep(hasBadOptionalField('lt', isNonNegativeInteger), invalidField('lead time')),
-  firstBadStep(hasBadOptionalField('queue', isNonNegativeInteger), invalidField('queue')),
-  firstBadStep(hasBadOptionalField('batch', isNonNegativeInteger), invalidField('batch size')),
-  firstBadStep(hasBadOptionalField('ca', isPercentage), invalidField('%C&A')),
-  (file) => {
-    const id = findDuplicateId(file.nodes)
-    return id === undefined ? null : `Two steps share the id "${id}".`
-  },
-  (file) => {
-    const index = file.edges.findIndex((edge) => !isNonEmptyString(edge?.id))
-    return index === -1 ? null : `${connectionName(index)} is missing an id.`
-  },
-  (file) => {
-    const id = findDuplicateId(file.edges)
-    return id === undefined ? null : `Two connections share the id "${id}".`
-  },
-  (file) =>
-    file.edges.some(hasMissingEndpoint(file.nodes))
-      ? 'A connection points to a step that is not there.'
-      : null,
-  findEdgeProblemMessage,
-  (file) => (isNonEmptyString(file.project.id) ? null : 'The project id is missing.'),
+const CONNECTION_RULES = [
+  { code: 'CONN_ID_MISSING', field: 'id', fails: (edge) => !isNonEmptyString(edge?.id) },
 ]
 
+const failedRules = (rules, subject) => rules.filter((rule) => rule.fails(subject))
+
+const checkShape = (file) => {
+  return isProjectShaped(file) ? [] : [problem('FILE_NOT_A_PROJECT')]
+}
+
+const checkProject = (project) =>
+  failedRules(PROJECT_RULES, project).map((rule) => problem(rule.code, { field: rule.field }))
+
+// What a step problem carries about the step: its id when it has one, its title as user text.
+const stepRefs = (node) => ({
+  ...(typeof node?.id === 'string' && { stepId: node.id }),
+  ...(isNonEmptyText(node?.data?.label) && { untrusted: { title: node.data.label } }),
+})
+
+const connectionRefs = (edge) => (isNonEmptyString(edge?.id) ? { edgeId: edge.id } : {})
+
+const stepProblem = (rule, node, index) =>
+  problem(rule.code, {
+    params: { step: stepName(node, index), fieldLabel: rule.fieldLabel, field: rule.field },
+    field: rule.field,
+    ...stepRefs(node),
+  })
+
+const connectionProblem = (rule, edge, index) =>
+  problem(rule.code, {
+    params: { connection: connectionName(index) },
+    field: rule.field,
+    ...connectionRefs(edge),
+  })
+
+// Phase 1: every per-item rule on every item. An entry keeps the item's place in the file and its
+// problems; an item with none passed.
+const checkItems = (items, rules, toProblem) =>
+  items.map((item, index) => ({
+    item,
+    index,
+    problems: failedRules(rules, item).map((rule) => toProblem(rule, item, index)),
+  }))
+
+const passedEntries = (entries) => entries.filter((entry) => entry.problems.length === 0)
+
+const entryProblems = (entries) => entries.flatMap((entry) => entry.problems)
+
+// Entries whose id an earlier entry already used. Entries here passed phase 1, so ids are strings.
+const repeatedIdEntries = (entries) => {
+  const seen = new Set()
+  return entries.filter(({ item }) => {
+    const isRepeat = seen.has(item.id)
+    seen.add(item.id)
+    return isRepeat
+  })
+}
+
+const duplicateStepIds = (stepEntries) =>
+  repeatedIdEntries(stepEntries).map(({ item, index }) =>
+    problem('STEP_ID_DUPLICATE', {
+      params: { step: stepName(item, index), id: shorten(item.id) },
+      field: 'id',
+      ...stepRefs(item),
+      // The id is echoed into the message, so its full text is marked as user text too.
+      untrusted: { ...stepRefs(item).untrusted, id: item.id },
+    }),
+  )
+
+const duplicateConnectionIds = (connectionEntries) =>
+  repeatedIdEntries(connectionEntries).map(({ item, index }) =>
+    problem('CONN_ID_DUPLICATE', {
+      params: { connection: connectionName(index), id: shorten(item.id) },
+      field: 'id',
+      ...connectionRefs(item),
+      untrusted: { id: item.id },
+    }),
+  )
+
+const CONNECTION_KIND_CODES = {
+  [PROBLEM_SELF]: 'CONN_SELF',
+  [PROBLEM_DUPLICATE]: 'CONN_DUPLICATE',
+  [PROBLEM_LOOP]: 'CONN_LOOP',
+}
+
+const connectionKindProblem = ({ kind, edge: { entry } }, nodes, firstIndexById) => {
+  const sourceIndex = firstIndexById.get(entry.item.source)
+  return problem(CONNECTION_KIND_CODES[kind], {
+    params: {
+      connection: connectionName(entry.index),
+      step: stepName(nodes[sourceIndex], sourceIndex),
+    },
+    ...connectionRefs(entry.item),
+    ...(kind === PROBLEM_SELF && stepRefs(nodes[sourceIndex])),
+  })
+}
+
+// Relational rules over connections that passed phase 1. Endpoints are checked against every step
+// id in the file, so a step with some other problem is still a step a connection can point to.
+const checkConnectionRelations = (nodes, connectionEntries) => {
+  // Built in reverse so the first step with an id wins, as a forward search would find it.
+  const firstIndexById = new Map(
+    nodes
+      .map((node, index) => [node?.id, index])
+      .filter(([id]) => typeof id === 'string')
+      .toReversed(),
+  )
+  const hasBothEndpoints = ({ item }) =>
+    firstIndexById.has(item.source) && firstIndexById.has(item.target)
+  const danglingEntries = connectionEntries.filter((entry) => !hasBothEndpoints(entry))
+  const connectedEntries = connectionEntries.filter(hasBothEndpoints)
+  return [
+    ...danglingEntries.map(({ item, index }) =>
+      problem('CONN_ENDPOINT_MISSING', {
+        params: { connection: connectionName(index) },
+        ...connectionRefs(item),
+      }),
+    ),
+    // Each edge carries its entry so a rejected edge maps back to its place in the file.
+    ...findEdgeProblems(
+      connectedEntries.map((entry) => ({
+        source: entry.item.source,
+        target: entry.item.target,
+        entry,
+      })),
+    ).map((found) => connectionKindProblem(found, nodes, firstIndexById)),
+  ]
+}
+
+/**
+ * Validates an untrusted project file and reports every problem found, not only the first.
+ * A shape problem stops at itself. Otherwise phase 1 reports every per-item problem, and phase 2
+ * reports relational problems among the items that passed phase 1.
+ * One deliberate exception: a connection endpoint counts as existing when any step in the file has
+ * that string id, even a step that failed phase 1. A bad step then does not also make every
+ * connection to it a missing-endpoint problem.
+ * Never throws on any input.
+ * @returns {{ ok: boolean, problems: object[] }}
+ */
 export const validateProjectFile = (file) => {
-  for (const rule of RULES) {
-    const message = rule(file)
-    if (message) return { ok: false, message }
-  }
-  return { ok: true }
+  const shape = checkShape(file)
+  if (shape.length > 0) return { ok: false, problems: shape }
+  const stepEntries = checkItems(file.nodes, STEP_RULES, stepProblem)
+  const connectionEntries = checkItems(file.edges, CONNECTION_RULES, connectionProblem)
+  const problems = [
+    ...checkProject(file.project),
+    ...entryProblems(stepEntries),
+    ...entryProblems(connectionEntries),
+    ...duplicateStepIds(passedEntries(stepEntries)),
+    ...duplicateConnectionIds(passedEntries(connectionEntries)),
+    ...checkConnectionRelations(file.nodes, passedEntries(connectionEntries)),
+  ]
+  return { ok: problems.length === 0, problems }
 }

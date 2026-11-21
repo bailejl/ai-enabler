@@ -32,11 +32,20 @@ const parsed = (file, edited = false) => ({
   result: { ok: true, file, edited },
   project: OPEN_PROJECT,
 })
-const failed = (message) => ({
+const problemOf = (message) => ({
+  code: 'TEST_PROBLEM',
+  severity: 'error',
+  message,
+  fix: 'Fix it.',
+})
+const failedWith = (problems) => ({
   type: IMPORT_EVENT.fileParsed,
-  result: { ok: false, message },
+  result: { ok: false, problems },
   project: OPEN_PROJECT,
 })
+const failed = (message) => failedWith([problemOf(message)])
+const manyProblems = (count) =>
+  Array.from({ length: count }, (_, index) => problemOf(`Problem ${index + 1}.`))
 
 // Runs events in order and returns the last transition, { state, announcement, replacement }.
 const reduceAll = (events, state = INITIAL_IMPORT_STATE) =>
@@ -142,8 +151,20 @@ describe('reduceImport outcomes', () => {
       failed(NOT_JSON),
     )
 
-    expect(state).toEqual({ type: 'error', message: NOT_JSON })
-    expect(announcement).toBe(NOT_JSON)
+    expect(state).toEqual({ type: 'error', problems: [problemOf(NOT_JSON)] })
+    expect(announcement).toBe(`Import rejected: 1 problem. ${NOT_JSON}`)
+    expect(replacement).toBeNull()
+  })
+
+  it('holds every problem in the error state and announces the count and the first one', () => {
+    const problems = [problemOf('First one.'), problemOf('Second one.')]
+    const { state, announcement, replacement } = reduceImport(
+      INITIAL_IMPORT_STATE,
+      failedWith(problems),
+    )
+
+    expect(state).toEqual({ type: 'error', problems })
+    expect(announcement).toBe('Import rejected: 2 problems. First one.')
     expect(replacement).toBeNull()
   })
 
@@ -171,7 +192,7 @@ describe('reduceImport outcomes', () => {
     const afterSuccess = reduceAll([parsed(sameNameFile), { type: IMPORT_EVENT.confirm }]).state
     expect(reduceImport(afterSuccess, failed(NOT_JSON)).state).toEqual({
       type: 'error',
-      message: NOT_JSON,
+      problems: [problemOf(NOT_JSON)],
     })
   })
 
@@ -179,8 +200,8 @@ describe('reduceImport outcomes', () => {
     [IMPORT_EVENT.confirm, INITIAL_IMPORT_STATE],
     [IMPORT_EVENT.cancel, INITIAL_IMPORT_STATE],
     [IMPORT_EVENT.dismiss, { type: 'idle', status: 'Imported A, 1 step' }],
-    [IMPORT_EVENT.confirm, { type: 'error', message: NOT_JSON }],
-    [IMPORT_EVENT.cancel, { type: 'error', message: NOT_JSON }],
+    [IMPORT_EVENT.confirm, { type: 'error', problems: [problemOf(NOT_JSON)] }],
+    [IMPORT_EVENT.cancel, { type: 'error', problems: [problemOf(NOT_JSON)] }],
   ])('ignores %s in a state that cannot take it', (type, state) => {
     expect(reduceImport(state, { type })).toEqual({ state, announcement: null, replacement: null })
   })
@@ -302,11 +323,49 @@ describe('describeImportStatus', () => {
     expect(describeImportStatus(INITIAL_IMPORT_STATE)).toBeNull()
   })
 
-  it('shows the error message as an error', () => {
+  const describeRejected = (count) =>
+    describeImportStatus(reduceAll([failedWith(manyProblems(count))]).state)
+
+  it('leads one problem with the singular count and lists its message', () => {
     expect(describeImportStatus(reduceAll([failed(NOT_JSON)]).state)).toEqual({
-      text: NOT_JSON,
+      text: 'Import rejected: 1 problem',
       isError: true,
+      items: [NOT_JSON],
+      more: null,
     })
+  })
+
+  it('leads several problems with the plural count and lists them in order', () => {
+    expect(describeRejected(2)).toEqual({
+      text: 'Import rejected: 2 problems',
+      isError: true,
+      items: ['Problem 1.', 'Problem 2.'],
+      more: null,
+    })
+  })
+
+  it('lists exactly 10 problems with no "more" line', () => {
+    const status = describeRejected(10)
+    expect(status.items).toHaveLength(10)
+    expect(status.more).toBeNull()
+  })
+
+  it('lists the first 10 of 11 problems and says "and 1 more"', () => {
+    const status = describeRejected(11)
+    expect(status.items).toHaveLength(10)
+    expect(status.more).toBe('and 1 more')
+  })
+
+  it('lists the first 10 of 14 problems and says "and 4 more"', () => {
+    const status = describeRejected(14)
+    expect(status.text).toBe('Import rejected: 14 problems')
+    expect(status.items).toEqual(manyProblems(10).map(({ message }) => message))
+    expect(status.more).toBe('and 4 more')
+  })
+
+  it('announces the full count but only the first of many problems', () => {
+    const { announcement } = reduceImport(INITIAL_IMPORT_STATE, failedWith(manyProblems(14)))
+    expect(announcement).toBe('Import rejected: 14 problems. Problem 1.')
   })
 
   it('shows the last outcome after a replace, as a non-error', () => {

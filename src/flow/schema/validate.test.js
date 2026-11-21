@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { validateProjectFile } from './validate.js'
+import { isCatalogCode } from '../diagnostics/problem.js'
 import { initialNodes, initialEdges } from '../initialFlow.js'
 import { STEP_DATA_FIELDS } from '../step.js'
 
@@ -45,6 +46,9 @@ const withEdge = (position, change, file = validFile()) => ({
   edges: file.edges.map((edge, i) => (i === position - 1 ? change(edge) : edge)),
 })
 
+// Steps whose ids are edited would leave the starter connections pointing at nothing.
+const withoutEdges = (file) => ({ ...file, edges: [] })
+
 const withProject = (patch) => ({ ...validFile(), project: { ...validFile().project, ...patch } })
 
 const deepFreeze = (value) => {
@@ -55,11 +59,26 @@ const deepFreeze = (value) => {
   return value
 }
 
-const fail = (message) => ({ ok: false, message })
+const problemsOf = (file) => validateProjectFile(file).problems
+
+// The one problem a file has; fails when it has none or more than one.
+const onlyProblem = (file) => {
+  const [found, ...rest] = problemsOf(file)
+  expect(rest).toEqual([])
+  expect(found).toBeDefined()
+  return found
+}
 
 describe('validateProjectFile: whole file', () => {
-  it('accepts a valid file', () => {
-    expect(validateProjectFile(validFile())).toEqual({ ok: true })
+  it('accepts a valid file with no problems', () => {
+    expect(validateProjectFile(validFile())).toEqual({ ok: true, problems: [] })
+  })
+
+  it('accepts a valid file with extra unknown top-level fields', () => {
+    expect(validateProjectFile({ ...validFile(), extra: { anything: [1] } })).toEqual({
+      ok: true,
+      problems: [],
+    })
   })
 
   it.each([
@@ -69,49 +88,105 @@ describe('validateProjectFile: whole file', () => {
     ['a string', 'project'],
     ['a boolean', true],
     ['an array', []],
-  ])('reports %s as not a project file', (_label, value) => {
-    expect(validateProjectFile(value)).toEqual(
-      fail('This is not a project file. Choose a file exported from AI Enabler.'),
-    )
+  ])('reports %s as exactly one not-a-project problem', (_label, value) => {
+    expect(problemsOf(value)).toMatchObject([{ code: 'FILE_NOT_A_PROJECT', severity: 'error' }])
   })
 
   it.each([
-    ['a whitespace-only name', withProject({ name: '   ' }), 'The project name is empty.'],
-    ['an empty name', withProject({ name: '' }), 'The project name is empty.'],
-    ['a non-string name', withProject({ name: 7 }), 'The project name is empty.'],
-    ['no project', { ...validFile(), project: undefined }, 'The project name is empty.'],
-    ['a null project', { ...validFile(), project: null }, 'The project name is empty.'],
-    ['nodes missing', { ...validFile(), nodes: undefined }, 'The file has no list of steps.'],
-    ['nodes an object', { ...validFile(), nodes: {} }, 'The file has no list of steps.'],
-    ['edges null', { ...validFile(), edges: null }, 'The file has no list of connections.'],
-    ['edges a string', { ...validFile(), edges: 'none' }, 'The file has no list of connections.'],
-  ])('rejects %s', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+    ['nodes missing', { ...validFile(), nodes: undefined }],
+    ['nodes an object', { ...validFile(), nodes: {} }],
+    ['edges null', { ...validFile(), edges: null }],
+    ['edges a string', { ...validFile(), edges: 'none' }],
+  ])('reports %s as exactly one not-a-project problem', (_label, file) => {
+    expect(problemsOf(file)).toMatchObject([{ code: 'FILE_NOT_A_PROJECT' }])
+  })
+
+  it('stops at the not-a-project problem when the project name is also empty and edges are missing', () => {
+    const file = { ...validFile(), project: {}, nodes: 'x', edges: undefined }
+    expect(problemsOf(file)).toMatchObject([{ code: 'FILE_NOT_A_PROJECT' }])
+  })
+
+  it.each([
+    ['a whitespace-only name', withProject({ name: '   ' })],
+    ['an empty name', withProject({ name: '' })],
+    ['a non-string name', withProject({ name: 7 })],
+  ])('reports %s as an empty project name', (_label, file) => {
+    expect(problemsOf(file)).toMatchObject([
+      { code: 'FILE_PROJECT_NAME_EMPTY', field: 'project.name' },
+    ])
+  })
+
+  it.each([
+    ['an empty id', withProject({ id: '' })],
+    ['a numeric id', withProject({ id: 7 })],
+    ['a missing id', withProject({ id: undefined })],
+    ['an object id', withProject({ id: {} })],
+  ])('reports %s as a missing project id', (_label, file) => {
+    expect(problemsOf(file)).toMatchObject([
+      { code: 'FILE_PROJECT_ID_MISSING', field: 'project.id' },
+    ])
+  })
+
+  it.each([
+    ['no project', { ...validFile(), project: undefined }],
+    ['a null project', { ...validFile(), project: null }],
+    ['a string project', { ...validFile(), project: 'Delivery' }],
+    ['an array project', { ...validFile(), project: [] }],
+  ])('reports both project problems for %s', (_label, file) => {
+    expect(problemsOf(file).map((p) => p.code)).toEqual([
+      'FILE_PROJECT_NAME_EMPTY',
+      'FILE_PROJECT_ID_MISSING',
+    ])
+  })
+
+  it('accepts a whitespace-only project id', () => {
+    expect(problemsOf(withProject({ id: ' ' }))).toEqual([])
   })
 })
 
-describe('validateProjectFile: steps', () => {
+describe('validateProjectFile: step rules', () => {
   it.each([
-    ['pt -1', withData(2, { pt: -1 }), 'Step "Plan" (#2) has an invalid process time.'],
-    ['pt 1.5', withData(2, { pt: 1.5 }), 'Step "Plan" (#2) has an invalid process time.'],
-    ['pt a string', withData(2, { pt: '5' }), 'Step "Plan" (#2) has an invalid process time.'],
-    ['pt null', withData(3, { pt: null }), 'Step "Build" (#3) has an invalid process time.'],
-    ['lt -1', withData(3, { lt: -1 }), 'Step "Build" (#3) has an invalid lead time.'],
-    ['queue -1', withData(2, { queue: -1 }), 'Step "Plan" (#2) has an invalid queue.'],
-    ['queue 1.5', withData(2, { queue: 1.5 }), 'Step "Plan" (#2) has an invalid queue.'],
-    ['batch -2', withData(3, { batch: -2 }), 'Step "Build" (#3) has an invalid batch size.'],
-    ['%C&A 100.5', withData(3, { ca: 100.5 }), 'Step "Build" (#3) has an invalid %C&A.'],
-    ['%C&A -0.5', withData(2, { ca: -0.5 }), 'Step "Plan" (#2) has an invalid %C&A.'],
-    ['%C&A a string', withData(2, { ca: '90' }), 'Step "Plan" (#2) has an invalid %C&A.'],
-  ])('rejects %s', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+    ['pt -1', withData(2, { pt: -1 }), 'pt', 'Plan', 2, 'process time (pt)'],
+    ['pt 1.5', withData(2, { pt: 1.5 }), 'pt', 'Plan', 2, 'process time (pt)'],
+    ['pt a string', withData(2, { pt: '5' }), 'pt', 'Plan', 2, 'process time (pt)'],
+    ['pt null', withData(3, { pt: null }), 'pt', 'Build', 3, 'process time (pt)'],
+    ['lt -1', withData(3, { lt: -1 }), 'lt', 'Build', 3, 'lead time (lt)'],
+    ['queue -1', withData(2, { queue: -1 }), 'queue', 'Plan', 2, 'queue (queue)'],
+    ['queue 1.5', withData(2, { queue: 1.5 }), 'queue', 'Plan', 2, 'queue (queue)'],
+    ['batch -2', withData(3, { batch: -2 }), 'batch', 'Build', 3, 'batch size (batch)'],
+  ])('rejects %s as a count problem', (_label, file, field, title, position, fieldText) => {
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'STEP_COUNT_INVALID', field })
+    expect(found.message).toContain(`Step "${title}" (#${position})`)
+    expect(found.message).toContain(fieldText)
   })
 
-  // A field added to STEP_DATA_FIELDS without a validator rule fails here.
+  it.each([
+    ['%C&A 100.5', withData(3, { ca: 100.5 }), 'Build', 3],
+    ['%C&A -0.5', withData(2, { ca: -0.5 }), 'Plan', 2],
+    ['%C&A a string', withData(2, { ca: '90' }), 'Plan', 2],
+  ])('rejects %s as a percentage problem', (_label, file, title, position) => {
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'STEP_PERCENT_INVALID', field: 'ca' })
+    expect(found.message).toContain(`Step "${title}" (#${position})`)
+    expect(found.message).toContain('%C&A (ca)')
+  })
+
+  // A field added to STEP_DATA_FIELDS without an entry here, or without a validator rule, fails.
+  const OPTIONAL_FIELD_CODES = {
+    pt: 'STEP_COUNT_INVALID',
+    lt: 'STEP_COUNT_INVALID',
+    queue: 'STEP_COUNT_INVALID',
+    batch: 'STEP_COUNT_INVALID',
+    ca: 'STEP_PERCENT_INVALID',
+  }
+
   it.each(STEP_DATA_FIELDS.filter((field) => field !== 'label'))(
     'rejects an optional field "%s" holding a string that is not a number',
     (field) => {
-      expect(validateProjectFile(withData(2, { [field]: 'not a number' })).ok).toBe(false)
+      expect(problemsOf(withData(2, { [field]: 'not a number' }))).toMatchObject([
+        { code: OPTIONAL_FIELD_CODES[field], field },
+      ])
     },
   )
 
@@ -119,48 +194,49 @@ describe('validateProjectFile: steps', () => {
     [
       'type "group"',
       withStep(3, (node) => ({ ...node, type: 'group' })),
-      'Step "Build" (#3) has an unknown type.',
+      'STEP_TYPE_UNKNOWN',
+      'type',
     ],
+    ['a null type', withStep(3, (node) => ({ ...node, type: null })), 'STEP_TYPE_UNKNOWN', 'type'],
     [
       'an id missing',
-      withStep(2, (node) => withoutKey(node, 'id')),
-      'Step "Plan" (#2) is missing an id.',
+      withoutEdges(withStep(2, (node) => withoutKey(node, 'id'))),
+      'STEP_ID_MISSING',
+      'id',
     ],
     [
       'a numeric id',
-      withStep(2, (node) => ({ ...node, id: 7 })),
-      'Step "Plan" (#2) is missing an id.',
+      withoutEdges(withStep(2, (node) => ({ ...node, id: 7 }))),
+      'STEP_ID_MISSING',
+      'id',
     ],
     [
       'a position missing',
-      withStep(3, (node) => withoutKey(node, 'position')),
-      'Step "Build" (#3) is missing a position.',
+      withStep(2, (node) => withoutKey(node, 'position')),
+      'STEP_POSITION_MISSING',
+      'position',
     ],
     [
       'position y missing',
       withStep(2, (node) => ({ ...node, position: { x: 0 } })),
-      'Step "Plan" (#2) is missing a position.',
+      'STEP_POSITION_MISSING',
+      'position',
     ],
     [
       'position x a string',
       withStep(2, (node) => ({ ...node, position: { x: '0', y: 0 } })),
-      'Step "Plan" (#2) is missing a position.',
+      'STEP_POSITION_MISSING',
+      'position',
     ],
     [
-      'a label missing',
-      withStep(3, (node) => ({ ...node, data: {} })),
-      'Step #3 is missing a label.',
+      'a null position',
+      withStep(2, (node) => ({ ...node, position: null })),
+      'STEP_POSITION_MISSING',
+      'position',
     ],
-    ['a numeric label', withData(2, { label: 5 }), 'Step #2 is missing a label.'],
-    ['data null', withStep(2, (node) => ({ ...node, data: null })), 'Step #2 is missing a label.'],
-    ['a null step', withStep(2, () => null), 'Step #2 is missing an id.'],
-    [
-      'a blank label on a bad step',
-      withData(2, { label: ' ', pt: -1 }),
-      'Step #2 has an invalid process time.',
-    ],
-  ])('rejects a step with %s', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+    ['a numeric label', withData(2, { label: 5 }), 'STEP_LABEL_MISSING', 'label'],
+  ])('rejects a step with %s', (_label, file, code, field) => {
+    expect(problemsOf(file)).toMatchObject([{ code, field }])
   })
 
   it.each([
@@ -174,77 +250,152 @@ describe('validateProjectFile: steps', () => {
     ['%C&A at its upper bound', withData(2, { ca: 100 })],
     ['a fractional %C&A', withData(2, { ca: 87.5 })],
   ])('accepts a step with %s', (_label, file) => {
-    expect(validateProjectFile(file)).toEqual({ ok: true })
+    expect(validateProjectFile(file)).toEqual({ ok: true, problems: [] })
   })
 })
 
-describe('validateProjectFile: ids and connections', () => {
+describe('validateProjectFile: connection rules', () => {
   it.each([
-    [
-      'two steps with id "plan"',
-      withStep(3, (node) => ({ ...node, id: 'plan' })),
-      'Two steps share the id "plan".',
-    ],
-    [
-      'a connection to a missing step',
-      withEdges(['plan', 'ghost']),
-      'A connection points to a step that is not there.',
-    ],
-    [
-      'a connection from a missing step',
-      withEdges(['ghost', 'plan']),
-      'A connection points to a step that is not there.',
-    ],
-    [
-      'a step connected to itself',
-      withEdges(['plan', 'plan']),
-      'Step "Plan" (#2) connects to itself.',
-    ],
-    [
-      'the same connection twice',
-      withEdges(['idea', 'plan'], ['idea', 'plan']),
-      'A connection appears twice.',
-    ],
-    [
-      'a loop',
-      withEdges(['idea', 'plan'], ['plan', 'build'], ['build', 'idea']),
-      'The connections form a loop.',
-    ],
-    [
-      'a two-step loop',
-      withEdges(['plan', 'build'], ['build', 'plan']),
-      'The connections form a loop.',
-    ],
-    [
-      'a connection with no id',
-      withEdge(2, (edge) => withoutKey(edge, 'id')),
-      'Connection 2 is missing an id.',
-    ],
-    [
-      'a connection with the numeric id 42',
-      withEdge(2, (edge) => ({ ...edge, id: 42 })),
-      'Connection 2 is missing an id.',
-    ],
-    [
-      'a connection with an empty id',
-      withEdge(2, (edge) => ({ ...edge, id: '' })),
-      'Connection 2 is missing an id.',
-    ],
-    [
-      'a null connection before the endpoint check',
-      withEdge(2, () => null),
-      'Connection 2 is missing an id.',
-    ],
-    [
-      'two connections with id "idea->plan"',
-      withEdge(2, (edge) => ({ ...edge, id: 'idea->plan' })),
-      'Two connections share the id "idea->plan".',
-    ],
-    ['an empty project id', withProject({ id: '' }), 'The project id is missing.'],
-    ['a numeric project id', withProject({ id: 7 }), 'The project id is missing.'],
-    ['a missing project id', withProject({ id: undefined }), 'The project id is missing.'],
-  ])('rejects %s', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+    ['no id', withEdge(2, (edge) => withoutKey(edge, 'id'))],
+    ['the numeric id 42', withEdge(2, (edge) => ({ ...edge, id: 42 }))],
+    ['an empty id', withEdge(2, (edge) => ({ ...edge, id: '' }))],
+  ])('rejects a connection with %s and names it by number', (_label, file) => {
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'CONN_ID_MISSING', field: 'id' })
+    expect(found.message).toContain('Connection 2')
+    expect(found).not.toHaveProperty('edgeId')
+  })
+})
+
+describe('validateProjectFile: every problem is reported', () => {
+  it('reports an empty name, a bad process time and a connection to a missing step', () => {
+    const file = {
+      ...withData(2, { pt: -1 }),
+      project: { id: 'p', name: '' },
+      edges: [{ id: 'to-ghost', source: 'plan', target: 'ghost' }],
+    }
+    const problems = problemsOf(file)
+    expect(problems.map((p) => p.code).sort()).toEqual([
+      'CONN_ENDPOINT_MISSING',
+      'FILE_PROJECT_NAME_EMPTY',
+      'STEP_COUNT_INVALID',
+    ])
+    const count = problems.find((p) => p.code === 'STEP_COUNT_INVALID')
+    expect(count.message).toContain('Plan')
+    expect(count.message).toContain('process time (pt)')
+    expect(problems.find((p) => p.code === 'CONN_ENDPOINT_MISSING').edgeId).toBe('to-ghost')
+  })
+
+  it('reports the same rule failing on two steps, one per step', () => {
+    const [first, second, ...rest] = problemsOf(withData(2, { pt: -1 }, withData(3, { pt: -1 })))
+    expect(rest).toEqual([])
+    expect(first.message).toContain('Step "Plan" (#2)')
+    expect(second.message).toContain('Step "Build" (#3)')
+  })
+
+  it('reports every failing rule on one step', () => {
+    const file = withStep(2, (node) => ({
+      ...withoutKey(node, 'position'),
+      type: 'group',
+      data: { label: 'Plan', pt: -1, ca: 101 },
+    }))
+    expect(problemsOf(file).map((p) => p.code)).toEqual([
+      'STEP_POSITION_MISSING',
+      'STEP_TYPE_UNKNOWN',
+      'STEP_COUNT_INVALID',
+      'STEP_PERCENT_INVALID',
+    ])
+  })
+
+  it('carries the step id and title on a step problem', () => {
+    expect(problemsOf(withData(2, { pt: -1 }))).toMatchObject([
+      { stepId: 'plan', untrusted: { title: 'Plan' } },
+    ])
+  })
+
+  it('names a step without a usable title by its position', () => {
+    const [found] = problemsOf(withData(2, { label: ' ', pt: -1 }))
+    expect(found.message).toContain('Step #2')
+    expect(found).not.toHaveProperty('untrusted')
+  })
+})
+
+describe('validateProjectFile: relational rules', () => {
+  it('reports the later of two steps sharing an id', () => {
+    const file = withoutEdges(withStep(3, (node) => ({ ...node, id: 'plan' })))
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'STEP_ID_DUPLICATE', stepId: 'plan', field: 'id' })
+    expect(found.message).toContain('Step "Build" (#3)')
+    expect(found.untrusted).toEqual({ title: 'Build', id: 'plan' })
+  })
+
+  it('reports every step that repeats an earlier id', () => {
+    const file = withoutEdges(
+      withStep(
+        3,
+        (node) => ({ ...node, id: 'idea' }),
+        withStep(2, (node) => ({ ...node, id: 'idea' })),
+      ),
+    )
+    expect(problemsOf(file).map((p) => p.code)).toEqual(['STEP_ID_DUPLICATE', 'STEP_ID_DUPLICATE'])
+  })
+
+  it('reports the later of two connections sharing an id', () => {
+    const file = withEdge(2, (edge) => ({ ...edge, id: 'idea->plan' }))
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'CONN_ID_DUPLICATE', edgeId: 'idea->plan', field: 'id' })
+    expect(found.message).toContain('Connection 2')
+    expect(found.untrusted).toEqual({ id: 'idea->plan' })
+  })
+
+  it.each([
+    ['to a missing step', withEdges(['plan', 'ghost'])],
+    ['from a missing step', withEdges(['ghost', 'plan'])],
+    ['with object endpoints', withEdge(1, (edge) => ({ ...edge, source: {}, target: [] }))],
+  ])('reports a connection %s with its id', (_label, file) => {
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'CONN_ENDPOINT_MISSING', edgeId: expect.any(String) })
+    expect(found.message).toContain('Connection 1')
+  })
+
+  it('reports every connection to a missing step', () => {
+    const file = withEdges(['plan', 'ghost'], ['ghost', 'plan'], ['idea', 'plan'])
+    expect(problemsOf(file).map((p) => p.edgeId)).toEqual(['edge-0', 'edge-1'])
+  })
+
+  it('reports a step connected to itself and names the step', () => {
+    const found = onlyProblem(withEdges(['build', 'build']))
+    expect(found).toMatchObject({
+      code: 'CONN_SELF',
+      edgeId: 'edge-0',
+      stepId: 'build',
+      untrusted: { title: 'Build' },
+    })
+    expect(found.message).toContain('Step "Build" (#3)')
+  })
+
+  it('reports the same connection twice', () => {
+    const found = onlyProblem(withEdges(['idea', 'plan'], ['idea', 'plan']))
+    expect(found).toMatchObject({ code: 'CONN_DUPLICATE', edgeId: 'edge-1' })
+    expect(found).not.toHaveProperty('stepId')
+  })
+
+  it.each([
+    ['a three-step loop', withEdges(['idea', 'plan'], ['plan', 'build'], ['build', 'idea'])],
+    ['a two-step loop', withEdges(['plan', 'build'], ['build', 'plan'])],
+  ])('reports %s on the connection that closes it', (_label, file) => {
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'CONN_LOOP', edgeId: file.edges.at(-1).id })
+    expect(found).not.toHaveProperty('stepId')
+  })
+
+  it('reports every rejected connection, not the first', () => {
+    const file = withEdges(['plan', 'plan'], ['idea', 'plan'], ['idea', 'plan'], ['plan', 'idea'])
+    expect(problemsOf(file).map((p) => [p.code, p.edgeId])).toEqual([
+      ['CONN_SELF', 'edge-0'],
+      ['CONN_DUPLICATE', 'edge-2'],
+      ['CONN_LOOP', 'edge-3'],
+    ])
   })
 
   it.each([
@@ -252,213 +403,115 @@ describe('validateProjectFile: ids and connections', () => {
     ['no steps', { ...validFile(), nodes: [], edges: [] }],
     ['a branch', withEdges(['idea', 'plan'], ['idea', 'build'])],
     ['a join', withEdges(['idea', 'build'], ['plan', 'build'])],
-    ['a whitespace-only project id', withProject({ id: ' ' })],
   ])('accepts %s', (_label, file) => {
-    expect(validateProjectFile(file)).toEqual({ ok: true })
-  })
-
-  it('names a self-connection at step #3', () => {
-    const file = withEdges(['build', 'build'])
-    expect(validateProjectFile(file)).toEqual(fail('Step "Build" (#3) connects to itself.'))
+    expect(validateProjectFile(file)).toEqual({ ok: true, problems: [] })
   })
 })
 
-describe('validateProjectFile: first problem wins', () => {
-  const duplicateNodeAndEdgeId = withEdge(
-    2,
-    (edge) => ({ ...edge, id: 'idea->plan' }),
-    withStep(3, (node) => ({ ...node, id: 'plan' })),
-  )
-  const missingEdgeIdAndEndpoint = withEdge(1, (edge) => ({
-    ...withoutKey(edge, 'id'),
-    target: 'ghost',
-  }))
-  const duplicateEdgeIdAndEndpoint = withEdge(2, (edge) => ({
-    ...edge,
-    id: 'idea->plan',
-    target: 'ghost',
-  }))
+describe('validateProjectFile: phase 2 only checks items that passed phase 1', () => {
+  it('does not compare ids of a step that already has a problem', () => {
+    const file = withoutEdges(
+      withStep(3, (node) => ({ ...node, id: 'plan', data: { label: 'Build', pt: -1 } })),
+    )
+    expect(problemsOf(file).map((p) => p.code)).toEqual(['STEP_COUNT_INVALID'])
+  })
 
-  const missingPositionAndLoop = {
-    ...withStep(3, (node) => withoutKey(node, 'position')),
-    edges: withEdges(['idea', 'plan'], ['plan', 'build'], ['build', 'idea']).edges,
-  }
+  it('does not run relational rules on a connection with no id', () => {
+    const file = withEdge(2, (edge) => ({ ...withoutKey(edge, 'id'), target: 'ghost' }))
+    expect(problemsOf(file).map((p) => p.code)).toEqual(['CONN_ID_MISSING'])
+  })
 
-  it.each([
-    [
-      'a duplicate step id and a duplicate connection id',
-      duplicateNodeAndEdgeId,
-      'Two steps share the id "plan".',
-    ],
-    [
-      'a missing connection id and a connection to a missing step',
-      missingEdgeIdAndEndpoint,
-      'Connection 1 is missing an id.',
-    ],
-    [
-      'a duplicate connection id and a connection to a missing step',
-      duplicateEdgeIdAndEndpoint,
-      'Two connections share the id "idea->plan".',
-    ],
-    [
-      'a missing position and a loop',
-      missingPositionAndLoop,
-      'Step "Build" (#3) is missing a position.',
-    ],
-    [
-      'an empty name and a bad process time',
-      { ...withData(2, { pt: -1 }), project: { id: 'p', name: '' } },
-      'The project name is empty.',
-    ],
-    [
-      'a bad queue on step 2 and a bad process time on step 3 (the earlier rule wins on a later step)',
-      withData(2, { queue: -1 }, withData(3, { pt: -1 })),
-      'Step "Build" (#3) has an invalid process time.',
-    ],
-    [
-      'two bad steps with the same problem',
-      withData(2, { pt: -1 }, withData(3, { pt: -1 })),
-      'Step "Plan" (#2) has an invalid process time.',
-    ],
-    [
-      'a self-connection before a duplicate',
-      withEdges(['plan', 'plan'], ['idea', 'plan'], ['idea', 'plan']),
-      'Step "Plan" (#2) connects to itself.',
-    ],
-    [
-      'a duplicate before a self-connection',
-      withEdges(['idea', 'plan'], ['idea', 'plan'], ['plan', 'plan']),
-      'A connection appears twice.',
-    ],
-    [
-      'a missing position on step 2 and a missing id on step 3',
-      withStep(
-        2,
-        (node) => withoutKey(node, 'position'),
-        withStep(3, (node) => withoutKey(node, 'id')),
-      ),
-      'Step "Build" (#3) is missing an id.',
-    ],
-    [
-      'a missing label on step 2 and a missing position on step 3',
-      withStep(
-        2,
-        (node) => ({ ...node, data: {} }),
-        withStep(3, (node) => withoutKey(node, 'position')),
-      ),
-      'Step "Build" (#3) is missing a position.',
-    ],
-    [
-      'an unknown type on step 2 and a missing label on step 3',
-      withStep(
-        2,
-        (node) => ({ ...node, type: 'group' }),
-        withStep(3, (node) => ({ ...node, data: {} })),
-      ),
-      'Step #3 is missing a label.',
-    ],
-    [
-      'a bad process time on step 2 and an unknown type on step 3',
-      withData(
-        2,
-        { pt: -1 },
-        withStep(3, (node) => ({ ...node, type: 'group' })),
-      ),
-      'Step "Build" (#3) has an unknown type.',
-    ],
-    [
-      'a duplicate id and a bad %C&A on step 3',
-      withData(
-        3,
-        { ca: -1 },
-        withStep(3, (node) => ({ ...node, id: 'plan' })),
-      ),
-      'Step "Build" (#3) has an invalid %C&A.',
-    ],
-    [
-      'a missing step and a duplicate id',
-      {
-        ...withStep(3, (node) => ({ ...node, id: 'plan' })),
-        edges: withEdges(['plan', 'ghost']).edges,
-      },
-      'Two steps share the id "plan".',
-    ],
-    [
-      'a self-connection and a missing step',
-      withEdges(['plan', 'plan'], ['plan', 'ghost']),
-      'A connection points to a step that is not there.',
-    ],
-    [
-      'a missing step and an empty project id',
-      { ...withEdges(['plan', 'ghost']), project: { id: '', name: 'Delivery' } },
-      'A connection points to a step that is not there.',
-    ],
-    [
-      'a loop and an empty project id',
-      { ...withEdges(['plan', 'build'], ['build', 'plan']), project: { id: '', name: 'Delivery' } },
-      'The connections form a loop.',
-    ],
-  ])('reports %s as the first problem', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+  it('does not treat a step that has another problem as a missing endpoint', () => {
+    const file = withData(2, { pt: -1 })
+    expect(problemsOf(file).map((p) => p.code)).toEqual(['STEP_COUNT_INVALID'])
+  })
+
+  it('does not report a missing step as a self-connection', () => {
+    expect(problemsOf(withEdges(['ghost', 'ghost'])).map((p) => p.code)).toEqual([
+      'CONN_ENDPOINT_MISSING',
+    ])
   })
 })
 
 describe('validateProjectFile: untrusted input', () => {
-  const MISSING_ID = 'Step #1 is missing an id.'
-  const NO_PROJECT_NAME = 'The project name is empty.'
-  const MISSING_ENDPOINT = 'A connection points to a step that is not there.'
-  const MISSING_CONNECTION_ID = 'Connection 1 is missing an id.'
+  it('reports a null step as a missing id, position and label by number', () => {
+    const file = withoutEdges(withStep(2, () => null))
+    const problems = problemsOf(file)
+    expect(problems.map((p) => p.code)).toEqual([
+      'STEP_ID_MISSING',
+      'STEP_POSITION_MISSING',
+      'STEP_LABEL_MISSING',
+    ])
+    expect(problems.filter((p) => !p.message.startsWith('Step #2 '))).toEqual([])
+  })
+
+  it('reports a null connection by number without an edge id', () => {
+    const file = withEdge(2, () => null)
+    const found = onlyProblem(file)
+    expect(found).toMatchObject({ code: 'CONN_ID_MISSING' })
+    expect(found.message).toContain('Connection 2')
+    expect(found).not.toHaveProperty('edgeId')
+  })
+
+  it('lists a problem for a null connection and for a connection from a missing step to itself', () => {
+    const file = {
+      ...validFile(),
+      edges: [null, { id: 'ghost-loop', source: 'ghost', target: 'ghost' }],
+    }
+    const problems = problemsOf(file)
+    expect(problems).toMatchObject([
+      { code: 'CONN_ID_MISSING' },
+      { code: 'CONN_ENDPOINT_MISSING', edgeId: 'ghost-loop' },
+    ])
+  })
+
+  const ALL_STEP_FIELDS = ['STEP_ID_MISSING', 'STEP_POSITION_MISSING', 'STEP_LABEL_MISSING']
 
   it.each([
-    ['null first', null, MISSING_ID],
-    ['a number first', 5, MISSING_ID],
-    ['a string first', 'x', MISSING_ID],
-    ['an array first', [], MISSING_ID],
-    ['an object with only data first', { data: 7 }, MISSING_ID],
+    ['null', null, ALL_STEP_FIELDS],
+    ['a number', 5, ALL_STEP_FIELDS],
+    ['a string', 'x', ALL_STEP_FIELDS],
+    ['an array', [], ALL_STEP_FIELDS],
+    ['an object with only data', { data: 7 }, ALL_STEP_FIELDS],
     [
-      'an object with an array position and null data first',
+      'an object with an array position and null data',
       { id: 'a', position: [], data: null },
-      'Step #1 is missing a position.',
+      ['STEP_POSITION_MISSING', 'STEP_LABEL_MISSING'],
     ],
-  ])('returns a failure instead of throwing for steps with %s', (_label, garbage, message) => {
-    expect(validateProjectFile({ ...validFile(), nodes: [garbage] })).toEqual(fail(message))
+  ])('does not throw for a step that is %s', (_label, garbage, codes) => {
+    const file = { ...validFile(), nodes: [garbage], edges: [] }
+    expect(validateProjectFile(file)).toMatchObject({
+      ok: false,
+      problems: codes.map((code) => ({ code })),
+    })
   })
 
   it.each([
-    ['null first', null, MISSING_CONNECTION_ID],
-    ['a number first', 5, MISSING_CONNECTION_ID],
-    ['a string first', 'x', MISSING_CONNECTION_ID],
-    ['an array first', [], MISSING_CONNECTION_ID],
+    ['null', null, 'CONN_ID_MISSING'],
+    ['a number', 5, 'CONN_ID_MISSING'],
+    ['a string', 'x', 'CONN_ID_MISSING'],
+    ['an array', [], 'CONN_ID_MISSING'],
     [
-      'an object with object endpoints first',
+      'an object with object endpoints',
       { id: 'e', source: {}, target: [] },
-      MISSING_ENDPOINT,
+      'CONN_ENDPOINT_MISSING',
     ],
-  ])(
-    'returns a failure instead of throwing for connections with %s',
-    (_label, garbage, message) => {
-      expect(validateProjectFile({ ...validFile(), edges: [garbage] })).toEqual(fail(message))
-    },
-  )
+  ])('does not throw for a connection that is %s', (_label, garbage, code) => {
+    const file = { ...validFile(), edges: [garbage] }
+    expect(validateProjectFile(file)).toMatchObject({ ok: false, problems: [{ code }] })
+  })
 
   it.each([
-    ['a string project', { ...validFile(), project: 'Delivery' }, NO_PROJECT_NAME],
-    ['an array project', { ...validFile(), project: [] }, NO_PROJECT_NAME],
-    ['an empty object', {}, NO_PROJECT_NAME],
-    ['a deep object', { a: { b: { c: [1, { d: null }] } } }, NO_PROJECT_NAME],
+    ['an empty object', {}, 'FILE_NOT_A_PROJECT'],
+    ['a deep object', { a: { b: { c: [1, { d: null }] } } }, 'FILE_NOT_A_PROJECT'],
     [
       'a step data array',
       withStep(2, (node) => ({ ...node, data: ['Plan'] })),
-      'Step #2 is missing a label.',
+      'STEP_LABEL_MISSING',
     ],
-    [
-      'a null position',
-      withStep(2, (node) => ({ ...node, position: null })),
-      'Step "Plan" (#2) is missing a position.',
-    ],
-    ['an object project id', withProject({ id: {} }), 'The project id is missing.'],
-  ])('returns a failure instead of throwing for %s', (_label, file, message) => {
-    expect(validateProjectFile(file)).toEqual(fail(message))
+    ['data null', withStep(2, (node) => ({ ...node, data: null })), 'STEP_LABEL_MISSING'],
+  ])('does not throw for %s', (_label, file, code) => {
+    expect(validateProjectFile(file)).toMatchObject({ ok: false, problems: [{ code }] })
   })
 
   it.each([
@@ -471,9 +524,155 @@ describe('validateProjectFile: untrusted input', () => {
   })
 })
 
+describe('validateProjectFile: messages and codes', () => {
+  const brokenEverywhere = {
+    ...validFile(),
+    nodes: [
+      step('idea', 'Idea', 0),
+      { id: 'plan', position: {}, data: { label: 'Plan', queue: 1.5 }, type: 'group' },
+      step('plan', 'Dup', 2),
+      null,
+    ],
+    edges: [
+      { source: 'idea', target: 'plan' },
+      { id: 'a', source: 'idea', target: 'ghost' },
+      { id: 'a', source: 'idea', target: 'plan' },
+      { id: 'self', source: 'idea', target: 'idea' },
+      { id: 'again', source: 'idea', target: 'plan' },
+      null,
+    ],
+  }
+
+  it('names the step or the connection in every per-item problem', () => {
+    const problems = problemsOf(brokenEverywhere)
+    const perItem = problems.filter((p) => /^(STEP|CONN)_/.test(p.code))
+    expect(perItem.map((p) => p.code)).toEqual([
+      'STEP_POSITION_MISSING',
+      'STEP_TYPE_UNKNOWN',
+      'STEP_COUNT_INVALID',
+      'STEP_ID_MISSING',
+      'STEP_POSITION_MISSING',
+      'STEP_LABEL_MISSING',
+      'CONN_ID_MISSING',
+      'CONN_ID_MISSING',
+      'CONN_ID_DUPLICATE',
+      'CONN_ENDPOINT_MISSING',
+      'CONN_SELF',
+      'CONN_DUPLICATE',
+    ])
+    expect(perItem.filter((p) => !/^(Step|Connection) /.test(p.message))).toEqual([])
+  })
+
+  it('names the step by title and position, falling back to the position', () => {
+    const messages = problemsOf(brokenEverywhere)
+      .filter((p) => p.code === 'STEP_POSITION_MISSING')
+      .map((p) => p.message)
+    expect(messages[0]).toContain('Step "Plan" (#2)')
+    expect(messages[1]).toContain('Step #4')
+  })
+
+  it('shortens a long title in the message and keeps it whole in untrusted', () => {
+    const title = 'A'.repeat(200)
+    const found = onlyProblem(withData(2, { label: title, pt: -1 }))
+    expect(found.message).toBe(
+      `Step "${'A'.repeat(79)}…" (#2): process time (pt) must be a whole number, 0 or more.`,
+    )
+    expect(found.untrusted).toEqual({ title })
+  })
+
+  it.each([
+    ['keeps an 80-character title whole', 80, `Step "${'A'.repeat(80)}" (#2)`],
+    ['shortens an 81-character title', 81, `Step "${'A'.repeat(79)}…" (#2)`],
+  ])('%s', (_label, length, named) => {
+    expect(onlyProblem(withData(2, { label: 'A'.repeat(length), pt: -1 })).message).toContain(
+      `${named}:`,
+    )
+  })
+
+  it('shortens a long repeated connection id in the message and keeps it whole in untrusted', () => {
+    const id = 'x'.repeat(200)
+    const found = onlyProblem(
+      withEdge(
+        2,
+        (edge) => ({ ...edge, id }),
+        withEdge(1, (edge) => ({ ...edge, id })),
+      ),
+    )
+    expect(found.message).toContain(`"${'x'.repeat(79)}…"`)
+    expect(found.untrusted).toEqual({ id })
+  })
+
+  it('shortens a long repeated step id in the message', () => {
+    const id = 'x'.repeat(200)
+    const file = withoutEdges(
+      withStep(
+        3,
+        (node) => ({ ...node, id }),
+        withStep(2, (node) => ({ ...node, id })),
+      ),
+    )
+    expect(onlyProblem(file).message).toContain(`"${'x'.repeat(79)}…"`)
+  })
+
+  it('states the field with its key in a step problem', () => {
+    expect(problemsOf(withData(2, { queue: -1 }))[0].message).toContain('queue (queue)')
+  })
+
+  it('gives every problem a severity, message and fix from the catalog', () => {
+    const problems = problemsOf(brokenEverywhere)
+    expect(problems.filter((p) => !(p.severity && p.message && p.fix))).toEqual([])
+  })
+
+  it('emits only catalog codes, one broken file per rule', () => {
+    const brokenFiles = {
+      FILE_NOT_A_PROJECT: null,
+      FILE_PROJECT_NAME_EMPTY: withProject({ name: '' }),
+      FILE_PROJECT_ID_MISSING: withProject({ id: '' }),
+      STEP_ID_MISSING: withoutEdges(withStep(2, (node) => ({ ...node, id: 7 }))),
+      STEP_ID_DUPLICATE: withoutEdges(withStep(3, (node) => ({ ...node, id: 'plan' }))),
+      STEP_POSITION_MISSING: withStep(2, (node) => withoutKey(node, 'position')),
+      STEP_LABEL_MISSING: withData(2, { label: 5 }),
+      STEP_TYPE_UNKNOWN: withStep(2, (node) => ({ ...node, type: 'group' })),
+      STEP_COUNT_INVALID: withData(2, { pt: -1 }),
+      STEP_PERCENT_INVALID: withData(2, { ca: 101 }),
+      CONN_ID_MISSING: withEdge(2, (edge) => withoutKey(edge, 'id')),
+      CONN_ID_DUPLICATE: withEdge(2, (edge) => ({ ...edge, id: 'idea->plan' })),
+      CONN_ENDPOINT_MISSING: withEdges(['plan', 'ghost']),
+      CONN_SELF: withEdges(['build', 'build']),
+      CONN_DUPLICATE: withEdges(['idea', 'plan'], ['idea', 'plan']),
+      CONN_LOOP: withEdges(['plan', 'build'], ['build', 'plan']),
+    }
+    const emitted = Object.entries(brokenFiles).map(([code, file]) => [
+      code,
+      problemsOf(file).map((p) => p.code),
+    ])
+    expect(emitted.filter(([code, codes]) => codes.length !== 1 || codes[0] !== code)).toEqual([])
+    const emittedCodes = emitted.flatMap(([, codes]) => codes)
+    expect(emittedCodes.filter((code) => !isCatalogCode(code))).toEqual([])
+    expect([...new Set(emittedCodes)].sort()).toEqual([
+      'CONN_DUPLICATE',
+      'CONN_ENDPOINT_MISSING',
+      'CONN_ID_DUPLICATE',
+      'CONN_ID_MISSING',
+      'CONN_LOOP',
+      'CONN_SELF',
+      'FILE_NOT_A_PROJECT',
+      'FILE_PROJECT_ID_MISSING',
+      'FILE_PROJECT_NAME_EMPTY',
+      'STEP_COUNT_INVALID',
+      'STEP_ID_DUPLICATE',
+      'STEP_ID_MISSING',
+      'STEP_LABEL_MISSING',
+      'STEP_PERCENT_INVALID',
+      'STEP_POSITION_MISSING',
+      'STEP_TYPE_UNKNOWN',
+    ])
+  })
+})
+
 describe('validateProjectFile: starter map', () => {
   it('accepts the starter steps and connections', () => {
     const file = { ...validFile(), nodes: initialNodes, edges: initialEdges }
-    expect(validateProjectFile(file)).toEqual({ ok: true })
+    expect(validateProjectFile(file)).toEqual({ ok: true, problems: [] })
   })
 })

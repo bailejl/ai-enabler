@@ -163,9 +163,32 @@ body,
   background: var(--status-needs-attention-background);
 }
 
-.import-status__text {
+.import-status__text,
+.import-status__heading,
+.import-status__more {
   min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-status__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-status__heading {
+  font-size: inherit;
+}
+
+/* Focus moves here by script after a rejection, which :focus-visible may not match. */
+.import-status__heading:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.import-status__list {
+  margin: 0;
+  padding-left: 1.25rem;
   overflow-wrap: anywhere;
 }
 

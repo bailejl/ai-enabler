@@ -6,6 +6,7 @@ import {
   findRegistryProblems,
   upgradeToCurrent,
 } from './upgrades.js'
+import { isCatalogCode } from '../diagnostics/problem.js'
 import { CURRENT_SCHEMA_VERSION, RELEASED_SCHEMA_VERSIONS } from './version.js'
 import { validateProjectFile } from './validate.js'
 
@@ -16,6 +17,14 @@ const fixturesByVersion = Object.fromEntries(
     ([path, fixture]) => [path.match(/([^/]+)\.json$/)[1], fixture],
   ),
 )
+
+// A failed upgrade carries exactly one catalog problem.
+const onlyProblem = (result) => {
+  expect(result.ok).toBe(false)
+  expect(result.problems).toHaveLength(1)
+  expect(isCatalogCode(result.problems[0].code)).toBe(true)
+  return result.problems[0]
+}
 
 const deepFreeze = (value) => {
   if (typeof value === 'object' && value !== null) {
@@ -100,10 +109,10 @@ describe('upgradeToCurrent', () => {
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.1.0' })
 
-    expect(result).toEqual({
-      ok: false,
-      message: 'This file could not be upgraded from schema 0.0.0 to 0.1.0.',
-    })
+    const found = onlyProblem(result)
+    expect(found.code).toBe('FILE_UPGRADE_FAILED')
+    expect(found.message).toContain('0.0.0')
+    expect(found.message).toContain('0.1.0')
   })
 
   it.each([
@@ -115,10 +124,10 @@ describe('upgradeToCurrent', () => {
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.1.0' })
 
-    expect(result).toEqual({
-      ok: false,
-      message: 'This file could not be upgraded from schema 0.0.0 to 0.1.0.',
-    })
+    const found = onlyProblem(result)
+    expect(found.code).toBe('FILE_UPGRADE_FAILED')
+    expect(found.message).toContain('0.0.0')
+    expect(found.message).toContain('0.1.0')
   })
 
   it('names the failing hop, not the first, when a later upgrade throws', () => {
@@ -135,29 +144,24 @@ describe('upgradeToCurrent', () => {
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.2.0' })
 
-    expect(result.message).toBe('This file could not be upgraded from schema 0.1.0 to 0.2.0.')
+    const found = onlyProblem(result)
+    expect(found.code).toBe('FILE_UPGRADE_FAILED')
+    expect(found.message).toContain('0.1.0')
+    expect(found.message).toContain('0.2.0')
+    expect(found.message).not.toContain('0.0.0')
   })
 
   it.each([
-    [
-      'a version with no upgrade path',
-      fileAt('0.5.0'),
-      'This file uses schema 0.5.0, which this app cannot upgrade to 0.2.0.',
-    ],
-    [
-      'a missing version',
-      { ...fileAt('0.0.0'), schemaVersion: undefined },
-      'This file uses schema undefined, which this app cannot upgrade to 0.2.0.',
-    ],
-    [
-      'a null file',
-      null,
-      'This file uses schema undefined, which this app cannot upgrade to 0.2.0.',
-    ],
-  ])('returns a failure for %s', (_name, input, message) => {
+    ['a version with no upgrade path', fileAt('0.5.0'), '0.5.0'],
+    ['a missing version', { ...fileAt('0.0.0'), schemaVersion: undefined }, 'undefined'],
+    ['a null file', null, 'undefined'],
+  ])('returns a no-upgrade-path failure for %s', (_name, input, version) => {
     const result = upgradeToCurrent(input, { registry: multiHopRegistry, current: '0.2.0' })
 
-    expect(result).toEqual({ ok: false, message })
+    const found = onlyProblem(result)
+    expect(found.code).toBe('FILE_NO_UPGRADE_PATH')
+    expect(found.message).toContain(version)
+    expect(found.message).toContain('0.2.0')
   })
 
   it('ends with a failure on a cyclic registry', () => {
@@ -168,10 +172,7 @@ describe('upgradeToCurrent', () => {
 
     const result = upgradeToCurrent(fileAt('0.0.0'), { registry, current: '0.2.0' })
 
-    expect(result).toEqual({
-      ok: false,
-      message: 'This file uses schema 0.0.0, which this app cannot upgrade to 0.2.0.',
-    })
+    expect(onlyProblem(result).code).toBe('FILE_NO_UPGRADE_PATH')
   })
 })
 
@@ -330,7 +331,7 @@ describe.each(RELEASED_SCHEMA_VERSIONS)('the %s fixture', (version) => {
 
     expect(result.ok).toBe(true)
     expect(result.file.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
-    expect(validateProjectFile(result.file)).toEqual({ ok: true })
+    expect(validateProjectFile(result.file)).toEqual({ ok: true, problems: [] })
   })
 
   it('upgrades to its expected output', async () => {
