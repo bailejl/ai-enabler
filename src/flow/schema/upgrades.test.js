@@ -11,12 +11,15 @@ import { CURRENT_SCHEMA_VERSION, RELEASED_SCHEMA_VERSIONS } from './version.js'
 import { validateProjectFile } from './validate.js'
 
 // Fixtures are read here only, so the app bundle never includes them. './fixtures/*.json' skips
-// the expected/ folder, which holds snapshots rather than input files.
-const fixturesByVersion = Object.fromEntries(
+// the expected/ folder, which holds snapshots rather than input files. A fixture is named for its
+// version, with a "-marked" variant for a version that defines the modifiedBy mark.
+const fixturesByName = Object.fromEntries(
   Object.entries(import.meta.glob('./fixtures/*.json', { eager: true, import: 'default' })).map(
     ([path, fixture]) => [path.match(/([^/]+)\.json$/)[1], fixture],
   ),
 )
+
+const versionOfFixture = (name) => name.replace(/-marked$/, '')
 
 // A failed upgrade carries exactly one catalog problem.
 const onlyProblem = (result) => {
@@ -302,28 +305,34 @@ describe('the real registry', () => {
   })
 
   it('has a fixture for every released version', () => {
-    expect(findMissingFixtures(RELEASED_SCHEMA_VERSIONS, Object.keys(fixturesByVersion))).toEqual(
-      [],
-    )
+    expect(findMissingFixtures(RELEASED_SCHEMA_VERSIONS, Object.keys(fixturesByName))).toEqual([])
   })
 
   it('lets every released version reach the current version', () => {
     expect(findMissingPaths(RELEASED_SCHEMA_VERSIONS, REGISTRY, CURRENT_SCHEMA_VERSION)).toEqual([])
   })
 
-  it('has fixture files for exactly the released versions', () => {
-    expect(Object.keys(fixturesByVersion).sort()).toEqual([...RELEASED_SCHEMA_VERSIONS].sort())
+  it('has fixture files only for released versions', () => {
+    const versions = Object.keys(fixturesByName).map(versionOfFixture)
+    expect(versions.filter((version) => !RELEASED_SCHEMA_VERSIONS.includes(version))).toEqual([])
+  })
+
+  it('has a marked fixture for the current version, which defines the mark', () => {
+    expect(fixturesByName[`${CURRENT_SCHEMA_VERSION}-marked`]).toMatchObject({
+      modifiedBy: { tool: 'aie-mcp' },
+    })
   })
 })
 
-describe.each(RELEASED_SCHEMA_VERSIONS)('the %s fixture', (version) => {
+describe.each(Object.keys(fixturesByName))('the %s fixture', (name) => {
+  const version = versionOfFixture(name)
   const upgradeFixture = () => {
-    const fixture = deepFreeze(structuredClone(fixturesByVersion[version]))
+    const fixture = deepFreeze(structuredClone(fixturesByName[name]))
     return { fixture, result: upgradeToCurrent(fixture) }
   }
 
   it('is stamped with its own version', () => {
-    expect(fixturesByVersion[version].schemaVersion).toBe(version)
+    expect(fixturesByName[name].schemaVersion).toBe(version)
   })
 
   it('upgrades to a valid current-version file', () => {
@@ -337,17 +346,47 @@ describe.each(RELEASED_SCHEMA_VERSIONS)('the %s fixture', (version) => {
   it('upgrades to its expected output', async () => {
     const { result } = upgradeFixture()
 
-    // Once real hops exist, hand-review this expected file before accepting a -u update: a
-    // regenerated snapshot would otherwise bless whatever the upgrade now does.
+    // Hand-review this expected file before accepting a -u update: a regenerated snapshot would
+    // otherwise bless whatever the upgrade now does.
     expect(result.ok).toBe(true)
     await expect(`${JSON.stringify(result.file, null, 2)}\n`).toMatchFileSnapshot(
-      `./fixtures/expected/${version}.json`,
+      `./fixtures/expected/${name}.json`,
     )
   })
 
   it('is left unchanged by the upgrade', () => {
     const { fixture } = upgradeFixture()
 
-    expect(fixture).toEqual(fixturesByVersion[version])
+    expect(fixture).toEqual(fixturesByName[name])
+  })
+})
+
+describe('the 0.0.0 to 0.1.0 upgrade', () => {
+  const oldFile = () => ({ ...fileAt('0.0.0'), exportedAt: '2026-11-14T00:00:00.000Z' })
+
+  it('copies every field of a 0.0.0 file', () => {
+    const result = upgradeToCurrent(deepFreeze(oldFile()))
+
+    expect(result).toEqual({ ok: true, file: { ...oldFile(), schemaVersion: '0.1.0' } })
+  })
+
+  it.each([
+    ['a valid mark', { tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' }],
+    ['a malformed mark', { tool: '', at: 'soon' }],
+    ['a mark that is not an object', 'aie-mcp'],
+  ])('drops %s a 0.0.0 file carries, without validating it', (_name, modifiedBy) => {
+    const result = upgradeToCurrent(deepFreeze({ ...oldFile(), modifiedBy }))
+
+    expect(result).toEqual({ ok: true, file: { ...oldFile(), schemaVersion: '0.1.0' } })
+    expect(validateProjectFile(result.file).ok).toBe(true)
+  })
+
+  it('keeps the mark of a file already at 0.1.0', () => {
+    const marked = {
+      ...fileAt('0.1.0'),
+      modifiedBy: { tool: 'aie-mcp', at: '2026-11-20T09:30:00Z' },
+    }
+
+    expect(upgradeToCurrent(deepFreeze(marked))).toEqual({ ok: true, file: marked })
   })
 })

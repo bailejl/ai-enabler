@@ -262,5 +262,41 @@
     "owner": "app",
     "status": "active",
     "since": "0.0.0"
+  },
+  "MARK_NOT_AN_OBJECT": {
+    "code": "MARK_NOT_AN_OBJECT",
+    "severity": "error",
+    "title": "AI mark is not an object",
+    "summary": "The modifiedBy AI mark is present but is not an object with a tool name and a time.",
+    "message": "The AI mark (modifiedBy) must be an object with a tool name and a time. Removing the modifiedBy field fixes the file.",
+    "fix": "Remove the modifiedBy field, or make it an object with a tool name and an ISO time.",
+    "docs": "#mark-not-an-object",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "MARK_TOOL_INVALID": {
+    "code": "MARK_TOOL_INVALID",
+    "severity": "error",
+    "title": "AI mark tool is invalid",
+    "summary": "The AI mark has no tool name, or the tool name is not text that is not empty.",
+    "message": "The AI mark tool name (modifiedBy.tool) must be text that is not empty. Removing the modifiedBy field fixes the file.",
+    "fix": "Remove the modifiedBy field, or set tool to the name of the tool.",
+    "docs": "#mark-tool-invalid",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "MARK_TIME_INVALID": {
+    "code": "MARK_TIME_INVALID",
+    "severity": "error",
+    "title": "AI mark time is invalid",
+    "summary": "The AI mark has no time, or the time is not an ISO date and time.",
+    "message": "The AI mark time (modifiedBy.at) must be an ISO date and time, such as 2026-11-20T09:30:00.000Z. Removing the modifiedBy field fixes the file.",
+    "fix": "Remove the modifiedBy field, or set at to an ISO date and time.",
+    "docs": "#mark-time-invalid",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

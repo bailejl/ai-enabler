@@ -1,5 +1,5 @@
-export const CURRENT_SCHEMA_VERSION = '0.0.0'
-export const RELEASED_SCHEMA_VERSIONS = ['0.0.0']
+export const CURRENT_SCHEMA_VERSION = '0.1.0'
+export const RELEASED_SCHEMA_VERSIONS = ['0.0.0', '0.1.0']
 
 const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 

@@ -8,6 +8,7 @@ import { initialNodes, initialEdges } from '../initialFlow.js'
 // The fixture is read here only, so the app bundle never includes it.
 const fixtures = import.meta.glob('./fixtures/*.json', { eager: true, import: 'default' })
 const currentFixture = fixtures[`./fixtures/${CURRENT_SCHEMA_VERSION}.json`]
+const markedFixture = fixtures[`./fixtures/${CURRENT_SCHEMA_VERSION}-marked.json`]
 
 describe('shapeOf', () => {
   it('lists each key path with its value type', () => {
@@ -78,6 +79,11 @@ describe('export shape of the current schema version', () => {
 
   it('has a fixture for the current version', () => {
     expect(currentFixture).toBeDefined()
+  })
+
+  it('has a marked fixture that adds only the modifiedBy mark to the current fixture', () => {
+    const markPaths = ['$.modifiedBy.at:string', '$.modifiedBy.tool:string', '$.modifiedBy:object']
+    expect(shapeOf(markedFixture)).toEqual([...shapeOf(currentFixture), ...markPaths].sort())
   })
 
   it('matches the starter project export', async () => {

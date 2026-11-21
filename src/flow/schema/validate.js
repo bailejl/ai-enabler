@@ -75,6 +75,24 @@ const STEP_RULES = [
   optionalFieldRule('STEP_PERCENT_INVALID', 'ca', '%C&A', isPercentage),
 ]
 
+// The AI mark is optional. Present, it must be an object with a non-empty tool name and an ISO
+// time. A file older than 0.1.0 never reaches this check with a mark: its upgrade drops one.
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+
+const isIsoTime = (value) =>
+  typeof value === 'string' && ISO_TIME.test(value) && !Number.isNaN(Date.parse(value))
+
+// The time is the only user text a mark problem can hold, so it is the only thing `untrusted` keeps.
+const MARK_RULES = [
+  { code: 'MARK_TOOL_INVALID', field: 'modifiedBy.tool', fails: (m) => !isNonEmptyString(m.tool) },
+  {
+    code: 'MARK_TIME_INVALID',
+    field: 'modifiedBy.at',
+    fails: (m) => !isIsoTime(m.at),
+    untrusted: (m) => (isNonEmptyString(m.at) ? { time: shorten(m.at) } : undefined),
+  },
+]
+
 const connectionName = (index) => `Connection ${index + 1}`
 
 const CONNECTION_RULES = [
@@ -89,6 +107,17 @@ const checkShape = (file) => {
 
 const checkProject = (project) =>
   failedRules(PROJECT_RULES, project).map((rule) => problem(rule.code, { field: rule.field }))
+
+const markProblem = (rule, mark) => {
+  const untrusted = rule.untrusted?.(mark)
+  return problem(rule.code, { field: rule.field, ...(untrusted && { untrusted }) })
+}
+
+const checkMark = (mark) => {
+  if (mark === undefined) return []
+  if (!isObject(mark)) return [problem('MARK_NOT_AN_OBJECT', { field: 'modifiedBy' })]
+  return failedRules(MARK_RULES, mark).map((rule) => markProblem(rule, mark))
+}
 
 // What a step problem carries about the step: its id when it has one, its title as user text.
 const stepRefs = (node) => ({
@@ -223,6 +252,7 @@ export const validateProjectFile = (file) => {
   const connectionEntries = checkItems(file.edges, CONNECTION_RULES, connectionProblem)
   const problems = [
     ...checkProject(file.project),
+    ...checkMark(file.modifiedBy),
     ...entryProblems(stepEntries),
     ...entryProblems(connectionEntries),
     ...duplicateStepIds(passedEntries(stepEntries)),
