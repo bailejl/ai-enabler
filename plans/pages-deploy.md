@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-21
 **Branch**: feat/pages-deploy
-**Status**: in-progress
+**Status**: implemented
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/pages-deploy.md` (AC1–AC13, answers S1–S4). Source issue: #25 (N13).
 
@@ -465,73 +465,101 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 ### AC1 — met
 
 ```
-$ npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js
-✓ scripts/deploy-workflow.test.js > job conditions > green CI on a push to main 0ms
-✓ scripts/deploy-workflow.test.js > job conditions > the build runs only when the tip check reports true 0ms
-✓ scripts/deploy-workflow.test.js > job conditions > the build runs only when the tip check reports false 0ms
-✓ scripts/deploy-workflow.test.js > tip check > when run > the CI commit that is still the tip deploys 339ms
-✓ scripts/deploy-workflow.test.js > tip check > when run > an older CI commit is skipped with a notice 10ms
-(+2 lines)
+$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
+> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30). The criterion names the deploy-workflow tests as its pre-merge check, and they passed. The dot reporter does not name individual tests. The live publish is post-merge, out of scope.
+```
+
+### AC2 — met
+
+```
+$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
+Test Files  2 passed (2)  Tests  30 passed (30). The deploy-workflow condition-table tests passed. The dot reporter does not name the individual failure, cancelled, timed_out and pull_request cases. Also: lint:ci printed 'action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml' with no errors.
+```
+
+### AC3 — met
+
+```
+$ npm run test:e2e:gate -- --project=pages
+> PORT=${PORT:-3417} playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.0s)
+```
+
+### AC4 — met
+
+```
+$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
+Test Files  2 passed (2)  Tests  30 passed (30). The deploy-workflow tests passed. The dot reporter does not name the workflow_dispatch case.
 ```
 
 ### AC5 — met
 
 ```
-$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
-✓   2 [chromium] › e2e/routes.spec.js:25:1 › the home route renders the shell (192ms)
-16 passed (6.1s)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+> PORT=${PORT:-3417} playwright test --reporter=dot e2e/routes.spec.js --project=chromium  Running 16 tests using 1 worker ················  16 passed (6.1s)
+```
+
+### AC6 — met
+
+```
+$ npm run test:e2e:gate -- --project=pages
+Running 3 tests using 1 worker ···  3 passed (2.0s). Also e2e/routes.spec.js --project=chromium: 16 passed (6.1s)
 ```
 
 ### AC7 — met
 
 ```
-$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
-✓   4 [chromium] › e2e/routes.spec.js:40:1 › an unknown project id still renders the app shell (183ms)
-✓   5 [chromium] › e2e/routes.spec.js:46:1 › the home and project routes render the same shell (346ms)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+Running 16 tests using 1 worker ················  16 passed (6.1s)
 ```
 
 ### AC8 — met
 
 ```
-$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
-✓   7 [chromium] › e2e/routes.spec.js:74:3 › "/" becomes the home route without a new history entry (334ms)
-✓   8 ... "/#" becomes the home route without a new history entry (341ms)
-✓   9 ... "/#/nowhere" becomes the home route without a new history entry (331ms)
-✓  10 ... "/#/projects/" ... (329ms)
-✓  11 ... "/#/projects/abc/extra" ... (331ms)
-(+3 lines)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+Running 16 tests using 1 worker ················  16 passed (6.1s). Also --project=pages: 3 passed (2.0s)
 ```
 
 ### AC9 — met
 
 ```
-$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
-✓  15 [chromium] › e2e/routes.spec.js:95:1 › back and forward switch the route without a reload (270ms)
-✓  16 [chromium] › e2e/routes.spec.js:117:1 › an address change to an unknown hash is replaced in place (189ms)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+Running 16 tests using 1 worker ················  16 passed (6.1s)
+```
+
+### AC10 — met
+
+```
+$ npm run test:gate -- src/shell/routes.test.js
+> vitest run --reporter=dot src/shell/routes.test.js ... Test Files  1 passed (1)  Tests  32 passed (32)
 ```
 
 ### AC11 — met
 
 ```
-$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
-✓   1 [chromium] › e2e/routes.spec.js:18:1 › these route tests run against the Vite dev server at the root (211ms)
-16 passed (6.1s)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+> PORT=${PORT:-3417} playwright test --reporter=dot e2e/routes.spec.js --project=chromium  16 passed (6.1s). The route behavior passed on the chromium project served at PORT. The output does not itself name the dev server.
+```
+
+### AC12 — met
+
+```
+$ npm run test:e2e:gate -- --project=pages
+> PORT=${PORT:-3417} playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.0s). Passed locally. A CI run was not observed in this examination.
 ```
 
 ### AC13 — met
 
 ```
-$ npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js
-✓ scripts/readme.test.js > the README links the live site at https://bailejl.github.io/ai-enabler/ 1ms
+$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
+> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30)
 ```
 
 ### Audit details
 
-- Overall: indeterminate
-- Binding hash: afe74f783f7f5759c738037c0389f6aeac3a3cba2e5fab444be71edabebbd257
-- Inputs digest: 7f38ed331f055ad6211d5a4a21e11716f26c37a120a0982fd8928b7cb5e94fc4
-- Agent: a49e139f089c56944
-- Recorded at: 2026-11-21T20:09:37+00:00
+- Overall: met
+- Binding hash: 9b2febc1374a95ac416ca5e0df35e168168aa0bef5b3c229c682def6bf1f070c
+- Inputs digest: 21b036a47c8afc7bb610a1fff48644ae818577d460f73ea8290d49b787c640ac
+- Agent: af2c1d7871f6d975c
+- Recorded at: 2026-11-21T20:29:12+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
