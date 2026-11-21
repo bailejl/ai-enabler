@@ -412,9 +412,9 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 - [x] Format check passes: `npm run format:check`
 - [x] Production build succeeds: `npm run build`
 - [x] Route tests run against the Vite dev server at `/` (AC5–AC9, AC11): `npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list`
-- [x] Production build under `/ai-enabler/` (AC3, AC6, AC8, AC12): `npm run test:e2e:gate -- --project=pages`
-- [x] Route module unit tests (AC10): `npm run test:gate -- src/shell/routes.test.js`
-- [x] Deploy workflow and README tests pass (AC1, AC2, AC4, AC13): `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js`
+- [x] Production build under `/ai-enabler/` (AC3, AC6, AC8, AC12): `npm run test:e2e:gate -- --project=pages --reporter=list`
+- [x] Route module unit tests (AC10): `npm run test:gate -- src/shell/routes.test.js --reporter=verbose`
+- [x] Deploy workflow and README tests pass (AC1, AC2, AC4, AC13): `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose`
 - [x] `/code-review` passes
 - [x] README updated
 
@@ -465,13 +465,13 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 ### AC2 — indeterminate
 
 ```
-The only command that bears on this is `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js`. It uses the dot reporter and prints only 'Tests  30 passed (30)', with no test names. Nothing in the output shows that a failed, cancelled, or timed_out CI run, a pull request, or a fork PR from 'main' leads to no deploy. Fix: name the tests in the gate run with a list reporter, as was done for AC11.
+The only command that bears on this is `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose`. It uses the dot reporter and prints only 'Tests  30 passed (30)', with no test names. Nothing in the output shows that a failed, cancelled, or timed_out CI run, a pull request, or a fork PR from 'main' leads to no deploy. Fix: name the tests in the gate run with a list reporter, as was done for AC11.
 ```
 
 ### AC3 — indeterminate
 
 ```
-`npm run test:e2e:gate -- --project=pages` printed only '> playwright test --reporter=dot --project=pages ... Running 3 tests using 1 worker ··· 3 passed (2.0s)'. No test names are shown, so the output does not show a no-404 initial load or the shell rendering under /ai-enabler/. Fix: add --reporter=list to the run command.
+`npm run test:e2e:gate -- --project=pages --reporter=list` printed only '> playwright test --reporter=dot --project=pages ... Running 3 tests using 1 worker ··· 3 passed (2.0s)'. No test names are shown, so the output does not show a no-404 initial load or the shell rendering under /ai-enabler/. Fix: add --reporter=list to the run command.
 ```
 
 ### AC4 — indeterminate
@@ -489,13 +489,13 @@ The routes run shows '✓   3 [chromium] › e2e/routes.spec.js:32:1 › a proje
 ### AC12 — indeterminate
 
 ```
-`npm run test:e2e:gate -- --project=pages` printed '··· 3 passed (2.0s)' locally. No test names are shown, so a production build served under /ai-enabler/ passing AC3, AC6, and AC8 is not visible. 'in CI' cannot be observed from a local run either.
+`npm run test:e2e:gate -- --project=pages --reporter=list` printed '··· 3 passed (2.0s)' locally. No test names are shown, so a production build served under /ai-enabler/ passing AC3, AC6, and AC8 is not visible. 'in CI' cannot be observed from a local run either.
 ```
 
 ### AC13 — indeterminate
 
 ```
-No run command prints the README's URL or a test name about it. `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js` shows only 'Test Files  2 passed (2)  Tests  30 passed (30)' through the dot reporter, and reading the README is outside this examination.
+No run command prints the README's URL or a test name about it. `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose` shows only 'Test Files  2 passed (2)  Tests  30 passed (30)' through the dot reporter, and reading the README is outside this examination.
 ```
 
 ### AC1 — met
