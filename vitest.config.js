@@ -12,6 +12,8 @@ export default mergeConfig(
         include: ['src/**/*.{js,jsx}', 'scripts/**/*.js'],
         exclude: [
           'src/**/*.test.{js,jsx}',
+          // Test-only helpers shared by colocated tests
+          'src/**/testHelpers.js',
           'src/main.jsx',
           'src/App.jsx',
           'scripts/**/*.test.js',

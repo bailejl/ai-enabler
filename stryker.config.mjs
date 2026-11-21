@@ -7,6 +7,7 @@ export default {
   mutate: [
     'src/**/*.{js,jsx}',
     '!src/**/*.test.{js,jsx}',
+    '!src/**/testHelpers.js',
     '!src/main.jsx',
     '!src/App.jsx',
     'scripts/**/*.js',

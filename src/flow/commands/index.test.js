@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { applyCommand, createProject } from './index.js'
+import { makeRun, onlyProblem } from './testHelpers.js'
 
 const newId = () => 'project-1'
+const run = makeRun(newId)
 
 const existing = Object.freeze({
   project: { id: 'p-0', name: 'Existing' },
   nodes: [],
   edges: [],
 })
-
-const onlyProblem = (result) => {
-  expect(result.ok).toBe(false)
-  expect(result.problems).toHaveLength(1)
-  return result.problems[0]
-}
 
 describe('createProject', () => {
   it('succeeds with a named project, no steps and no connections', () => {
@@ -49,21 +45,38 @@ describe('createProject', () => {
 
 describe('applyCommand argument checks', () => {
   it('rejects an unknown command, naming it and the valid commands', () => {
-    const result = applyCommand(existing, { name: 'drop_database', args: {} }, { newId })
+    const result = run(existing, 'drop_database', {})
     const problem = onlyProblem(result)
     expect(problem.code).toBe('CMD_UNKNOWN')
-    expect(problem.message).toContain('drop_database')
-    expect(problem.message).toContain('create_project')
+    expect(problem.message).toBe(
+      'Unknown command drop_database. The commands are: create_project, add_step, update_step, set_step_metrics, remove_step, connect, disconnect.',
+    )
     expect(problem.untrusted).toEqual({ command: 'drop_database' })
     expect(result.project).toBe(existing)
   })
 
-  it.each([undefined, null, { name: undefined }, { name: 5 }, { name: 'toString' }])(
-    'rejects the malformed command %j without throwing',
-    (command) => {
-      expect(onlyProblem(applyCommand(existing, command, { newId })).code).toBe('CMD_UNKNOWN')
-    },
-  )
+  it.each([
+    undefined,
+    null,
+    { name: undefined },
+    { name: 5 },
+    { name: 'toString' },
+    { name: { toString: 1 } },
+  ])('rejects the malformed command %j without throwing, calling it "(no name)"', (command) => {
+    const result = applyCommand(existing, command, { newId })
+    const problem = onlyProblem(result)
+    expect(problem.code).toBe('CMD_UNKNOWN')
+    expect(problem.message).toMatch(/^Unknown command (\(no name\)|toString)\. The commands are:/)
+    expect(result.summary).toMatch(
+      /^Rejected (\(no name\)|toString): nothing changed \(1 problem\)$/,
+    )
+  })
+
+  it('says "(no name)" in both the message and the summary when the name is not text', () => {
+    const result = applyCommand(existing, { name: 5 }, { newId })
+    expect(result.problems[0].message).toMatch(/^Unknown command \(no name\)\./)
+    expect(result.summary).toBe('Rejected (no name): nothing changed (1 problem)')
+  })
 
   it('cuts a long command name in the message but keeps it whole in untrusted', () => {
     const name = 'x'.repeat(200)
@@ -74,11 +87,7 @@ describe('applyCommand argument checks', () => {
   })
 
   it('rejects arguments that are not accepted, naming each and the accepted ones', () => {
-    const result = applyCommand(
-      existing,
-      { name: 'create_project', args: { name: 'A', x: 100, y: 50 } },
-      { newId },
-    )
+    const result = run(existing, 'create_project', { name: 'A', x: 100, y: 50 })
     const problem = onlyProblem(result)
     expect(problem.code).toBe('CMD_ARGUMENT_UNKNOWN')
     expect(problem.message).toBe('create_project does not accept x, y. Accepted arguments: name.')
@@ -87,16 +96,17 @@ describe('applyCommand argument checks', () => {
   })
 
   it('keeps unknown argument names out of code, fix and field', () => {
-    const problem = onlyProblem(
-      applyCommand(existing, { name: 'create_project', args: { 'x<script>': 1 } }, { newId }),
-    )
+    const problem = onlyProblem(run(existing, 'create_project', { 'x<script>': 1 }))
     expect(problem).not.toHaveProperty('field')
     expect(`${problem.code} ${problem.fix}`).not.toContain('script')
   })
 
   it.each([null, 'Checkout', 7, ['name']])('rejects arguments that are %j', (args) => {
-    const problem = onlyProblem(applyCommand(existing, { name: 'create_project', args }, { newId }))
+    const problem = onlyProblem(run(existing, 'create_project', args))
     expect(problem.code).toBe('CMD_ARGUMENTS_INVALID')
+    expect(problem.message).toBe(
+      'The arguments for create_project must be an object of named values.',
+    )
   })
 
   it('treats missing arguments as none, so the command itself reports what is missing', () => {
@@ -107,11 +117,7 @@ describe('applyCommand argument checks', () => {
 
 describe('applyCommand results', () => {
   it('returns the same project object when the candidate is rejected', () => {
-    const result = applyCommand(
-      existing,
-      { name: 'create_project', args: { name: ' ' } },
-      { newId },
-    )
+    const result = run(existing, 'create_project', { name: ' ' })
     expect(result.ok).toBe(false)
     expect(result.project).toBe(existing)
     expect(result.problems[0].code).toBe('FILE_PROJECT_NAME_EMPTY')
@@ -130,13 +136,82 @@ describe('applyCommand results', () => {
 
   it('does not change the project it was given when it succeeds', () => {
     const before = structuredClone(existing)
-    const result = applyCommand(
-      existing,
-      { name: 'create_project', args: { name: 'New' } },
-      { newId },
-    )
+    const result = run(existing, 'create_project', { name: 'New' })
     expect(result.ok).toBe(true)
     expect(result.project).not.toBe(existing)
     expect(existing).toEqual(before)
   })
+})
+
+describe('applyCommand with no project open', () => {
+  const NEEDS_PROJECT = [
+    ['add_step', { name: 'Build' }],
+    ['update_step', { stepId: 'a', name: 'B' }],
+    ['set_step_metrics', { stepId: 'a', pt: 1 }],
+    ['remove_step', { stepId: 'a' }],
+    ['connect', { sourceId: 'a', targetId: 'b' }],
+    ['disconnect', { sourceId: 'a', targetId: 'b' }],
+  ]
+
+  it.each(NEEDS_PROJECT)('rejects %s with CMD_NO_PROJECT instead of throwing', (name, args) => {
+    const result = run(null, name, args)
+    expect(onlyProblem(result)).toMatchObject({
+      code: 'CMD_NO_PROJECT',
+      message: 'No project is open. Create or open a project first.',
+    })
+    expect(result.project).toBeNull()
+    expect(result.summary).toBe(`Rejected ${name}: nothing changed (1 problem)`)
+  })
+
+  it('rejects an undefined project the same way', () => {
+    expect(onlyProblem(run(undefined, 'remove_step', { stepId: 'a' })).code).toBe('CMD_NO_PROJECT')
+  })
+
+  it('reports the missing project before an argument it does not accept', () => {
+    expect(onlyProblem(run(null, 'add_step', { name: 'A', x: 1 })).code).toBe('CMD_NO_PROJECT')
+  })
+
+  it('still creates a project', () => {
+    expect(run(null, 'create_project', { name: 'Checkout' }).ok).toBe(true)
+  })
+})
+
+describe('applyCommand with values that are not text', () => {
+  const open = Object.freeze({
+    project: { id: 'p-1', name: 'Checkout' },
+    nodes: [
+      { id: 'idea', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Idea' } },
+      { id: 'build', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Build' } },
+    ],
+    edges: [{ id: 'e1', source: 'idea', target: 'build' }],
+  })
+
+  // JSON can carry these where an id, a name or a number belongs.
+  const HOSTILE = [{ toString: 1 }, {}, [], [{ toString: 1 }]]
+
+  const CASES = [
+    ['create_project', 'name', {}],
+    ['add_step', 'name', {}],
+    ['add_step', 'pt', { name: 'A' }],
+    ['update_step', 'stepId', { name: 'A' }],
+    ['update_step', 'name', { stepId: 'idea' }],
+    ['set_step_metrics', 'stepId', { pt: 1 }],
+    ['set_step_metrics', 'pt', { stepId: 'idea' }],
+    ['remove_step', 'stepId', {}],
+    ['connect', 'sourceId', { targetId: 'build' }],
+    ['connect', 'targetId', { sourceId: 'idea' }],
+    ['disconnect', 'sourceId', { targetId: 'build' }],
+    ['disconnect', 'targetId', { sourceId: 'idea' }],
+  ]
+
+  it.each(CASES.flatMap((entry) => HOSTILE.map((value) => [entry[0], entry[1], value, entry[2]])))(
+    '%s rejects %s %j with problems and never throws',
+    (name, key, value, others) => {
+      const result = run(open, name, { ...others, [key]: value })
+      expect(result.ok).toBe(false)
+      expect(result.problems.length).toBeGreaterThan(0)
+      expect(result.project).toBe(open)
+      expect(result.summary).toMatch(/^Rejected \w+: nothing changed/)
+    },
+  )
 })

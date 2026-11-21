@@ -495,7 +495,7 @@ Feature: One validated change at a time
 #### Step 4.3: Connection commands
 
 **Complexity**: standard
-**IMPLEMENT**: `connect` and `disconnect`, using `connectionProblem` from `src/flow/connections.js`, with a `CONN_NOT_FOUND` problem.
+**IMPLEMENT**: `connect` and `disconnect`, with a `CONN_NOT_FOUND` problem. `connect` only adds the connection; the rejection comes from `validateProjectFile`, which uses `connectionProblem`.
 **TEST**: `connections.test.js` covering the connection scenarios and outline.
 **REFACTOR**: Reuse the validator's problem codes and messages through its public results; do not move or edit `validate.js` here (Slice 3 owns it this wave).
 **Files**: `src/flow/commands/connections.js`, `src/flow/commands/connections.test.js`, `src/flow/commands/index.js`

@@ -1,6 +1,7 @@
 import { problem } from '../diagnostics/problem.js'
-import { hasText, STEP_DATA_FIELDS, STEP_TYPE } from '../step.js'
-import { shorten } from '../text.js'
+import { findStep, hasText, STEP_DATA_FIELDS, STEP_TYPE, stepDisplayName } from '../step.js'
+import { formatCount, quoted, shorten } from '../text.js'
+import { stepRef, validStepsList, validStepsText } from './stepNames.js'
 
 // A new step starts at the origin. Commands never accept positions; layout places steps on save.
 const START_POSITION = Object.freeze({ x: 0, y: 0 })
@@ -8,20 +9,16 @@ const START_POSITION = Object.freeze({ x: 0, y: 0 })
 // Every data field except the title: the ones set_step_metrics accepts and add_step takes along.
 const METRIC_FIELDS = STEP_DATA_FIELDS.filter((field) => field !== 'label')
 
-const quoted = (text) => `"${shorten(text)}"`
+// `subject` is the text that opens the message. `refs` are the problem's stepId and untrusted title.
+const nameProblems = (name, subject, refs = {}) =>
+  hasText(name)
+    ? []
+    : [problem('STEP_NAME_EMPTY', { params: { step: subject }, field: 'name', ...refs })]
 
-// A step as its summary names it: title, then id.
-const stepRef = (step) => `${quoted(step.data.label)} (${shorten(step.id)})`
-
-const nameProblems = (name, step) =>
-  hasText(name) ? [] : [problem('STEP_NAME_EMPTY', { params: { step }, field: 'name' })]
-
-const validStepsText = (nodes) => (nodes.length === 0 ? 'none' : nodes.map(stepRef).join(', '))
-
-// The problem for a step id that names no step. It lists every valid step by id and title, in
-// the message (shortened) and whole in `untrusted`.
+// The problem for a step id that names no step. It lists the valid steps by id and title, in the
+// message (shortened, capped) and whole in `untrusted`.
 const missingStepProblem = (nodes, stepId) => {
-  const steps = nodes.map(({ id, data }) => ({ id, title: data.label }))
+  const steps = validStepsList(nodes)
   const isText = typeof stepId === 'string'
   return problem(isText ? 'STEP_NOT_FOUND' : 'STEP_TARGET_INVALID', {
     params: { steps: validStepsText(nodes), ...(isText && { id: shorten(stepId) }) },
@@ -30,11 +27,9 @@ const missingStepProblem = (nodes, stepId) => {
   })
 }
 
-// Finds the step a command names: `{ step }`, or `{ problems }` in the shape `apply` returns.
-const findStep = (project, stepId) => {
-  const step = project.nodes.find(({ id }) => id === stepId)
-  return step ? { step } : { problems: [missingStepProblem(project.nodes, stepId)] }
-}
+// Finds the step a command names: `{ step, index }`, or `{ problems }` in the shape `apply` returns.
+const requireStep = (project, stepId) =>
+  findStep(project.nodes, stepId) ?? { problems: [missingStepProblem(project.nodes, stepId)] }
 
 const changeStep = (project, step, data) => ({
   ...project,
@@ -43,50 +38,61 @@ const changeStep = (project, step, data) => ({
   ),
 })
 
+// A blank name still gets a candidate, so the metrics are checked in the same pass. Its title is
+// emptied so the validator does not report the same name a second time.
 const addStep = (project, { name, ...metrics }, { newId }) => {
-  const problems = nameProblems(name, 'The new step')
-  if (problems.length > 0) return { problems }
   const id = newId()
-  const node = { id, type: STEP_TYPE, position: START_POSITION, data: { label: name, ...metrics } }
+  const label = hasText(name) ? name : ''
+  const node = { id, type: STEP_TYPE, position: START_POSITION, data: { label, ...metrics } }
   return {
     project: { ...project, nodes: [...project.nodes, node] },
-    summary: `Added step ${quoted(name)} (${shorten(id)})`,
+    problems: nameProblems(name, 'The new step'),
+    summary: () => `Added step ${quoted(name)} (${shorten(id)})`,
     created: id,
   }
 }
 
 const updateStep = (project, { stepId, name }) => {
-  const { step, problems = [] } = findStep(project, stepId)
-  const allProblems = [...problems, ...nameProblems(name, step ? stepRef(step) : 'The step')]
-  if (allProblems.length > 0) return { problems: allProblems }
+  const found = requireStep(project, stepId)
+  const { step, index } = found
+  const named = step
+    ? nameProblems(name, stepDisplayName(step, index), {
+        stepId: step.id,
+        untrusted: { title: step.data.label },
+      })
+    : nameProblems(name, 'The step')
+  const problems = [...(found.problems ?? []), ...named]
+  if (problems.length > 0) return { problems }
   return {
     project: changeStep(project, step, { label: name }),
-    summary: `Renamed step ${stepRef(step)} to ${quoted(name)}`,
+    summary: () => `Renamed step ${stepRef(step, index)} to ${quoted(name)}`,
   }
 }
 
-const setStepMetrics = (project, { stepId, ...metrics }) => {
-  const found = findStep(project, stepId)
+// An explicit undefined means "not given": it must not clear a metric or print as "pt=undefined".
+const setStepMetrics = (project, { stepId, ...args }) => {
+  const found = requireStep(project, stepId)
   if (found.problems) return found
-  const given = Object.entries(metrics).map(([field, value]) => `${field}=${value}`)
+  const { step, index } = found
+  const given = Object.entries(args).filter(([, value]) => value !== undefined)
   return {
-    project: changeStep(project, found.step, metrics),
-    summary: `Set ${given.join(', ') || 'no metrics'} on step ${stepRef(found.step)}`,
+    project: changeStep(project, step, Object.fromEntries(given)),
+    summary: () =>
+      `Set ${given.map(([field, value]) => `${field}=${value}`).join(', ') || 'no metrics'} on step ${stepRef(step, index)}`,
   }
 }
-
-const countText = (count) => `${count} ${count === 1 ? 'connection' : 'connections'}`
 
 const removeStep = (project, { stepId }) => {
-  const found = findStep(project, stepId)
+  const found = requireStep(project, stepId)
   if (found.problems) return found
-  const { step } = found
+  const { step, index } = found
   const edges = project.edges.filter(
     ({ source, target }) => source !== step.id && target !== step.id,
   )
   return {
     project: { ...project, nodes: project.nodes.filter((node) => node !== step), edges },
-    summary: `Removed step ${stepRef(step)} and ${countText(project.edges.length - edges.length)}`,
+    summary: () =>
+      `Removed step ${stepRef(step, index)} and ${formatCount(project.edges.length - edges.length, 'connection')}`,
   }
 }
 

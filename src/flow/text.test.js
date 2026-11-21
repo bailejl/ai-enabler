@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_ECHOED_TEXT, shorten } from './text.js'
+import { formatCount, MAX_ECHOED_TEXT, quoted, shorten } from './text.js'
 
 describe('shorten', () => {
   it('keeps text of exactly the limit whole', () => {
@@ -16,5 +16,30 @@ describe('shorten', () => {
   it('turns a value that is not text into text', () => {
     expect(shorten(7)).toBe('7')
     expect(shorten(undefined)).toBe('undefined')
+  })
+
+  it.each([
+    ['an object whose toString is not a function', { toString: 1 }],
+    ['an object with no prototype', Object.create(null)],
+    ['an array holding such an object', [{ toString: 1 }]],
+  ])('does not throw for %s', (_label, value) => {
+    expect(shorten(value)).toMatch(/^\[object \w+\]$/)
+  })
+})
+
+describe('quoted', () => {
+  it('wraps the shortened text in double quotes', () => {
+    expect(quoted('Build')).toBe('"Build"')
+    expect(quoted('x'.repeat(200))).toBe(`"${'x'.repeat(MAX_ECHOED_TEXT - 1)}…"`)
+  })
+})
+
+describe('formatCount', () => {
+  it.each([
+    [0, '0 steps'],
+    [1, '1 step'],
+    [2, '2 steps'],
+  ])('counts %d as "%s"', (count, expected) => {
+    expect(formatCount(count, 'step')).toBe(expected)
   })
 })

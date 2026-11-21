@@ -1,5 +1,6 @@
 import { toExportEdge, toExportNode } from './projectFile.js'
 import { withAriaLabel } from './step.js'
+import { formatCount } from './text.js'
 
 export const IMPORT_IDLE = 'idle'
 export const IMPORT_CONFIRMING = 'confirming'
@@ -34,8 +35,6 @@ const noticesFor = (isEdited, aiNotice) =>
 
 // The list shows this many problems; the rest are counted in a trailing "and N more" line.
 export const MAX_LISTED_PROBLEMS = 10
-
-const formatCount = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
 
 const describeRejection = (problems) =>
   `Import rejected: ${formatCount(problems.length, 'problem')}`

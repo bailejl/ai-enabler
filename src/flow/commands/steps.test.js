@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand } from './index.js'
+import { makeRun, onlyProblem } from './testHelpers.js'
 
 const newId = () => 'step-1'
 
@@ -14,13 +14,7 @@ const node = (id, label, data = {}) => ({
 
 const projectWith = (nodes, edges = []) => ({ ...empty, nodes, edges })
 
-const run = (project, name, args) => applyCommand(project, { name, args }, { newId })
-
-const onlyProblem = (result) => {
-  expect(result.ok).toBe(false)
-  expect(result.problems).toHaveLength(1)
-  return result.problems[0]
-}
+const run = makeRun(newId)
 
 describe('add_step', () => {
   it('adds the step and gives its id', () => {
@@ -54,6 +48,26 @@ describe('add_step', () => {
     expect(found.message).toContain('"Build"')
     expect(result.project).toBe(empty)
     expect(result.project.nodes).toHaveLength(0)
+  })
+
+  it('reports a blank name together with every invalid metric', () => {
+    const result = run(empty, 'add_step', { name: '', pt: -1, ca: 150 })
+    expect(result.problems.map(({ code, field }) => [code, field])).toEqual([
+      ['STEP_NAME_EMPTY', 'name'],
+      ['STEP_COUNT_INVALID', 'pt'],
+      ['STEP_PERCENT_INVALID', 'ca'],
+    ])
+    expect(result.problems[1].message).toContain('Step #1')
+    expect(result.project).toBe(empty)
+    expect(result.summary).toBe('Rejected add_step: nothing changed (3 problems)')
+  })
+
+  it.each([undefined, null, 7])('reports the name %j once, with the invalid metric', (name) => {
+    const result = run(empty, 'add_step', { name, pt: -1 })
+    expect(result.problems.map(({ code }) => code)).toEqual([
+      'STEP_NAME_EMPTY',
+      'STEP_COUNT_INVALID',
+    ])
   })
 
   it('does not accept a position', () => {
@@ -95,14 +109,40 @@ describe('update_step', () => {
     const result = run(before, 'update_step', { stepId: 'build', name })
     const found = onlyProblem(result)
     expect(found.code).toBe('STEP_NAME_EMPTY')
-    expect(found.message).toContain('"Build"')
+    expect(found.message).toBe('"Build": the name (name) must be text that is not empty.')
+    expect(found.field).toBe('name')
+    expect(found.stepId).toBe('build')
+    expect(found.untrusted).toEqual({ title: 'Build' })
     expect(result.project).toBe(before)
+  })
+
+  it('names the step by its shortened title and keeps the whole title in untrusted', () => {
+    const title = 'T'.repeat(200)
+    const found = onlyProblem(run(projectWith([node('s', title)]), 'update_step', { stepId: 's' }))
+    expect(found.message).toBe(
+      `"${'T'.repeat(79)}…": the name (name) must be text that is not empty.`,
+    )
+    expect(found.untrusted).toEqual({ title })
+  })
+
+  it('names a step with a blank title by its position', () => {
+    const before = projectWith([node('a', 'A'), node('b', '')])
+    const found = onlyProblem(run(before, 'update_step', { stepId: 'b', name: ' ' }))
+    expect(found.message).toBe('Step #2: the name (name) must be text that is not empty.')
+  })
+
+  it('renames a step that has a blank title, naming it by position in the summary', () => {
+    const result = run(projectWith([node('b', '')]), 'update_step', { stepId: 'b', name: 'Ship' })
+    expect(result.summary).toBe('Renamed step Step #1 (b) to "Ship"')
   })
 
   it('reports a missing step and a blank name together', () => {
     const result = run(projectWith([build]), 'update_step', { stepId: 'ghost', name: '' })
     expect(result.problems.map(({ code }) => code)).toEqual(['STEP_NOT_FOUND', 'STEP_NAME_EMPTY'])
-    expect(result.problems[1].message).toContain('The step: the name (name)')
+    expect(result.problems[1].message).toBe(
+      'The step: the name (name) must be text that is not empty.',
+    )
+    expect(result.problems[1]).not.toHaveProperty('stepId')
   })
 
   it('does not accept a position', () => {
@@ -168,6 +208,27 @@ describe('set_step_metrics', () => {
       expect(found.stepId).toBe('build')
     })
     expect(result.project).toBe(before)
+  })
+
+  it('treats an explicit undefined as not given: it clears nothing and is not reported', () => {
+    const result = run(projectWith([build]), 'set_step_metrics', {
+      stepId: 'build',
+      queue: undefined,
+      pt: 30,
+      ca: undefined,
+    })
+    expect(result.ok).toBe(true)
+    expect(result.project.nodes[0].data).toEqual({ label: 'Build', queue: 4, pt: 30 })
+    expect(result.summary).toBe('Set pt=30 on step "Build" (build)')
+  })
+
+  it('says no metrics were set when every value is undefined', () => {
+    const result = run(projectWith([build]), 'set_step_metrics', {
+      stepId: 'build',
+      queue: undefined,
+    })
+    expect(result.project.nodes).toEqual([build])
+    expect(result.summary).toBe('Set no metrics on step "Build" (build)')
   })
 
   it('changes nothing and says so when no metric is given', () => {
@@ -267,6 +328,32 @@ describe('a command on a missing step', () => {
     expect(found.message).not.toContain('t'.repeat(81))
     expect(found.message).toContain(`${'g'.repeat(79)}…`)
     expect(found.untrusted).toEqual({ id, steps: [{ id: 's', title }] })
+  })
+
+  it.each([
+    ['STEP_NOT_FOUND', 'ghost'],
+    ['STEP_TARGET_INVALID', undefined],
+  ])('%s lists the first 20 steps and counts the rest, keeping all 30 in untrusted', (code, id) => {
+    const many = projectWith(Array.from({ length: 30 }, (_, i) => node(`s${i}`, `Step ${i}`)))
+    const found = onlyProblem(run(many, 'remove_step', { stepId: id }))
+    expect(found.code).toBe(code)
+    expect(found.message).toContain('"Step 19" (s19), and 10 more.')
+    expect(found.message).not.toContain('s20')
+    expect(found.untrusted.steps).toHaveLength(30)
+  })
+
+  it('lists exactly 20 steps in full, with no "and N more"', () => {
+    const twenty = projectWith(Array.from({ length: 20 }, (_, i) => node(`s${i}`, `Step ${i}`)))
+    const found = onlyProblem(run(twenty, 'remove_step', { stepId: 'ghost' }))
+    expect(found.message).toContain('"Step 19" (s19).')
+    expect(found.message).not.toContain('more')
+  })
+
+  it('names a step with a blank title by its position in the list', () => {
+    const found = onlyProblem(run(projectWith([node('a', ''), node('b', 'B')]), 'remove_step', {}))
+    expect(found.message).toBe(
+      'This command needs the id of a step (stepId). Valid steps: Step #1 (a), "B" (b).',
+    )
   })
 
   it('keeps the requested id out of code, fix and field', () => {

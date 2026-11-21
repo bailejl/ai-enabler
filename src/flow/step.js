@@ -1,3 +1,5 @@
+import { quoted } from './text.js'
+
 export const STEP_TYPE = 'step'
 
 // Every field a step's data may carry. Export copies these; validation must cover each optional one.
@@ -14,3 +16,13 @@ export const withAriaLabel = (node, index) => ({
   ...node,
   ariaLabel: hasText(node.data.label) ? node.data.label : stepPositionName(index),
 })
+
+// How a message names a step: its title in quotes, or its position when the title is blank.
+export const stepDisplayName = (step, index) =>
+  hasText(step.data.label) ? quoted(step.data.label) : stepPositionName(index)
+
+// The step with this id and its place in the list, or null.
+export const findStep = (nodes, id) => {
+  const index = nodes.findIndex((node) => node.id === id)
+  return index === -1 ? null : { step: nodes[index], index }
+}

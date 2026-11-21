@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand } from './index.js'
+import { makeRun, onlyProblem } from './testHelpers.js'
 
 const newId = () => 'conn-new'
 
@@ -19,13 +19,7 @@ const projectWith = (edges = []) =>
     edges,
   })
 
-const run = (project, name, args) => applyCommand(project, { name, args }, { newId })
-
-const onlyProblem = (result) => {
-  expect(result.ok).toBe(false)
-  expect(result.problems).toHaveLength(1)
-  return result.problems[0]
-}
+const run = makeRun(newId)
 
 describe('connect', () => {
   it('adds the connection, gives its id and names the steps by title', () => {
@@ -43,6 +37,12 @@ describe('connect', () => {
     const project = { ...projectWith(), nodes: [node('idea', long), node('build', 'Build')] }
     const result = run(project, 'connect', { sourceId: 'idea', targetId: 'build' })
     expect(result.summary).toBe(`Connected "${'T'.repeat(79)}…" to "Build" (conn-new)`)
+  })
+
+  it('names a step with a blank title by its position in the summary', () => {
+    const project = { ...projectWith(), nodes: [node('idea', ''), node('build', 'Build')] }
+    const result = run(project, 'connect', { sourceId: 'idea', targetId: 'build' })
+    expect(result.summary).toBe('Connected Step #1 to "Build" (conn-new)')
   })
 
   it.each([
@@ -114,7 +114,6 @@ describe('disconnect', () => {
     ['unconnected steps', [], { sourceId: 'idea', targetId: 'build' }],
     ['the opposite direction', [ideaToBuild], { sourceId: 'build', targetId: 'idea' }],
     ['a step that does not exist', [ideaToBuild], { sourceId: 'idea', targetId: 'ghost' }],
-    ['no arguments', [ideaToBuild], {}],
   ])('fails with CONN_NOT_FOUND for %s and leaves the project unchanged', (_label, edges, args) => {
     const project = projectWith(edges)
     const result = run(project, 'disconnect', args)
@@ -122,14 +121,67 @@ describe('disconnect', () => {
     expect(result.project).toBe(project)
   })
 
-  it('names the endpoints, shortened, and keeps the full text in untrusted', () => {
+  it('names the steps by title, shortened, and keeps the raw ids whole in untrusted', () => {
     const long = 'x'.repeat(200)
     const found = onlyProblem(
       run(projectWith(), 'disconnect', { sourceId: 'idea', targetId: long }),
     )
-    expect(found.message).toBe(`No connection joins step "idea" to step "${'x'.repeat(79)}…".`)
+    expect(found.message).toBe(`No connection joins "Idea" to "${'x'.repeat(79)}…".`)
     expect(found.untrusted).toEqual({ source: 'idea', target: long })
     expect(found.fix).toBe('Use the ids of two steps that are connected, source first.')
     expect(found).not.toHaveProperty('params')
+  })
+
+  it('names two steps by title when they exist but are not connected', () => {
+    const found = onlyProblem(
+      run(projectWith(), 'disconnect', { sourceId: 'build', targetId: 'idea' }),
+    )
+    expect(found.message).toBe('No connection joins "Build" to "Idea".')
+    expect(found.untrusted).toEqual({ source: 'build', target: 'idea' })
+  })
+
+  it('names a step with a blank title by its position', () => {
+    const project = { ...projectWith(), nodes: [node('idea', ''), node('build', 'Build')] }
+    const found = onlyProblem(run(project, 'disconnect', { sourceId: 'idea', targetId: 'build' }))
+    expect(found.message).toBe('No connection joins Step #1 to "Build".')
+  })
+
+  it.each([
+    ['the source does not exist', { sourceId: 'ghost', targetId: 'build' }, 'sourceId'],
+    ['the target does not exist', { sourceId: 'idea', targetId: 'ghost' }, 'targetId'],
+    ['both exist', { sourceId: 'build', targetId: 'idea' }, 'targetId'],
+  ])('points the field at the end that fails when %s', (_label, args, field) => {
+    expect(onlyProblem(run(projectWith(), 'disconnect', args)).field).toBe(field)
+  })
+
+  it.each([
+    ['no arguments', {}, ['sourceId', 'targetId']],
+    ['no source', { targetId: 'build' }, ['sourceId']],
+    ['no target', { sourceId: 'idea' }, ['targetId']],
+    ['ids that are not text', { sourceId: 5, targetId: { toString: 1 } }, ['sourceId', 'targetId']],
+  ])('asks for the step ids with CONN_TARGET_INVALID for %s', (_label, args, fields) => {
+    const project = projectWith([ideaToBuild])
+    const result = run(project, 'disconnect', args)
+    expect(result.ok).toBe(false)
+    expect(result.problems.map(({ code }) => code)).toEqual(fields.map(() => 'CONN_TARGET_INVALID'))
+    expect(result.problems.map(({ field }) => field)).toEqual(fields)
+    expect(result.project).toBe(project)
+    result.problems.forEach((found, i) => {
+      expect(found.message).toBe(
+        `This command needs the id of a step (${fields[i]}). Valid steps: "Idea" (idea), "Build" (build).`,
+      )
+      expect(found.untrusted).toEqual({
+        steps: [
+          { id: 'idea', title: 'Idea' },
+          { id: 'build', title: 'Build' },
+        ],
+      })
+      expect(JSON.stringify(found)).not.toContain('toString')
+    })
+  })
+
+  it('treats an empty id as text, so the connection is simply not found', () => {
+    const found = onlyProblem(run(projectWith(), 'disconnect', { sourceId: '', targetId: 'build' }))
+    expect(found.code).toBe('CONN_NOT_FOUND')
   })
 })
