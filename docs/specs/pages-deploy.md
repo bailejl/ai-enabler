@@ -40,7 +40,7 @@ This change adds the route layer and the deploy. It does not add project storage
 
 **Dependencies**
 
-- One-time repository setting, done by the user by hand: Settings → Pages → Source = GitHub Actions [S4]. The build does not call `gh api` to enable it. Pages is not enabled on the repository today (the Pages API returns 404).
+- One-time repository setting, done by the user by hand: Settings → Pages → Source = GitHub Actions [S4]. The build does not call `gh api` to enable it. Done on 2026-11-21: `build_type=workflow`, URL `https://bailejl.github.io/ai-enabler/`.
 
 ## Acceptance Criteria
 
