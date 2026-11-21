@@ -406,5 +406,41 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "GATE_UNKNOWN": {
+    "code": "GATE_UNKNOWN",
+    "severity": "error",
+    "title": "Gate is unknown",
+    "summary": "A gate check was requested by a name that no registered gate has.",
+    "message": "Unknown gate {gate}. Known gates: {gates}.",
+    "fix": "Request one of the known gates by name.",
+    "docs": "#gate-unknown",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "GATE_PROJECT_EMPTY": {
+    "code": "GATE_PROJECT_EMPTY",
+    "severity": "error",
+    "title": "Project has no steps",
+    "summary": "A gate check ran on a project with no steps, so there is nothing to check.",
+    "message": "The project has no steps.",
+    "fix": "Add the steps with add_step, then run the gate again.",
+    "docs": "#gate-project-empty",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "GATE_STEP_DATA_MISSING": {
+    "code": "GATE_STEP_DATA_MISSING",
+    "severity": "error",
+    "title": "Step is missing data",
+    "summary": "A step has no value for one or more of pt, lt, ca and queue.",
+    "message": "{step} is missing {fields}.",
+    "fix": "The values are optional and can be added later with set_step_metrics.",
+    "docs": "#gate-step-data-missing",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

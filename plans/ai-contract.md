@@ -1066,7 +1066,7 @@ graph TD
   - [x] Step 4.2: Step commands
   - [x] Step 4.3: Connection commands
 - [ ] Slice 5: Gate checks
-  - [ ] Step 5.1: Gate registry and data-complete
+  - [x] Step 5.1: Gate registry and data-complete
 
 #### Wave 3
 
