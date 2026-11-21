@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "test:e2e": "playwright test",
+    "mcp": "node mcp/server.js",
     "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/actions/setup/action.yml"
   },
   "repository": {
@@ -35,6 +36,7 @@
     "@action-validator/cli": "^0.6.0",
     "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@playwright/test": "^1.65.0",
     "@stryker-mutator/core": "^10.1.1",
     "@stryker-mutator/vitest-runner": "^10.1.1",

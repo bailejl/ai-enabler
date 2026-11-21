@@ -1078,7 +1078,7 @@ graph TD
 
 - [ ] Slice 7: MCP server
   - [x] Step 7.1: Tool host over the session and store
-  - [ ] Step 7.2: Stdio server
+  - [x] Step 7.2: Stdio server
 
 #### Wave 5
 

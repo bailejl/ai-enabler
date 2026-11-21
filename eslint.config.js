@@ -43,6 +43,37 @@ export default [
     },
   },
   {
+    // mcp/ may use the pure flow logic and nothing else from src/ (React, the app shell)
+    files: ['mcp/**/*.js'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)src/(?!flow/)',
+              message: 'mcp/ may import from src/flow/ only.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // the app never depends on the MCP server
+    files: ['src/**/*.{js,jsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/mcp', '**/mcp/**'], message: 'src/ must not import from mcp/.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       'node_modules/',
       'dist/',
