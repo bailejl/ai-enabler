@@ -411,7 +411,7 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 - [x] Workflow validation passes: `npm run lint:ci`
 - [x] Format check passes: `npm run format:check`
 - [x] Production build succeeds: `npm run build`
-- [x] Route tests run against the Vite dev server at `/` (AC5–AC9, AC11): `npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium`
+- [x] Route tests run against the Vite dev server at `/` (AC5–AC9, AC11): `npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list`
 - [x] Production build under `/ai-enabler/` (AC3, AC6, AC8, AC12): `npm run test:e2e:gate -- --project=pages`
 - [x] Route module unit tests (AC10): `npm run test:gate -- src/shell/routes.test.js`
 - [x] Deploy workflow and README tests pass (AC1, AC2, AC4, AC13): `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js`
