@@ -17,20 +17,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # A green run for an older commit must not overwrite a newer deploy.
+  check:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 2
+    outputs:
+      current: ${{ steps.tip.outputs.current }}
     steps:
-      # A green run for an older commit must not overwrite a newer deploy. Runs before
-      # checkout, so it names the repository URL instead of an origin remote.
+      # No checkout here, so the step names the repository URL instead of an origin remote.
       - id: tip
         name: Check the commit is still the tip of main
         shell: bash
@@ -48,26 +43,40 @@ jobs:
           if [ "$tip" = "$HEAD_SHA" ]; then
             echo "current=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Skipping $HEAD_SHA: main is now at $tip, which deploys after its own CI run."
+            echo "::notice::Skipping $HEAD_SHA: main is now at $tip, which deploys once its own CI run passes."
             echo "current=false" >> "$GITHUB_OUTPUT"
           fi
-      - if: steps.tip.outputs.current == 'true'
-        uses: actions/checkout@v7
+
+  # Installs and builds with read-only permissions.
+  build:
+    needs: check
+    if: needs.check.outputs.current == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
-      - if: steps.tip.outputs.current == 'true'
-        uses: ./.github/actions/setup
-      - if: steps.tip.outputs.current == 'true'
-        run: npm run build
-      - if: steps.tip.outputs.current == 'true'
-        uses: actions/configure-pages@v6
-      - if: steps.tip.outputs.current == 'true'
-        uses: actions/upload-pages-artifact@v5
+      - uses: ./.github/actions/setup
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-      - if: steps.tip.outputs.current == 'true'
-        id: deployment
+
+  # Only this job can write Pages, and it runs no project code.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
         uses: actions/deploy-pages@v5
 
   refuse:

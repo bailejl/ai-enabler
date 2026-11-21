@@ -7,7 +7,7 @@ export const ROUTE = Object.freeze({ HOME: 'home', PROJECT: 'project' })
 const HOME_HASH = '#/'
 const PROJECT_PREFIX = '#/projects/'
 // One id segment, then at most one trailing slash.
-const PROJECT_PATH = /^#\/projects\/([^/]+)\/?$/
+const PROJECT_PATH = new RegExp(`^${PROJECT_PREFIX}([^/]+)/?$`)
 
 const HOME = Object.freeze({ route: Object.freeze({ name: ROUTE.HOME }), hash: HOME_HASH })
 

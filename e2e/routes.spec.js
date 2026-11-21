@@ -3,7 +3,7 @@ import { cards } from './canvas.js'
 import {
   STARTER_STEP_COUNT,
   appShell,
-  currentHash,
+  expectHash,
   expectRoute,
   expectStarterSteps,
 } from './views.js'
@@ -18,7 +18,7 @@ const historyLength = (page) => page.evaluate(() => window.history.length)
 test('the home route renders the shell', async ({ page }) => {
   await page.goto('/#/')
   await expectStarterSteps(page)
-  expect(await currentHash(page)).toBe('#/')
+  await expectHash(page, '#/')
   await expectRoute(page, 'home')
 })
 
@@ -26,14 +26,14 @@ test('a project deep link survives a direct load and a refresh', async ({ page }
   await page.goto('/#/projects/abc123')
   await page.reload()
   await expectStarterSteps(page)
-  expect(await currentHash(page)).toBe('#/projects/abc123')
+  await expectHash(page, '#/projects/abc123')
   await expectRoute(page, 'project')
 })
 
 test('an unknown project id still renders the app shell', async ({ page }) => {
   await page.goto('/#/projects/does-not-exist')
   await expectStarterSteps(page)
-  expect(await currentHash(page)).toBe('#/projects/does-not-exist')
+  await expectHash(page, '#/projects/does-not-exist')
 })
 
 test('the home and project routes render the same shell', async ({ context }) => {
@@ -50,8 +50,9 @@ test('the home and project routes render the same shell', async ({ context }) =>
 
 test('a project id with reserved characters is not rewritten', async ({ page }) => {
   await page.goto('/#/projects/a@b')
-  expect(await currentHash(page)).toBe('#/projects/a@b')
+  // The cards render after the mount effect has run, so a rewrite would already show.
   await expectStarterSteps(page)
+  await expectHash(page, '#/projects/a@b')
 })
 
 for (const address of [
@@ -73,7 +74,7 @@ for (const address of [
     const page = await context.newPage()
     await page.goto(address)
     await expectStarterSteps(page)
-    expect(await currentHash(page)).toBe('#/')
+    await expectHash(page, '#/')
     expect(await historyLength(page)).toBe(expectedLength)
   })
 }
@@ -81,7 +82,7 @@ for (const address of [
 test('a trailing slash on a project link is dropped', async ({ page }) => {
   await page.goto('/#/projects/abc123/')
   await expectStarterSteps(page)
-  expect(await currentHash(page)).toBe('#/projects/abc123')
+  await expectHash(page, '#/projects/abc123')
 })
 
 test('back and forward switch the route without a reload', async ({ page }) => {
@@ -98,7 +99,7 @@ test('back and forward switch the route without a reload', async ({ page }) => {
   await expectRoute(page, 'project')
   await page.goBack()
   await expectRoute(page, 'home')
-  expect(await currentHash(page)).toBe('#/')
+  await expectHash(page, '#/')
   await page.goForward()
   await expectRoute(page, 'project')
 
@@ -112,9 +113,9 @@ test('an address change to an unknown hash is replaced in place', async ({ page 
 
   await setHash(page, '#/nowhere')
   await expectRoute(page, 'home')
-  expect(await currentHash(page)).toBe('#/')
+  await expectHash(page, '#/')
 
   await page.goBack()
   await expectRoute(page, 'project')
-  expect(await currentHash(page)).toBe('#/projects/abc123')
+  await expectHash(page, '#/projects/abc123')
 })

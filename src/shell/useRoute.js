@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { syncHash } from './routes.js'
+import { resolveHash, syncHash } from './routes.js'
 
-// The current hash route. A non-canonical hash is rewritten in place on load and on every
-// hashchange, so a bad link never adds a history entry.
+// The current hash route. A non-canonical hash is rewritten in place after mount and on every
+// hashchange, so a bad link on load adds no history entry, and a bad hash typed later is
+// overwritten in the entry the browser just added. Render itself stays pure.
 export const useRoute = () => {
-  const [route, setRoute] = useState(() => syncHash(window))
+  const [route, setRoute] = useState(() => resolveHash(window.location.hash).route)
 
   useEffect(() => {
-    const onHashChange = () => setRoute(syncHash(window))
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
+    const sync = () => setRoute(syncHash(window))
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
   }, [])
 
   return route

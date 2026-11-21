@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { PAGES_BASE } from '../scripts/pages-base.js'
-import { currentHash, expectStarterSteps } from './views.js'
+import { expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
 
@@ -14,8 +14,8 @@ test('every asset of the initial load is served under the Pages base', async ({ 
   })
 
   await page.goto(`${PAGES_BASE}#/`)
+  // The build has one script and one stylesheet, both needed before the cards render.
   await expectStarterSteps(page)
-  await page.waitForLoadState('networkidle')
 
   expect(failed).toEqual([])
 })
@@ -24,7 +24,7 @@ test('a bare base-path load is normalized and keeps the base path', async ({ pag
   await page.goto(PAGES_BASE)
   await expectStarterSteps(page)
   expect(await currentPath(page)).toBe(PAGES_BASE)
-  expect(await currentHash(page)).toBe('#/')
+  await expectHash(page, '#/')
 })
 
 test('a project deep link loads directly and after a refresh under the base', async ({ page }) => {
@@ -32,5 +32,5 @@ test('a project deep link loads directly and after a refresh under the base', as
   await page.reload()
   await expectStarterSteps(page)
   expect(await currentPath(page)).toBe(PAGES_BASE)
-  expect(await currentHash(page)).toBe('#/projects/abc')
+  await expectHash(page, '#/projects/abc')
 })

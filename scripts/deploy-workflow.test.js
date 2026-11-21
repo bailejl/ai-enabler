@@ -1,32 +1,37 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, test } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterAll, describe, expect, test } from 'vitest'
 import { parse } from 'yaml'
 
 const workflow = parse(
   readFileSync(new URL('../.github/workflows/deploy.yml', import.meta.url), 'utf8'),
 )
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-const { deploy, refuse } = workflow.jobs
+const { check, build, deploy, refuse } = workflow.jobs
 
-const DEPLOY_IF =
+const CHECK_IF =
   "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')"
 const REFUSE_IF = "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'"
-const TIP_GATE = "steps.tip.outputs.current == 'true'"
+const BUILD_IF = "needs.check.outputs.current == 'true'"
 
 // A tiny evaluator for the subset of GitHub expressions the job conditions use:
 // context paths, quoted strings, ==, !=, &&, || and parentheses.
-const TOKEN = /\s*(\(|\)|&&|\|\||==|!=|'[^']*'|[A-Za-z_][\w.]*)/y
+const TOKEN_SOURCE = String.raw`\s*(\(|\)|&&|\|\||==|!=|'[^']*'|[A-Za-z_][\w.]*)`
 
 const tokenize = (source, at = 0) => {
   if (source.slice(at).trim() === '') return []
-  TOKEN.lastIndex = at
-  const match = TOKEN.exec(source)
+  const token = new RegExp(TOKEN_SOURCE, 'y')
+  token.lastIndex = at
+  const match = token.exec(source)
   if (!match) throw new Error(`Unsupported expression syntax near: ${source.slice(at)}`)
-  return [match[1], ...tokenize(source, TOKEN.lastIndex)]
+  return [match[1], ...tokenize(source, token.lastIndex)]
 }
 
 const lookup = (context, path) => path.split('.').reduce((value, key) => value?.[key], context)
 
+// Each parser takes a token index and returns [value, nextIndex].
 const evaluate = (source, context) => {
   const tokens = tokenize(source)
   const primary = (at) => {
@@ -46,12 +51,14 @@ const evaluate = (source, context) => {
     const [right, after] = primary(next + 1)
     return [op === '==' ? left === right : left !== right, after]
   }
-  const chain = (operator, operand, combine) => (at) => {
-    const step = ([value, next]) =>
-      tokens[next] === operator
-        ? step(((right) => [combine(value, right[0]), right[1]])(operand(next + 1)))
-        : [value, next]
-    return step(operand(at))
+  // Folds `operand (operator operand)*` left to right.
+  const chain = (operator, operand, combine) => {
+    const rest = (value, at) => {
+      if (tokens[at] !== operator) return [value, at]
+      const [right, next] = operand(at + 1)
+      return rest(combine(value, right), next)
+    }
+    return (at) => rest(...operand(at))
   }
   const and = chain('&&', comparison, (a, b) => Boolean(a) && Boolean(b))
   const or = chain('||', and, (a, b) => Boolean(a) || Boolean(b))
@@ -86,8 +93,9 @@ describe('deploy workflow triggers', () => {
 
 describe('job conditions', () => {
   test('the conditions are pinned, so any edit updates the table below', () => {
-    expect(deploy.if).toBe(DEPLOY_IF)
+    expect(check.if).toBe(CHECK_IF)
     expect(refuse.if).toBe(REFUSE_IF)
+    expect(build.if).toBe(BUILD_IF)
   })
 
   test.each([
@@ -103,9 +111,21 @@ describe('job conditions', () => {
     ],
     ['a manual run on main', dispatch('refs/heads/main'), true, false],
     ['a manual run on another branch', dispatch('refs/heads/feat/x'), false, true],
-  ])('%s', (_, context, deploys, refuses) => {
-    expect(evaluate(deploy.if, context)).toBe(deploys)
+  ])('%s', (_, context, proceeds, refuses) => {
+    expect(evaluate(check.if, context)).toBe(proceeds)
     expect(evaluate(refuse.if, context)).toBe(refuses)
+  })
+
+  test.each([
+    ['true', true],
+    ['false', false],
+  ])('the build runs only when the tip check reports %s', (current, builds) => {
+    expect(evaluate(build.if, { needs: { check: { outputs: { current } } } })).toBe(builds)
+  })
+
+  test('build waits for the check, and deploy waits for the build', () => {
+    expect(build.needs).toBe('check')
+    expect(deploy.needs).toBe('build')
   })
 })
 
@@ -115,8 +135,12 @@ describe('permissions', () => {
   })
 
   test('only the deploy job can write Pages and mint an id token', () => {
-    expect(deploy.permissions).toEqual({ contents: 'read', pages: 'write', 'id-token': 'write' })
-    expect(refuse.permissions).toBeUndefined()
+    expect(deploy.permissions).toEqual({ pages: 'write', 'id-token': 'write' })
+    for (const job of [check, build, refuse]) expect(job.permissions).toBeUndefined()
+  })
+
+  test('the privileged job runs no project code', () => {
+    expect(deploy.steps).toEqual([{ id: 'deployment', uses: 'actions/deploy-pages@v5' }])
   })
 })
 
@@ -124,11 +148,11 @@ test('deploys queue and are never cancelled midway', () => {
   expect(workflow.concurrency).toEqual({ group: 'pages', 'cancel-in-progress': false })
 })
 
-describe('deploy steps', () => {
-  const [tip, ...rest] = deploy.steps
-  const stepUsing = (action) => deploy.steps.find((step) => step.uses?.startsWith(action))
+describe('tip check', () => {
+  const [tip] = check.steps
 
-  test('the tip check runs first and compares the CI commit with the tip of main', () => {
+  test('it compares the CI commit with the tip of main and reports the result', () => {
+    expect(check.outputs.current).toBe('${{ steps.tip.outputs.current }}')
     expect(tip.id).toBe('tip')
     expect(tip.env.HEAD_SHA).toBe('${{ github.event.workflow_run.head_sha }}')
     expect(tip.env.REPO_URL).toBe('https://github.com/${{ github.repository }}')
@@ -138,10 +162,81 @@ describe('deploy steps', () => {
     expect(tip.run).toContain('::notice::')
   })
 
-  test('every later step is gated on the tip check', () => {
-    expect(rest.length).toBeGreaterThan(0)
-    for (const step of rest) expect(step.if).toBe(TIP_GATE)
+  test('it never runs project code', () => {
+    expect(check.steps).toHaveLength(1)
   })
+
+  test('it passes the event and commit to the script', () => {
+    expect(tip.env.EVENT).toBe('${{ github.event_name }}')
+  })
+
+  // Runs the step's script the way Actions does, with a stub `git` that reports the tip.
+  describe('when run', () => {
+    const CI_SHA = 'a'.repeat(40)
+    const NEWER_SHA = 'b'.repeat(40)
+    const dir = mkdtempSync(path.join(tmpdir(), 'deploy-tip-'))
+    const stubGit = path.join(dir, 'git')
+    writeFileSync(
+      stubGit,
+      '#!/bin/sh\n[ -n "$STUB_TIP" ] && printf "%s\\trefs/heads/main\\n" "$STUB_TIP"\nexit 0\n',
+    )
+    chmodSync(stubGit, 0o755)
+    afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+    const runTip = ({ event, stubTip }) => {
+      const output = path.join(dir, `output-${event}-${stubTip || 'none'}`)
+      writeFileSync(output, '')
+      const result = spawnSync(
+        'bash',
+        ['--noprofile', '--norc', '-eo', 'pipefail', '-c', tip.run],
+        {
+          encoding: 'utf8',
+          env: {
+            PATH: `${dir}:${process.env.PATH}`,
+            GITHUB_OUTPUT: output,
+            EVENT: event,
+            HEAD_SHA: event === 'workflow_run' ? CI_SHA : '',
+            REPO_URL: 'https://github.com/owner/repo',
+            STUB_TIP: stubTip ?? '',
+          },
+        },
+      )
+      return { status: result.status, stdout: result.stdout, output: readFileSync(output, 'utf8') }
+    }
+
+    test('the CI commit that is still the tip deploys', () => {
+      expect(runTip({ event: 'workflow_run', stubTip: CI_SHA })).toEqual({
+        status: 0,
+        stdout: '',
+        output: 'current=true\n',
+      })
+    })
+
+    test('an older CI commit is skipped with a notice', () => {
+      const result = runTip({ event: 'workflow_run', stubTip: NEWER_SHA })
+      expect(result.status).toBe(0)
+      expect(result.output).toBe('current=false\n')
+      expect(result.stdout).toContain(`::notice::Skipping ${CI_SHA}: main is now at ${NEWER_SHA}`)
+    })
+
+    test('an unreadable tip fails the job instead of deploying', () => {
+      const result = runTip({ event: 'workflow_run', stubTip: '' })
+      expect(result.status).not.toBe(0)
+      expect(result.output).toBe('')
+    })
+
+    test('a manual run skips the comparison and deploys', () => {
+      expect(runTip({ event: 'workflow_dispatch' })).toEqual({
+        status: 0,
+        stdout: '',
+        output: 'current=true\n',
+      })
+    })
+  })
+})
+
+describe('build steps', () => {
+  const stepUsing = (action) => build.steps.find((step) => step.uses?.startsWith(action))
 
   test('checkout builds the commit CI tested', () => {
     const checkout = stepUsing('actions/checkout')
@@ -149,14 +244,16 @@ describe('deploy steps', () => {
     expect(checkout.with['persist-credentials']).toBe(false)
   })
 
-  test('it builds, uploads dist and deploys to the github-pages environment', () => {
-    expect(deploy.steps.map((step) => step.run).filter(Boolean)).toContain('npm run build')
+  test('it builds and uploads dist', () => {
+    expect(build.steps.map((step) => step.run).filter(Boolean)).toEqual(['npm run build'])
     expect(stepUsing('actions/upload-pages-artifact').with.path).toBe('dist')
-    expect(stepUsing('actions/deploy-pages').id).toBe('deployment')
-    expect(deploy.environment).toEqual({
-      name: 'github-pages',
-      url: '${{ steps.deployment.outputs.page_url }}',
-    })
+  })
+})
+
+test('deploy publishes to the github-pages environment', () => {
+  expect(deploy.environment).toEqual({
+    name: 'github-pages',
+    url: '${{ steps.deployment.outputs.page_url }}',
   })
 })
 
