@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { contentHash } from './contentHash.js'
 import { parseImport } from './importFile.js'
+import { fromProjectFile } from './importFlow.js'
 import { projectFileName, toProjectFile, withContentHash } from './projectFile.js'
 import { validateProjectFile } from './schema/validate.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
@@ -170,13 +171,12 @@ describe('exporting an AI-marked project the user edited', () => {
   it('writes the current schema, drops the mark and keeps the moved position', async () => {
     const imported = await parseImport(markedFixtureText)
     expect(imported.file.modifiedBy).toBeDefined()
-    const nodes = imported.file.nodes.map((node) =>
-      node.id === 'build' ? { ...node, position: MOVED } : node,
-    )
+    const { nodes, edges } = fromProjectFile(imported.file)
+    const moved = nodes.map((node) => (node.id === 'build' ? { ...node, position: MOVED } : node))
     const exported = toProjectFile({
       project: imported.file.project,
-      nodes,
-      edges: imported.file.edges,
+      nodes: moved,
+      edges,
       now: NOW,
     })
     expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)

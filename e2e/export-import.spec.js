@@ -858,13 +858,36 @@ test.describe('a file changed by an AI tool', () => {
     await expect(dialog).not.toContainText('changed outside')
     await expect(announcer(page)).toHaveText(opening)
     expect(await spokenMessages(page)).toEqual([opening])
-    expect(await scan(page)).toEqual([])
     await dialog.getByRole('button', { name: 'Replace map' }).click()
 
     const outcome = `Imported ${MARKED_NAME}, ${MARKED_STEP_COUNT} steps. ${AI_NOTICE}`
     await expect(importStatus(page)).toHaveText(outcome)
     await expect(announcer(page)).toHaveText(outcome)
     await expect(confirmDialog(page)).toHaveCount(0)
+  })
+
+  test('the confirmation with the AI notice passes the accessibility scan', async ({ page }) => {
+    await page.goto('/')
+    await chooseFile(page, MARKED_FIXTURE)
+    await expect(confirmDialog(page)).toContainText(AI_NOTICE)
+    expect(await scan(page)).toEqual([])
+  })
+
+  test('exporting after moving a step writes the current schema, no mark and the new position', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await importAndConfirm(page, MARKED_FIXTURE, MARKED_QUESTION)
+    await expect(cards(page)).toHaveCount(MARKED_STEP_COUNT)
+    await dragCardBy(page, 'Build', { dx: 40, dy: 120 })
+
+    const exported = await exportProjectFile(page)
+    const fixtureBuild = readMarked().nodes.find((node) => node.id === 'build')
+    expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(exported).not.toHaveProperty('modifiedBy')
+    expect(exported.nodes.find((node) => node.id === 'build').position).not.toEqual(
+      fixtureBuild.position,
+    )
   })
 
   test('a later edit shows only the edited notice', async ({ page }) => {
@@ -895,8 +918,15 @@ test.describe('a file changed by an AI tool', () => {
     const file = readMarked()
     file.nodes[0] = { ...file.nodes[0], data: { ...file.nodes[0].data, pt: -1 } }
     await chooseFile(page, asUpload(await withHash(file)))
-    await expect(importStatus(page)).toContainText('Import rejected: 1 problem')
+    await expect(importStatus(page).getByRole('listitem')).toHaveText([
+      messageFor('STEP_COUNT_INVALID', {
+        step: `Step "${file.nodes[0].data.label}" (#1)`,
+        fieldLabel: 'process time',
+        field: 'pt',
+      }),
+    ])
     await expect(confirmDialog(page)).toHaveCount(0)
     await expect(page.getByText('changed by AI tools')).toHaveCount(0)
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   })
 })

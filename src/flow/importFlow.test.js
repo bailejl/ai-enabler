@@ -222,10 +222,10 @@ describe('reduceImport with an edited file', () => {
   })
 
   it.each([
-    ['an edited file', true],
-    ['an untouched file', false],
-  ])('carries the flag of %s into the confirmation', (_name, edited) => {
-    expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file, edited)).state.isEdited).toBe(edited)
+    ['an edited file', true, [EDITED_NOTICE]],
+    ['an untouched file', false, []],
+  ])('holds the notices of %s in the confirmation', (_name, edited, notices) => {
+    expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file, edited)).state.notices).toEqual(notices)
   })
 
   it('announces the question and the notice when the confirmation opens', () => {
@@ -280,9 +280,23 @@ describe('reduceImport with a file changed by an AI tool', () => {
     )
   })
 
-  it('holds the notice in the confirmation, and not the edited flag', () => {
+  it('holds only the AI notice in the confirmation of an unedited file', () => {
     const { state } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, false, changedBy))
-    expect(state).toMatchObject({ aiNotice: NOTICE, isEdited: false })
+    expect(state.notices).toEqual([NOTICE])
+  })
+
+  it('holds the edited notice before the AI notice when both apply', () => {
+    const { state } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, true, changedBy))
+    expect(state.notices).toEqual([EDITED_NOTICE, NOTICE])
+  })
+
+  it('speaks the edited notice before the AI notice, in the question and in the outcome', () => {
+    const { announcement } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, true, changedBy))
+    expect(announcement).toBe(`${QUESTION} ${EDITED_NOTICE} ${NOTICE}`)
+    const outcome = reduceAll([parsed(file, true, changedBy), { type: IMPORT_EVENT.confirm }])
+    expect(outcome.announcement).toBe(
+      `Imported Untitled Project, 2 steps. ${EDITED_NOTICE} ${NOTICE}`,
+    )
   })
 
   it('announces the question and the AI notice when the confirmation opens', () => {
@@ -303,7 +317,7 @@ describe('reduceImport with a file changed by an AI tool', () => {
   it('names the UTC day of a time with an offset', () => {
     const late = { tool: 'aie-mcp', at: '2026-11-20T23:30:00-05:00' }
     const { state } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, false, late))
-    expect(state.aiNotice).toBe(AI_NOTICE('aie-mcp', '2026-11-21'))
+    expect(state.notices).toEqual([AI_NOTICE('aie-mcp', '2026-11-21')])
   })
 
   it('still replaces the map on confirm', () => {
@@ -328,21 +342,25 @@ describe('reduceImport with a file changed by an AI tool', () => {
 
   it('shows only the edited notice for an edited file that has no changedBy', () => {
     const { state, announcement } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, true))
-    expect(state.aiNotice).toBeNull()
+    expect(state.notices).toEqual([EDITED_NOTICE])
     expect(announcement).toBe(`${QUESTION} ${EDITED_NOTICE}`)
     expect(announcement).not.toContain('AI tools')
   })
 
-  it('has no AI notice for an untouched, unmarked file', () => {
-    const { state, announcement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
-    expect(state).not.toHaveProperty('aiNotice')
+  it('holds no notices for an untouched, unmarked file', () => {
+    const { state, announcement } = reduceImport(INITIAL_IMPORT_STATE, parsed(file))
+    expect(state.notices).toEqual([])
+    expect(announcement).toBeNull()
+  })
+
+  it('has no notice in the outcome of an untouched, unmarked file', () => {
+    const { announcement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
     expect(announcement).toBe('Imported Untitled Project, 2 steps')
-    expect(reduceImport(INITIAL_IMPORT_STATE, parsed(file)).state.aiNotice).toBeNull()
   })
 
   it('shows no AI notice when the file is rejected', () => {
     const { state, announcement } = reduceImport(INITIAL_IMPORT_STATE, failed(NOT_JSON))
-    expect(state).not.toHaveProperty('aiNotice')
+    expect(state).not.toHaveProperty('notices')
     expect(announcement).not.toContain('AI tools')
   })
 })

@@ -6,7 +6,7 @@ export const STEP_DATA_FIELDS = ['label', 'pt', 'lt', 'ca', 'queue', 'batch']
 // A step without a usable title is named by its 1-based position in the file or map.
 export const stepPositionName = (index) => `Step #${index + 1}`
 
-const hasText = (value) => typeof value === 'string' && value.trim() !== ''
+export const hasText = (value) => typeof value === 'string' && value.trim() !== ''
 
 // React Flow names a node for assistive technology by its ariaLabel. It is runtime only, so an
 // export never carries it. A blank title falls back to the step's position.

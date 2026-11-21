@@ -21,6 +21,8 @@ const validFile = (overrides = {}) => ({
   ...overrides,
 })
 
+const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
+
 const withoutPosition = (node) =>
   Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'position'))
 
@@ -234,8 +236,6 @@ describe('parseImport', () => {
   })
 
   describe('edit detection', () => {
-    const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
-
     it('is not edited when the contentHash matches the file', async () => {
       const file = await withHash(validFile())
       expect(await parse(file)).toEqual({ ok: true, file, edited: false })
@@ -318,7 +318,6 @@ describe('parseImport', () => {
   // AC15, AC17: the mark is honored only for an untouched file of a version that defines it.
   describe('the AI mark', () => {
     const mark = { tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' }
-    const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
     const markedFile = (overrides = {}) => validFile({ modifiedBy: mark, ...overrides })
 
     it('reports who changed a marked file whose hash matches', async () => {

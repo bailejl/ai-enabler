@@ -5,6 +5,7 @@ import { isObject } from './schema/primitives.js'
 import { validateProjectFile } from './schema/validate.js'
 import {
   CURRENT_SCHEMA_VERSION,
+  MARK_SINCE_VERSION,
   RELEASED_SCHEMA_VERSIONS,
   compareSemver,
   parseSemver,
@@ -55,13 +56,12 @@ const isEdited = async (file, digest) => (await contentHash(file, { digest })) !
 
 // AC15: only a file whose own schema version defines the mark may claim to be AI-changed. A 0.0.0
 // file's stray mark is dropped by its upgrade; this check also keeps a registry that adds one out.
-const MARK_SINCE_VERSION = '0.1.0'
-
+//
 // The mark is trusted only for an untouched file: a hash mismatch means a later edit outside both
 // tools, so the edited notice wins. The upgraded file has passed validation, so its mark is sound.
-const honoredMark = (read, upgraded, edited) => {
+const honoredMark = (parsed, upgraded, edited) => {
   const mark = upgraded.modifiedBy
-  if (edited || !mark || compareSemver(read.schemaVersion, MARK_SINCE_VERSION) < 0) return {}
+  if (edited || !mark || compareSemver(parsed.schemaVersion, MARK_SINCE_VERSION) < 0) return {}
   return { changedBy: { tool: mark.tool, at: mark.at } }
 }
 

@@ -22,7 +22,7 @@ export const EDITED_NOTICE = 'This file was changed outside AI Enabler after it 
 export const AI_NOTICE = (tool, date) =>
   `This file was changed by AI tools (${tool}) on ${date}. Review the steps and numbers before relying on them.`
 
-// The mark's time is ISO 8601, with or without an offset; the notice names the UTC day.
+// The mark's time is ISO 8601 with a zone (validation requires one); the notice names the UTC day.
 const utcDate = (at) => new Date(at).toISOString().slice(0, 10)
 
 const describeChangedBy = (changedBy) =>
@@ -75,18 +75,14 @@ const transition = (state, { announcement = null, replacement = null } = {}) => 
 
 const stay = (state) => transition(state)
 
-const receiveFile = (state, { result, project }) => {
-  if (!result.ok) {
-    const { problems } = result
-    return transition(
-      { type: IMPORT_ERROR, problems },
-      { announcement: `${describeRejection(problems)}. ${problems[0].message}` },
-    )
-  }
-  const { file, edited, changedBy } = result
-  const isEdited = edited === true
-  const aiNotice = describeChangedBy(changedBy)
-  const notices = noticesFor(isEdited, aiNotice)
+const rejectFile = (problems) =>
+  transition(
+    { type: IMPORT_ERROR, problems },
+    { announcement: `${describeRejection(problems)}. ${problems[0].message}` },
+  )
+
+const acceptFile = (state, { result: { file, edited, changedBy }, project }) => {
+  const notices = noticesFor(edited === true, describeChangedBy(changedBy))
   const isSame = isSameName(project, file.project)
   const message = describeConfirmation(isSame, file.project.name)
   return transition(
@@ -95,8 +91,7 @@ const receiveFile = (state, { result, project }) => {
       // The last outcome, so a cancel puts it back: a success line stays until the next import.
       status: state.status ?? null,
       file,
-      isEdited,
-      aiNotice,
+      notices,
       currentName: project.name,
       incomingName: file.project.name,
       message,
@@ -110,12 +105,11 @@ const receiveFile = (state, { result, project }) => {
   )
 }
 
+const receiveFile = (state, event) =>
+  event.result.ok ? acceptFile(state, event) : rejectFile(event.result.problems)
+
 const confirmReplace = (state) => {
-  const announcement = describeImported(
-    state.project.name,
-    state.file.nodes.length,
-    noticesFor(state.isEdited, state.aiNotice),
-  )
+  const announcement = describeImported(state.project.name, state.file.nodes.length, state.notices)
   return transition(
     { type: IMPORT_IDLE, status: announcement },
     { announcement, replacement: { project: state.project, ...fromProjectFile(state.file) } },
@@ -155,9 +149,9 @@ export const describeImportStatus = (state) => {
 
 /**
  * Pure import flow.
- * State: { type: 'idle', status } | { type: 'confirming', status, file, isEdited, aiNotice,
- *   currentName, incomingName, message, project } | { type: 'error', problems: object[] }.
- * `aiNotice` is the AI notice text or null.
+ * State: { type: 'idle', status } | { type: 'confirming', status, file, notices, currentName,
+ *   incomingName, message, project } | { type: 'error', problems: object[] }.
+ * `notices` is the notice texts for the file, the edited notice first, then the AI notice.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
  *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.
  * @returns {{ state: object, announcement: string | null,

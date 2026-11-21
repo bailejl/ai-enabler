@@ -72,8 +72,7 @@ function Shell() {
           message={importState.message}
           currentName={importState.currentName}
           incomingName={importState.incomingName}
-          isEdited={importState.isEdited}
-          aiNotice={importState.aiNotice}
+          notices={importState.notices}
           onConfirm={confirmImport}
           onCancel={cancelImport}
         />

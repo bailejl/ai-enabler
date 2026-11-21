@@ -158,6 +158,8 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     ['a mark from another tool', { tool: 'other-tool', at: '2026-11-20T09:30:00Z' }],
     ['a time with an offset', { tool: 'aie-mcp', at: '2026-11-20T09:30:00+02:00' }],
     ['a time with fractional seconds', { tool: 'aie-mcp', at: '2026-11-20T09:30:00.5Z' }],
+    ['a leap day', { tool: 'aie-mcp', at: '2024-02-29T09:30:00Z' }],
+    ['the last second of the day', { tool: 'aie-mcp', at: '2026-12-31T23:59:59Z' }],
     ['extra keys', { ...validMark(), extra: 1 }],
   ])('accepts %s', (_label, mark) => {
     expect(problemsOf(withMark(mark))).toEqual([])
@@ -188,6 +190,42 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     [
       'month 13',
       { tool: 'aie-mcp', at: '2026-13-20T09:30:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'February 30',
+      { tool: 'aie-mcp', at: '2026-02-30T00:00:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'February 29 in a year that is not a leap year',
+      { tool: 'aie-mcp', at: '2026-02-29T00:00:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'April 31',
+      { tool: 'aie-mcp', at: '2026-04-31T00:00:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'hour 24',
+      { tool: 'aie-mcp', at: '2026-11-20T24:00:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'minute 60',
+      { tool: 'aie-mcp', at: '2026-11-20T09:60:00Z' },
+      'MARK_TIME_INVALID',
+      'modifiedBy.at',
+    ],
+    [
+      'second 60',
+      { tool: 'aie-mcp', at: '2026-11-20T09:30:60Z' },
       'MARK_TIME_INVALID',
       'modifiedBy.at',
     ],
@@ -230,10 +268,12 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     expect(fix).toContain('Remove the modifiedBy field')
   })
 
-  it('keeps the bad time as untrusted text, cut to 80 characters', () => {
-    const found = onlyProblem(withMark({ tool: 'aie-mcp', at: 'x'.repeat(200) }))
-    expect(found.untrusted).toEqual({ time: `${'x'.repeat(79)}…` })
-    expect(found.message).not.toContain('xxx')
+  it('keeps a long bad time whole as untrusted text and out of every other field', () => {
+    const at = 'x'.repeat(200)
+    const found = onlyProblem(withMark({ tool: 'aie-mcp', at }))
+    expect(found.untrusted).toEqual({ time: at })
+    const { message, fix, code, field } = found
+    expect(JSON.stringify({ message, fix, code, field })).not.toContain('xxx')
   })
 
   it('carries no untrusted text for a time that is not text', () => {
