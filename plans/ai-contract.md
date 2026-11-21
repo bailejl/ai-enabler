@@ -1072,7 +1072,7 @@ graph TD
 
 - [ ] Slice 6: Editing session and projects folder
   - [x] Step 6.1: Pure editing session
-  - [ ] Step 6.2: Confined projects-folder store and test wiring
+  - [x] Step 6.2: Confined projects-folder store and test wiring
 
 #### Wave 4
 

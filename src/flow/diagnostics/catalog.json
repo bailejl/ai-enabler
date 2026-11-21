@@ -107,6 +107,54 @@
     "status": "active",
     "since": "0.0.0"
   },
+  "FILE_NAME_NOT_ALLOWED": {
+    "code": "FILE_NAME_NOT_ALLOWED",
+    "severity": "error",
+    "title": "File name is not allowed",
+    "summary": "The name is not a plain .json file name, or it refers to a link rather than a regular file in the projects folder.",
+    "message": "This file name is not allowed. Use a plain name ending in .json for a regular file in the projects folder.",
+    "fix": "Start the name with a letter or digit, use only letters, digits, dots, hyphens and underscores, and end it with .json.",
+    "docs": "#file-name-not-allowed",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "FILE_NAME_TAKEN": {
+    "code": "FILE_NAME_TAKEN",
+    "severity": "error",
+    "title": "File name is taken",
+    "summary": "A new project was saved under the name of a file that already exists, and a new project never overwrites a file.",
+    "message": "A file with this name already exists in the projects folder, so the new project was not saved. Choose another name.",
+    "fix": "Choose another name for the new project, or open the existing file to edit it.",
+    "docs": "#file-name-taken",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "FILE_NOT_FOUND": {
+    "code": "FILE_NOT_FOUND",
+    "severity": "error",
+    "title": "File not found",
+    "summary": "The file does not exist in the projects folder, or it could not be read.",
+    "message": "This file was not found in the projects folder, or it could not be read.",
+    "fix": "Check the name and that the file is in the projects folder, then try again.",
+    "docs": "#file-not-found",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "FILE_SAVE_FAILED": {
+    "code": "FILE_SAVE_FAILED",
+    "severity": "error",
+    "title": "File could not be saved",
+    "summary": "Writing the project file failed. The project stays open in memory with its unsaved changes.",
+    "message": "The file could not be saved. The project is still open with its unsaved changes.",
+    "fix": "Check that the projects folder can be written, then call save_project again.",
+    "docs": "#file-save-failed",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
   "STEP_ID_MISSING": {
     "code": "STEP_ID_MISSING",
     "severity": "error",
