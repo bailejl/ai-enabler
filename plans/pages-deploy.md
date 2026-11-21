@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-21
 **Branch**: feat/pages-deploy
-**Status**: approved
+**Status**: implemented
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/pages-deploy.md` (AC1–AC13, answers S1–S4). Source issue: #25 (N13).
 
@@ -25,6 +25,7 @@ Stance on high-reversal-cost axes:
 - **P1. Deploy trigger.** A new `.github/workflows/deploy.yml` runs on two triggers: `workflow_run` (workflow `CI`, type `completed`, branch `main`) and `workflow_dispatch`. The `deploy` job runs in two cases. First, the CI run concluded `success` and its event is `push`. Second, the event is `workflow_dispatch` and the ref is `refs/heads/main`. A dispatch from any other ref runs a separate `refuse` job that fails with `::error::Deploys run from main only`, so the maintainer sees why nothing deployed. A separate workflow keeps `ci.yml`'s `cancel-in-progress` from cancelling a deploy halfway through. The `github-pages` environment's default branch rule adds a second guard. [S2]
 - **P2. Built commit, and no stale overwrite.** For `workflow_run`, the first step compares `workflow_run.head_sha` with the current `main` tip (`git ls-remote https://github.com/${{ github.repository }} refs/heads/main`). This runs before checkout, so the step names the URL and not `origin`. If they differ, the job writes a `::notice::` and skips the remaining steps: a newer commit has its own CI run and will deploy. This also covers a re-run of an old CI run. When the SHAs match, checkout uses `head_sha`. A dispatch uses `github.sha`.
 - **P3. Permissions.** The workflow sets `contents: read` at the top level. Only the `deploy` job adds `pages: write` and `id-token: write`. Concurrency group is `pages`, with `cancel-in-progress: false`.
+  - **Changed at build review:** the workflow is now three jobs. `check` runs the P1 condition and the P2 tip check, and exposes `current`. `build` (`needs: check`, `if: current == 'true'`) runs checkout, setup, `npm run build`, and `upload-pages-artifact` with read-only permissions. `deploy` (`needs: build`) holds `pages: write` and `id-token: write`, and runs only `actions/deploy-pages`. This way a compromised npm dependency never runs with Pages or OIDC permissions, and a skipped stale commit creates no `github-pages` deployment record. `actions/configure-pages` was dropped because the base path is fixed.
 - **P4. Base path.** `scripts/pages-base.js` exports `PAGES_BASE = '/ai-enabler/'` and a pure `viteBase({ command, isPreview })`. It returns `PAGES_BASE` for a build or a preview, and `/` otherwise. `vite.config.js` becomes a function config that calls `viteBase`. `vitest.config.js` calls that function with `{ command: 'serve', mode: 'test' }` before `mergeConfig`. `playwright.config.js` imports `PAGES_BASE`, so the value is named once and neither config imports the other.
 - **P5. Router.** `src/shell/routes.js` holds pure functions, and `src/shell/useRoute.js` is a thin hook. No router dependency. The module lives in `src/shell/` because it is app navigation, not value stream logic, and a header comment says so. The id is parsed but not used (S3).
 - **P6. Canonical hash.** `resolveHash(hash)` returns `{ route, hash }`.
@@ -403,11 +404,11 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 
 ## Pre-PR Quality Gate
 
-- [ ] `npm test` passes
-- [ ] `npm run test:e2e` passes (`chromium` and `pages` projects)
-- [ ] `npm run lint`, `npm run lint:ci`, and `npm run format:check` pass
-- [ ] `/code-review` passes
-- [ ] README updated
+- [x] `npm test` passes
+- [x] `npm run test:e2e` passes (`chromium` and `pages` projects)
+- [x] `npm run lint`, `npm run lint:ci`, and `npm run format:check` pass
+- [x] `/code-review` passes
+- [x] README updated
 
 ## Risks & Open Questions
 
@@ -455,15 +456,15 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 #### Wave 1
 
-- [ ] Slice 1: Hash routes
-  - [ ] Step 1.1: Route module parses, builds, and syncs hashes
-  - [ ] Step 1.2: The app follows the hash
-- [ ] Slice 3: Deploy workflow and README
-  - [ ] Step 3.1: Deploy workflow gated on green CI
-  - [ ] Step 3.2: README states the live URL
+- [x] Slice 1: Hash routes
+  - [x] Step 1.1: Route module parses, builds, and syncs hashes
+  - [x] Step 1.2: The app follows the hash
+- [x] Slice 3: Deploy workflow and README
+  - [x] Step 3.1: Deploy workflow gated on green CI
+  - [x] Step 3.2: README states the live URL
 
 #### Wave 2
 
-- [ ] Slice 2: Production base path
-  - [ ] Step 2.1: Build and preview use /ai-enabler/, dev uses /
-  - [ ] Step 2.2: Routes under the base path
+- [x] Slice 2: Production base path
+  - [x] Step 2.1: Build and preview use /ai-enabler/, dev uses /
+  - [x] Step 2.2: Routes under the base path
