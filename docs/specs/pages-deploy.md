@@ -4,7 +4,7 @@
 
 **Format:** dev-team specs 14.2.0 (validate mode)
 **Source:** [Issue #25, N13 · AIE is live on GitHub Pages, and deep links survive a refresh](https://github.com/bailejl/ai-enabler/issues/25), the same text as `docs/product/ai-enabler-plan.md` §N13.
-**Status:** Draft. The consistency gate is blocked on the `requires-stakeholder-input` rows S1–S4. Each row shows a recommended answer.
+**Status:** Approved. The user answered S1–S4 on 2026-11-21.
 
 Citation keys:
 
@@ -40,7 +40,7 @@ This change adds the route layer and the deploy. It does not add project storage
 
 **Dependencies**
 
-- One-time repository setting: Settings → Pages → Source = GitHub Actions [S4]. Pages is not enabled on the repository today (the Pages API returns 404).
+- One-time repository setting, done by the user by hand: Settings → Pages → Source = GitHub Actions [S4]. The build does not call `gh api` to enable it. Pages is not enabled on the repository today (the Pages API returns 404).
 
 ## Acceptance Criteria
 
@@ -85,10 +85,10 @@ This change adds the route layer and the deploy. It does not add project storage
 
 | Decision                                          | Classification               | Resolved By | Rationale / Answer                                                                                                                                                                                                              |
 | ------------------------------------------------- | ---------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1. Custom domain now or later?                   | `requires-stakeholder-input` | pending     | Recommended: later; launch on github.io [I §Open questions]. Out of scope here.                                                                                                                                                 |
-| S2. When does the deploy run?                     | `requires-stakeholder-input` | pending     | Recommended: only after the CI workflow succeeds on a `main` push (`workflow_run`), plus manual dispatch. Alternative: deploy on every `main` push in parallel with CI. Source says only "from the main branch".                |
-| S3. What do routes render before E1 adds storage? | `requires-stakeholder-input` | pending     | Recommended: both routes render today's starter shell; the id is kept in the URL but not used; unknown or empty hashes are replaced with `#/`. Alternatives: redirect `#/projects/<id>` to `#/`, or show a "not found" view.    |
-| S4. Who turns on Pages (Source = GitHub Actions)? | `requires-stakeholder-input` | pending     | Recommended: the user, once, in repo Settings → Pages, before the first deploy. Alternative: the agent runs one `gh api` call during build with the user's approval.                                                            |
+| S1. Custom domain now or later?                   | `requires-stakeholder-input` | human       | Later; launch on github.io. Out of scope here.                                                                                                                                                                                  |
+| S2. When does the deploy run?                     | `requires-stakeholder-input` | human       | Only after green CI on a push to `main`, plus `workflow_dispatch`.                                                                                                                                                              |
+| S3. What do routes render before E1 adds storage? | `requires-stakeholder-input` | human       | Both routes show the starter shell; the id stays in the URL unused; an unknown or empty hash becomes `#/`.                                                                                                                      |
+| S4. Who turns on Pages (Source = GitHub Actions)? | `requires-stakeholder-input` | human       | The user, by hand in Settings → Pages. The build must not call `gh api` to enable it; the plan lists it as a manual prerequisite.                                                                                               |
 | I3. Does the dev server move to `/ai-enabler/`?   | `inferable`                  | inference   | No. The source asks for "the same routes", and routes are hashes, so the path prefix does not change them. Existing e2e runs at `/`. Check: alternative "dev at `/ai-enabler/`" adds churn to every e2e URL for no stated gain. |
 | I4. Router library or hand-rolled?                | `inferable`                  | inference   | Hand-rolled pure module plus one hook. Two routes, CLAUDE.md asks for pure logic under `src/flow/`, and no dependency is needed. Check: React Router is plausible but E1 can adopt it if its routes grow.                       |
 | I5. Manual deploy trigger?                        | `inferable`                  | inference   | Yes, `workflow_dispatch`, standard for Pages and needed to redeploy after a settings change. Low risk.                                                                                                                          |
@@ -108,4 +108,4 @@ This change adds the route layer and the deploy. It does not add project storage
 - [x] Architecture constrains without over-engineering
 - [x] Terminology consistent across artifacts
 - [x] No contradictions between artifacts
-- [ ] Every gap/ambiguity finding is logged — inferable with rationale or resolved by human (S1–S4 pending)
+- [x] Every gap/ambiguity finding is logged — inferable with rationale or resolved by human
