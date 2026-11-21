@@ -19,6 +19,10 @@
     "test:e2e": "playwright test",
     "test:gate": "vitest run --reporter=dot",
     "test:e2e:gate": "playwright test --reporter=dot",
+    "test:gate:deploy": "vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js",
+    "test:gate:routes": "vitest run --reporter=verbose src/shell/routes.test.js",
+    "test:e2e:gate:routes": "playwright test --reporter=list --project=chromium e2e/routes.spec.js",
+    "test:e2e:gate:pages": "playwright test --reporter=list --project=pages",
     "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml"
   },
   "repository": {
