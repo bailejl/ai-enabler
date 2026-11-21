@@ -462,104 +462,134 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
+### AC11 — indeterminate
+
+```
+Could not observe `npm run dev` serving the routes: it failed to start with "error when starting dev server:
+Error: Port 3000 is already in use" (a process this examination did not start holds the port, so it was not stopped). The dot reporter output of the routes e2e run (16 passed) does not show which server it ran against.
+```
+
 ### AC1 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30)
+Test Files  2 passed (2)
+      Tests  30 passed (30)
 ```
 
 ### AC2 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)  Tests  30 passed (30)
+Test Files  2 passed (2)
+      Tests  30 passed (30)
 ```
 
 ### AC3 — met
 
 ```
 $ npm run test:e2e:gate -- --project=pages
-> playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.1s)
+> playwright test --reporter=dot --project=pages
+Running 3 tests using 1 worker
+···
+  3 passed (2.1s)
+EXIT=0
 ```
 
 ### AC4 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)  Tests  30 passed (30)
+Test Files  2 passed (2)
+      Tests  30 passed (30)
 ```
 
 ### AC5 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-> playwright test --reporter=dot e2e/routes.spec.js --project=chromium  Running 16 tests using 1 worker ················  16 passed (6.1s)
+> playwright test --reporter=dot e2e/routes.spec.js --project=chromium
+Running 16 tests using 1 worker
+················
+  16 passed (6.3s)
+EXIT=0
 ```
 
 ### AC6 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker ················  16 passed (6.1s)
+Running 16 tests using 1 worker
+················
+  16 passed (6.3s)
+EXIT=0 (base-path variant: --project=pages: 3 passed (2.1s) EXIT=0)
 ```
 
 ### AC7 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker ················  16 passed (6.1s)
+Running 16 tests using 1 worker
+················
+  16 passed (6.3s)
+EXIT=0
 ```
 
 ### AC8 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker ················  16 passed (6.1s)
+Running 16 tests using 1 worker
+················
+  16 passed (6.3s)
+EXIT=0
 ```
 
 ### AC9 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker ················  16 passed (6.1s)
+Running 16 tests using 1 worker
+················
+  16 passed (6.3s)
+EXIT=0
 ```
 
 ### AC10 — met
 
 ```
 $ npm run test:gate -- src/shell/routes.test.js
-> vitest run --reporter=dot src/shell/routes.test.js ... Test Files  1 passed (1)  Tests  32 passed (32)
-```
-
-### AC11 — met
-
-```
-$ npm run test:e2e:gate
-Running 170 tests using 6 workers ... [WebServer] 12:38:43 PM [vite] (client) [Unhandled error] Error: ResizeObserver loop completed with undelivered notifications. [WebServer]  > ../../../../../../../@vite/client:370:50 ... 170 passed (20.8s)
+> vitest run --reporter=dot src/shell/routes.test.js
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
 ```
 
 ### AC12 — met
 
 ```
 $ npm run test:e2e:gate -- --project=pages
-> playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.1s)
+> playwright test --reporter=dot --project=pages
+Running 3 tests using 1 worker
+···
+  3 passed (2.1s)
+EXIT=0 (seen locally only; a CI run was not observed)
 ```
 
 ### AC13 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)  Tests  30 passed (30)
+Test Files  2 passed (2)
+      Tests  30 passed (30)
 ```
 
 ### Audit details
 
-- Overall: met
-- Binding hash: f6fb87971a36a15a7d20a9381f9a8ec8a591b32e09064d30dc17de339e27fc00
+- Overall: indeterminate
+- Binding hash: f6a80e66e47650fe123c4313efa0d2846aa105ddea1d88540309c58772bee3f3
 - Inputs digest: 21b036a47c8afc7bb610a1fff48644ae818577d460f73ea8290d49b787c640ac
-- Agent: a199f345c7f54fe93
-- Recorded at: 2026-11-21T20:39:53+00:00
+- Agent: a5d26a0c6989b5940
+- Recorded at: 2026-11-21T20:42:56+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
