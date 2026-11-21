@@ -442,5 +442,29 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "CMD_UNSAVED_CHANGES": {
+    "code": "CMD_UNSAVED_CHANGES",
+    "severity": "error",
+    "title": "Project has unsaved changes",
+    "summary": "Opening another file or creating a project was blocked because the open project has unsaved changes.",
+    "message": "The open project has unsaved changes. Call save_project to keep them or discard_changes to drop them, then try again.",
+    "fix": "Call save_project to keep the changes or discard_changes to drop them, then try again.",
+    "docs": "#cmd-unsaved-changes",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "CMD_PROJECT_NOT_OPEN": {
+    "code": "CMD_PROJECT_NOT_OPEN",
+    "severity": "error",
+    "title": "No project is open to save",
+    "summary": "A save was requested when no project is open.",
+    "message": "No project is open. Call open_project or create_project first.",
+    "fix": "Call open_project to load a file or create_project to start a new one, then try again.",
+    "docs": "#cmd-project-not-open",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }
