@@ -466,42 +466,42 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30). The criterion names the deploy-workflow tests as its pre-merge check, and they passed. The dot reporter does not name individual tests. The live publish is post-merge, out of scope.
+> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30)
 ```
 
 ### AC2 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)  Tests  30 passed (30). The deploy-workflow condition-table tests passed. The dot reporter does not name the individual failure, cancelled, timed_out and pull_request cases. Also: lint:ci printed 'action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml' with no errors.
+Test Files  2 passed (2)  Tests  30 passed (30)
 ```
 
 ### AC3 — met
 
 ```
 $ npm run test:e2e:gate -- --project=pages
-> PORT=${PORT:-3417} playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.0s)
+> playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.1s)
 ```
 
 ### AC4 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)  Tests  30 passed (30). The deploy-workflow tests passed. The dot reporter does not name the workflow_dispatch case.
+Test Files  2 passed (2)  Tests  30 passed (30)
 ```
 
 ### AC5 — met
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-> PORT=${PORT:-3417} playwright test --reporter=dot e2e/routes.spec.js --project=chromium  Running 16 tests using 1 worker ················  16 passed (6.1s)
+> playwright test --reporter=dot e2e/routes.spec.js --project=chromium  Running 16 tests using 1 worker ················  16 passed (6.1s)
 ```
 
 ### AC6 — met
 
 ```
-$ npm run test:e2e:gate -- --project=pages
-Running 3 tests using 1 worker ···  3 passed (2.0s). Also e2e/routes.spec.js --project=chromium: 16 passed (6.1s)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
+Running 16 tests using 1 worker ················  16 passed (6.1s)
 ```
 
 ### AC7 — met
@@ -515,7 +515,7 @@ Running 16 tests using 1 worker ················  16 passed (6.1
 
 ```
 $ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker ················  16 passed (6.1s). Also --project=pages: 3 passed (2.0s)
+Running 16 tests using 1 worker ················  16 passed (6.1s)
 ```
 
 ### AC9 — met
@@ -535,31 +535,31 @@ $ npm run test:gate -- src/shell/routes.test.js
 ### AC11 — met
 
 ```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-> PORT=${PORT:-3417} playwright test --reporter=dot e2e/routes.spec.js --project=chromium  16 passed (6.1s). The route behavior passed on the chromium project served at PORT. The output does not itself name the dev server.
+$ npm run test:e2e:gate
+Running 170 tests using 6 workers ... [WebServer] 12:38:43 PM [vite] (client) [Unhandled error] Error: ResizeObserver loop completed with undelivered notifications. [WebServer]  > ../../../../../../../@vite/client:370:50 ... 170 passed (20.8s)
 ```
 
 ### AC12 — met
 
 ```
 $ npm run test:e2e:gate -- --project=pages
-> PORT=${PORT:-3417} playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.0s). Passed locally. A CI run was not observed in this examination.
+> playwright test --reporter=dot --project=pages  Running 3 tests using 1 worker ···  3 passed (2.1s)
 ```
 
 ### AC13 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)  Tests  30 passed (30)
+Test Files  2 passed (2)  Tests  30 passed (30)
 ```
 
 ### Audit details
 
 - Overall: met
-- Binding hash: 9b2febc1374a95ac416ca5e0df35e168168aa0bef5b3c229c682def6bf1f070c
+- Binding hash: f6fb87971a36a15a7d20a9381f9a8ec8a591b32e09064d30dc17de339e27fc00
 - Inputs digest: 21b036a47c8afc7bb610a1fff48644ae818577d460f73ea8290d49b787c640ac
-- Agent: af2c1d7871f6d975c
-- Recorded at: 2026-11-21T20:29:12+00:00
+- Agent: a199f345c7f54fe93
+- Recorded at: 2026-11-21T20:39:53+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
