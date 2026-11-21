@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterAll, describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { parse } from 'yaml'
 import { evaluate, evaluateTemplate } from './gha-expression.js'
 
@@ -119,47 +119,62 @@ describe('concurrency', () => {
     expect(group(context)).toBe('pages')
   })
 
-  test('a manual run off main gets its own group, so it cannot displace a pending deploy', () => {
-    expect(group(dispatch('refs/heads/feat/x'))).toBe(202)
+  test.each([
+    ['failed CI on main', workflowRun('failure', 'push')],
+    ['green CI on a pull request from a branch named main', workflowRun('success', 'pull_request')],
+    ['a manual run off main', dispatch('refs/heads/feat/x')],
+  ])('%s gets a group of its own, so it cannot displace a pending deploy', (_, context) => {
+    expect(group(context)).toBe(context.github.run_id)
+  })
+
+  test('only runs the check lets through join the pages queue', () => {
+    expect(workflow.concurrency.group).toBe(`\${{ (${CHECK_IF}) && 'pages' || github.run_id }}`)
   })
 })
 
 describe('tip check', () => {
   const [tip] = check.steps
 
-  test('it compares the CI commit with the tip of main and reports the result', () => {
+  test('it reports its result as the job output', () => {
     expect(check.outputs.current).toBe('${{ steps.tip.outputs.current }}')
     expect(tip.id).toBe('tip')
-    expect(tip.env.HEAD_SHA).toBe('${{ github.event.workflow_run.head_sha }}')
-    expect(tip.env.REPO_URL).toBe('https://github.com/${{ github.repository }}')
-    expect(tip.run).toContain('git ls-remote "$REPO_URL" refs/heads/main')
-    expect(tip.run).not.toMatch(/\borigin\b/)
-    expect(tip.run).toContain('[ "$tip" = "$HEAD_SHA" ]')
-    expect(tip.run).toContain('::notice::')
+  })
+
+  test('it passes the event, the CI commit and the repository URL to the script', () => {
+    expect(tip.env).toEqual({
+      EVENT: '${{ github.event_name }}',
+      HEAD_SHA: '${{ github.event.workflow_run.head_sha }}',
+      REPO_URL: 'https://github.com/${{ github.repository }}',
+    })
   })
 
   test('it never runs project code', () => {
     expect(check.steps).toHaveLength(1)
   })
 
-  test('it passes the event name to the script', () => {
-    expect(tip.env.EVENT).toBe('${{ github.event_name }}')
-  })
-
   // Runs the step's script the way Actions does, with a stub `git` that reports the tip.
   describe('when run', () => {
     const CI_SHA = 'a'.repeat(40)
     const NEWER_SHA = 'b'.repeat(40)
+    const REPO_URL = 'https://github.com/owner/repo'
+    // The stub answers only `git ls-remote <REPO_URL> refs/heads/main`, so a query for any other
+    // repository or ref fails the run. STUB_FAIL makes git itself fail.
+    const STUB_GIT = [
+      '#!/bin/sh',
+      '[ -n "$STUB_FAIL" ] && exit 128',
+      `[ "$1 $2 $3" = "ls-remote ${REPO_URL} refs/heads/main" ] || exit 2`,
+      '[ -n "$STUB_TIP" ] && printf "%s\\trefs/heads/main\\n" "$STUB_TIP"',
+      'exit 0',
+      '',
+    ].join('\n')
     const dir = mkdtempSync(path.join(tmpdir(), 'deploy-tip-'))
-    const stubGit = path.join(dir, 'git')
-    writeFileSync(
-      stubGit,
-      '#!/bin/sh\n[ -n "$STUB_TIP" ] && printf "%s\\trefs/heads/main\\n" "$STUB_TIP"\nexit 0\n',
-    )
-    chmodSync(stubGit, 0o755)
+    beforeAll(() => {
+      writeFileSync(path.join(dir, 'git'), STUB_GIT)
+      chmodSync(path.join(dir, 'git'), 0o755)
+    })
     afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
-    const runTip = ({ event, stubTip }) => {
+    const runTip = ({ event, stubTip, stubFail = false }) => {
       const output = path.join(dir, `output-${event}-${stubTip || 'none'}`)
       writeFileSync(output, '')
       const result = spawnSync(
@@ -172,8 +187,9 @@ describe('tip check', () => {
             GITHUB_OUTPUT: output,
             EVENT: event,
             HEAD_SHA: event === 'workflow_run' ? CI_SHA : '',
-            REPO_URL: 'https://github.com/owner/repo',
+            REPO_URL,
             STUB_TIP: stubTip ?? '',
+            STUB_FAIL: stubFail ? '1' : '',
           },
         },
       )
@@ -195,9 +211,15 @@ describe('tip check', () => {
       expect(result.stdout).toContain(`::notice::Skipping ${CI_SHA}: main is now at ${NEWER_SHA}`)
     })
 
-    test('an unreadable tip fails the job instead of deploying', () => {
+    test('an empty tip fails the job instead of deploying', () => {
       const result = runTip({ event: 'workflow_run', stubTip: '' })
-      expect(result.status).not.toBe(0)
+      expect(result.status).toBe(1)
+      expect(result.output).toBe('')
+    })
+
+    test('a failing git fails the job instead of deploying', () => {
+      const result = runTip({ event: 'workflow_run', stubTip: CI_SHA, stubFail: true })
+      expect(result.status).toBe(128)
       expect(result.output).toBe('')
     })
 

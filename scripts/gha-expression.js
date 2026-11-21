@@ -34,10 +34,10 @@ export const evaluateValue = (source, context) => {
   }
   const comparison = (at) => {
     const [left, next] = primary(at)
-    const op = tokens[next]
-    if (op !== '==' && op !== '!=') return [left, next]
+    const operator = tokens[next]
+    if (operator !== '==' && operator !== '!=') return [left, next]
     const [right, after] = primary(next + 1)
-    return [op === '==' ? equals(left, right) : !equals(left, right), after]
+    return [operator === '==' ? equals(left, right) : !equals(left, right), after]
   }
   // Folds `operand (operator operand)*` left to right.
   const chain = (operator, operand, combine) => {

@@ -22,11 +22,11 @@ Stance on high-reversal-cost axes:
 
 ## Plan decisions
 
-- **P1. Deploy trigger.** A new `.github/workflows/deploy.yml` runs on two triggers: `workflow_run` (workflow `CI`, type `completed`, branch `main`) and `workflow_dispatch`. The `deploy` job runs in two cases. First, the CI run concluded `success` and its event is `push`. Second, the event is `workflow_dispatch` and the ref is `refs/heads/main`. A dispatch from any other ref runs a separate `refuse` job that fails with `::error::Deploys run from main only`, so the maintainer sees why nothing deployed. A separate workflow keeps `ci.yml`'s `cancel-in-progress` from cancelling a deploy halfway through. The `github-pages` environment's default branch rule adds a second guard. [S2]
-- **P2. Built commit, and no stale overwrite.** For `workflow_run`, the first step compares `workflow_run.head_sha` with the current `main` tip (`git ls-remote https://github.com/${{ github.repository }} refs/heads/main`). This runs before checkout, so the step names the URL and not `origin`. If they differ, the job writes a `::notice::` and skips the remaining steps: a newer commit has its own CI run and will deploy. This also covers a re-run of an old CI run. When the SHAs match, checkout uses `head_sha`. A dispatch uses `github.sha`.
+- **P1. Deploy trigger.** A new `.github/workflows/deploy.yml` runs on two triggers: `workflow_run` (workflow `CI`, type `completed`, branch `main`) and `workflow_dispatch`. A deploy happens in two cases (the `check` job's condition; `build` and `deploy` run only after `check` passes, per the P3 note). First, the CI run concluded `success` and its event is `push`. Second, the event is `workflow_dispatch` and the ref is `refs/heads/main`. A dispatch from any other ref runs a separate `refuse` job that fails with `::error::Deploys run from main only`, so the maintainer sees why nothing deployed. A separate workflow keeps `ci.yml`'s `cancel-in-progress` from cancelling a deploy halfway through. The `github-pages` environment's default branch rule adds a second guard. [S2]
+- **P2. Built commit, and no stale overwrite.** For `workflow_run`, the first step compares `workflow_run.head_sha` with the current `main` tip (`git ls-remote https://github.com/${{ github.repository }} refs/heads/main`). This runs before checkout, so the step names the URL and not `origin`. If they differ, the `check` job writes a `::notice::` and sets `current=false`, so `build` and `deploy` are skipped: a newer commit has its own CI run and will deploy. This also covers a re-run of an old CI run. When the SHAs match, checkout uses `head_sha`. A dispatch uses `github.sha`.
 - **P3. Permissions.** The workflow sets `contents: read` at the top level. Only the `deploy` job adds `pages: write` and `id-token: write`. Concurrency group is `pages`, with `cancel-in-progress: false`.
   - **Changed at build review:** the workflow is now three jobs. `check` runs the P1 condition and the P2 tip check, and exposes `current`. `build` (`needs: check`, `if: current == 'true'`) runs checkout, setup, `npm run build`, and `upload-pages-artifact` with read-only permissions. `deploy` (`needs: build`) holds `pages: write` and `id-token: write`, and runs only `actions/deploy-pages`. This way a compromised npm dependency never runs with Pages or OIDC permissions, and a skipped stale commit creates no `github-pages` deployment record. `actions/configure-pages` was dropped because the base path is fixed.
-  - **Changed at code review:** the concurrency group is `pages` for every run except a dispatch off `main`, which takes a group of its own (`github.run_id`). That run only refuses, so it can no longer displace a deploy waiting in the `pages` queue.
+  - **Changed at code review:** only a run that passes the `check` condition joins the `pages` group. Any other run (failed CI, a pull request, a dispatch off `main`) takes a group of its own (`github.run_id`), so it cannot displace a deploy waiting in the `pages` queue. GitHub keeps one pending run per group, so a newer deploy replaces an older pending one, and the tip check makes the newest green `main` commit win.
 - **P4. Base path.** `scripts/pages-base.js` exports `PAGES_BASE = '/ai-enabler/'` and a pure `viteBase({ command, isPreview })`. It returns `PAGES_BASE` for a build or a preview, and `/` otherwise. `vite.config.js` becomes a function config that calls `viteBase`. `vitest.config.js` calls that function with `{ command: 'serve', mode: 'test' }` before `mergeConfig`. `playwright.config.js` imports `PAGES_BASE`, so the value is named once and neither config imports the other.
 - **P5. Router.** `src/shell/routes.js` holds pure functions, and `src/shell/useRoute.js` is a thin hook. No router dependency. The module lives in `src/shell/` because it is app navigation, not value stream logic, and a header comment says so. The id is parsed but not used (S3).
 - **P6. Canonical hash.** `resolveHash(hash)` returns `{ route, hash }`.
@@ -42,11 +42,11 @@ Stance on high-reversal-cost axes:
   - Readiness `url` is `http://localhost:<previewPort>/ai-enabler/`.
   - `reuseExistingServer: false`, so it never serves a stale `dist`.
   - `timeout: 120000`, because the command runs a full build first.
-  - `previewPort` is `PREVIEW_PORT`, or `PORT + 1000` when that is unset.
+  - `previewPort` is `PREVIEW_PORT`, or the dev port + 1000 when that is unset (see P11).
 
   A `pages` project runs only `e2e/pages.spec.js`, and `chromium` ignores that file. `npm run test:e2e` runs both projects, so CI and the pre-push hook check the production base path with no workflow change.
 
-- **P10. Workflow tests parse YAML.** `scripts/deploy-workflow.test.js` parses `deploy.yml` with the `yaml` package. `yaml` is already in the lockfile as a transitive dependency; this plan adds it as an explicit dev dependency. The test scopes assertions to the top level and to each job. It also evaluates the `deploy` and `refuse` job conditions over a table of (event, conclusion, CI event, ref) cases, using a small evaluator for the exact expression shape used. The `if` expressions use only `==`, `&&`, `||`, and parentheses over `github.*`. The test also pins each expression string, so any edit forces an update to the table. `scripts/ci-workflow.test.js` is not changed.
+- **P10. Workflow tests parse YAML.** `scripts/deploy-workflow.test.js` parses `deploy.yml` with the `yaml` package. `yaml` is already in the lockfile as a transitive dependency; this plan adds it as an explicit dev dependency. The test scopes assertions to the top level and to each job. It also evaluates the `check` and `refuse` job conditions over a table of (event, conclusion, CI event, ref) cases, using a small evaluator for the exact expression shape used. The `if` and concurrency expressions use only `==`, `!=`, `&&`, `||`, parentheses, quoted strings, and `github.*` context paths. The test also pins each expression string, so any edit forces an update to the table. `scripts/ci-workflow.test.js` is not changed.
   - **Changed at code review:** the evaluator moved to `scripts/gha-expression.js` with its own tests (`scripts/gha-expression.test.js`). It follows GitHub's semantics: `&&` and `||` return an operand, and `==` compares strings case-insensitively. It also evaluates the `${{ }}` concurrency group. The workflow test also checks that `ci.yml` is still named `CI` and runs on push to `main`, so renaming CI cannot silently stop deploys.
 - **P11. Per-worktree e2e ports (added at build).** `scripts/e2e-ports.js` derives the e2e dev port from the checkout path (FNV-1a, 3100–3999), and the preview port as the dev port + 1000, so two worktrees never share or reuse each other's servers. An explicit `PORT` or `PREVIEW_PORT` overrides the derived value. A derived port never reuses an existing server; an explicit `PORT` outside CI may. This replaces P9's `PORT + 1000` default when `PORT` is unset. Tested in `scripts/e2e-ports.test.js`.
 
@@ -178,7 +178,7 @@ Feature: Hash routes
 **IMPLEMENT**: Add `src/shell/useRoute.js`. On mount and on every `hashchange`, it rewrites a non-canonical hash in place with `replaceState` (using `rewriteTarget`), keeps the route in state, removes the listener on unmount, and returns the route. `App.jsx` calls `useRoute()` above `Shell` and sets `data-route` on the app root (P8). Shell state persists across hash changes.
 **TEST**: `e2e/routes.spec.js` covers every Slice 1 scenario against `npm run dev` at `/` (AC11).
 
-- **Changed at code review:** the Outline's malformed project links (`/#/projects/`, `/#/projects/abc/extra`, `/#/projects/abc//`, `/#/projects/%E0%A4%A`) and the trailing-slash scenario are covered by the `resolveHash` table in `src/shell/routes.test.js`. The e2e Outline keeps one address per AC8 kind (`/`, `/#`, `/#/nowhere`), which proves the in-place rewrite. "The same app shell" is checked by comparing the rendered step labels, not markup.
+- **Changed at code review:** the Outline's malformed project links (`/#/projects/`, `/#/projects/abc/extra`, `/#/projects/abc//`, `/#/projects/%E0%A4%A`) are covered by the `resolveHash` table in `src/shell/routes.test.js`. The e2e Outline keeps one address per AC8 kind (`/`, `/#`, `/#/nowhere`), which proves the in-place rewrite. The trailing-slash scenario stays in e2e. "The same app shell" is checked by comparing the rendered step labels, not markup.
 
 - Read `location.hash` and `history.length` with `page.evaluate`.
 - Change the hash with `page.evaluate(() => { location.hash = … })`, which records a history entry the way the address bar does.
@@ -343,7 +343,7 @@ The `refuse` job handles an off-`main` dispatch. Add `yaml` as a dev dependency,
 **TEST**: `scripts/deploy-workflow.test.js` (P10) asserts these:
 
 - The triggers are `workflow_run` with workflows `[CI]`, types `[completed]`, branches `[main]`, plus `workflow_dispatch`. There is no `push` or `pull_request` trigger.
-- The condition table, for the `deploy` and `refuse` jobs:
+- The condition table, for the `check` and `refuse` jobs:
   - success + push + main: deploy.
   - failure, cancelled, or timed_out + push: no deploy.
   - success + pull_request (including head branch `main`): no deploy.
@@ -358,7 +358,7 @@ The `refuse` job handles an off-`main` dispatch. Add `yaml` as a dev dependency,
 `npm run lint:ci` passes.
 
 **REFACTOR**: Keep the condition evaluator to the operators the workflow uses. If the workflow needs more, simplify the workflow.
-**Files**: `.github/workflows/deploy.yml`, `scripts/deploy-workflow.test.js`, `package.json`, `package-lock.json`
+**Files**: `.github/workflows/deploy.yml`, `scripts/deploy-workflow.test.js`, `scripts/gha-expression.js`, `scripts/gha-expression.test.js`, `package.json`, `package-lock.json`
 **Covers**: AC1, AC2, AC4
 **Commit**: `ci: deploy to GitHub Pages after CI passes on main`
 
@@ -368,7 +368,7 @@ The `refuse` job handles an off-`main` dispatch. Add `yaml` as a dev dependency,
 **IMPLEMENT**: In the README Status section, add the live URL. Add one line saying that deploys run after CI passes on `main`. Add another saying that links use `#/` (`#/`, `#/projects/<id>`), not path-style URLs.
 **TEST**: The slice invariant greps for the live URL. `npm run format:check` passes.
 **REFACTOR**: Keep the README Commands table unchanged, because there is no new user-facing command.
-**Files**: `README.md`
+**Files**: `README.md`, `scripts/readme.test.js`
 **Covers**: AC13
 **Commit**: `docs: link the live site from the README`
 
@@ -394,7 +394,7 @@ graph TD
 | 1    | 1, 3              |
 | 2    | 2                 |
 
-Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and read `e2e/views.js`, which Slice 1 owns. Slice 3 shares no files and no runtime behavior with Slice 1. When Slices 1 and 3 build in parallel worktrees, only Slice 1 runs Playwright. Give each worktree its own `PORT`. Ship all three slices in one PR.
+Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and read `e2e/views.js`, which Slice 1 owns. Slice 3 shares no files and no runtime behavior with Slice 1. When Slices 1 and 3 build in parallel worktrees, only Slice 1 runs Playwright. Each worktree gets its own e2e ports (P11). Ship all three slices in one PR.
 
 ## Complexity Classification
 

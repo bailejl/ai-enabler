@@ -57,7 +57,7 @@ test('a project id with reserved characters is not rewritten', async ({ page }) 
 })
 
 // One case per kind in AC8: no hash, an empty hash, an unknown hash. The malformed project
-// links and the trailing slash are covered by the resolveHash table in src/shell/routes.test.js.
+// links are covered by the resolveHash table in src/shell/routes.test.js.
 for (const address of ['/', '/#', '/#/nowhere']) {
   test(`"${address}" becomes the home route without a new history entry`, async ({ context }) => {
     const fresh = await context.newPage()
@@ -73,6 +73,13 @@ for (const address of ['/', '/#', '/#/nowhere']) {
     expect(await historyLength(page)).toBe(expectedLength)
   })
 }
+
+test('a trailing slash on a project link is dropped', async ({ page }) => {
+  await page.goto('/#/projects/abc123/')
+  await expectStarterSteps(page)
+  await expectHash(page, '#/projects/abc123')
+  await expectRoute(page, 'project')
+})
 
 test('back and forward switch the route without a reload', async ({ page }) => {
   await page.goto('/#/')

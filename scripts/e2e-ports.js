@@ -1,4 +1,5 @@
-// Dev ports for e2e runs fall in 3100–3999 and preview ports in 4100–4999, so the ranges never overlap.
+// Derived dev ports fall in 3100–3999 and derived preview ports in 4100–4999, so the derived
+// ranges never overlap. An explicit PORT or PREVIEW_PORT can land anywhere.
 export const DEV_PORT_MIN = 3100
 export const DEV_PORT_SPAN = 900
 export const PREVIEW_OFFSET = 1000
@@ -22,10 +23,10 @@ const explicitPort = (value) => Number(value) || undefined
 // silently testing another worktree's code. Only an explicit PORT outside CI may reuse one.
 export const e2ePorts = ({ env, root }) => {
   const explicit = explicitPort(env.PORT)
-  const port = explicit ?? derivedPort(root)
+  const devPort = explicit ?? derivedPort(root)
   return {
-    port,
-    previewPort: explicitPort(env.PREVIEW_PORT) ?? port + PREVIEW_OFFSET,
+    devPort,
+    previewPort: explicitPort(env.PREVIEW_PORT) ?? devPort + PREVIEW_OFFSET,
     reuseDevServer: explicit !== undefined && !env.CI,
   }
 }

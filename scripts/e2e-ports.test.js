@@ -23,16 +23,16 @@ describe('derivedPort', () => {
 
 describe('e2ePorts', () => {
   test.each(ROOTS)('%s gets a dev port in 3100–3999 and a preview port in 4100–4999', (root) => {
-    const { port, previewPort } = e2ePorts({ env: {}, root })
-    expect(port).toBeGreaterThanOrEqual(3100)
-    expect(port).toBeLessThanOrEqual(3999)
+    const { devPort, previewPort } = e2ePorts({ env: {}, root })
+    expect(devPort).toBeGreaterThanOrEqual(3100)
+    expect(devPort).toBeLessThanOrEqual(3999)
     expect(previewPort).toBeGreaterThanOrEqual(4100)
     expect(previewPort).toBeLessThanOrEqual(4999)
   })
 
   test('with no env, the ports come from the root and no dev server is reused', () => {
     expect(e2ePorts({ env: {}, root: WORKTREE })).toEqual({
-      port: 3591,
+      devPort: 3591,
       previewPort: 4591,
       reuseDevServer: false,
     })
@@ -40,7 +40,7 @@ describe('e2ePorts', () => {
 
   test('an explicit PORT wins, its preview follows it, and its dev server may be reused', () => {
     expect(e2ePorts({ env: { PORT: '3417' }, root: WORKTREE })).toEqual({
-      port: 3417,
+      devPort: 3417,
       previewPort: 4417,
       reuseDevServer: true,
     })
@@ -48,7 +48,7 @@ describe('e2ePorts', () => {
 
   test('an explicit PREVIEW_PORT wins and leaves the dev port and reuse unchanged', () => {
     expect(e2ePorts({ env: { PREVIEW_PORT: '5000' }, root: WORKTREE })).toEqual({
-      port: 3591,
+      devPort: 3591,
       previewPort: 5000,
       reuseDevServer: false,
     })
@@ -56,7 +56,7 @@ describe('e2ePorts', () => {
 
   test('explicit PORT and PREVIEW_PORT are both used as given', () => {
     expect(e2ePorts({ env: { PORT: '3417', PREVIEW_PORT: '5000' }, root: WORKTREE })).toEqual({
-      port: 3417,
+      devPort: 3417,
       previewPort: 5000,
       reuseDevServer: true,
     })
@@ -64,7 +64,7 @@ describe('e2ePorts', () => {
 
   test('in CI an explicit PORT never reuses a dev server', () => {
     expect(e2ePorts({ env: { PORT: '3417', CI: 'true' }, root: WORKTREE })).toEqual({
-      port: 3417,
+      devPort: 3417,
       previewPort: 4417,
       reuseDevServer: false,
     })
@@ -72,7 +72,7 @@ describe('e2ePorts', () => {
 
   test.each(['', 'abc', '0'])('PORT %j is ignored: derived ports, no reuse', (value) => {
     expect(e2ePorts({ env: { PORT: value }, root: WORKTREE })).toEqual({
-      port: 3591,
+      devPort: 3591,
       previewPort: 4591,
       reuseDevServer: false,
     })

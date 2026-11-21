@@ -8,16 +8,27 @@ const currentPath = (page) => page.evaluate(() => window.location.pathname)
 
 test('every asset of the initial load is served under the Pages base', async ({ page }) => {
   const failed = []
+  const assetPaths = []
+  page.on('request', (request) => {
+    if (['script', 'stylesheet'].includes(request.resourceType())) {
+      assetPaths.push({ type: request.resourceType(), path: new URL(request.url()).pathname })
+    }
+  })
   page.on('requestfailed', (request) => failed.push(`failed ${request.url()}`))
   page.on('response', (response) => {
     if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`)
   })
 
   await page.goto(`${PAGES_BASE}#/`)
-  // The build has one script and one stylesheet, both needed before the cards render.
+  // The cards render only after the script runs. The listeners above catch a failed or 4xx
+  // stylesheet.
   await expectStarterSteps(page)
 
   expect(failed).toEqual([])
+  // A build with the wrong base would request /assets/..., which the preview's SPA fallback
+  // can still answer with 200, so check each asset path too.
+  expect(new Set(assetPaths.map(({ type }) => type))).toEqual(new Set(['script', 'stylesheet']))
+  for (const { path } of assetPaths) expect(path.startsWith(PAGES_BASE)).toBe(true)
 })
 
 test('a bare base-path load is normalized and keeps the base path', async ({ page }) => {

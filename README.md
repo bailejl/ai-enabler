@@ -70,7 +70,8 @@ the e2e tests cover it.
 - `stryker.config.mjs` - mutation testing settings.
 - `eslint.config.js` - deep lint rules.
 - `prettier.config.js` - formatting rules.
-- `scripts/` - Node tooling (push guards), with colocated `*.test.js`.
+- `scripts/` - Node tooling: push guards, the e2e port and Pages base-path helpers, and a GitHub
+  Actions expression evaluator, with colocated `*.test.js`.
 - `.husky/` - Git hooks.
 - `.claude/` - Claude Code settings, project instructions, and agent files.
 
