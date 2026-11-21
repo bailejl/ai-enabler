@@ -427,6 +427,12 @@ describe('parseImport', () => {
       const result = await parseImport(fixtures[`./schema/fixtures/${version}.json`])
       expect(result.edited).toBe(false)
     })
+
+    it('shows no AI notice for the unmarked 0.0.0 fixture', async () => {
+      const result = await parseImport(fixtures['./schema/fixtures/0.0.0.json'])
+      expect(result.ok).toBe(true)
+      expect(result).not.toHaveProperty('changedBy')
+    })
   })
 })
 
