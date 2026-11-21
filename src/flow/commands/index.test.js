@@ -59,6 +59,8 @@ describe('applyCommand argument checks', () => {
     undefined,
     null,
     { name: undefined },
+    { name: '' },
+    { name: '   ' },
     { name: 5 },
     { name: 'toString' },
     { name: { toString: 1 } },

@@ -16,6 +16,12 @@ export const shorten = (value) => {
   return text.length > MAX_ECHOED_TEXT ? `${text.slice(0, MAX_ECHOED_TEXT - 1)}…` : text
 }
 
+export const hasText = (value) => typeof value === 'string' && value.trim() !== ''
+
+// How a message names something the caller sent by name (a command, a gate). Text that is not a
+// string, or is blank, has no usable name.
+export const nameLabel = (value) => (hasText(value) ? shorten(value) : '(no name)')
+
 export const quoted = (value) => `"${shorten(value)}"`
 
 export const formatCount = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`

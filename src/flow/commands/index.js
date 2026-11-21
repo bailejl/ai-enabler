@@ -1,7 +1,7 @@
 import { problem } from '../diagnostics/problem.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { isObject } from '../schema/primitives.js'
-import { formatCount, quoted, shorten } from '../text.js'
+import { formatCount, nameLabel, quoted, shorten } from '../text.js'
 import { CONNECTION_COMMANDS } from './connections.js'
 import { STEP_COMMANDS } from './steps.js'
 
@@ -27,11 +27,9 @@ const COMMANDS = {
 
 const COMMAND_NAMES = Object.keys(COMMANDS)
 
-const commandLabel = (name) => (typeof name === 'string' ? shorten(name) : '(no name)')
-
 const unknownCommand = (name) =>
   problem('CMD_UNKNOWN', {
-    params: { command: commandLabel(name), commands: COMMAND_NAMES.join(', ') },
+    params: { command: nameLabel(name), commands: COMMAND_NAMES.join(', ') },
     untrusted: { command: name },
   })
 
@@ -52,7 +50,7 @@ const checkArgs = (name, entry, args) => {
 }
 
 const rejectedSummary = (name, problems) =>
-  `Rejected ${commandLabel(name)}: nothing changed (${formatCount(problems.length, 'problem')})`
+  `Rejected ${nameLabel(name)}: nothing changed (${formatCount(problems.length, 'problem')})`
 
 /**
  * Applies one command to the in-memory project (the project file shape without schemaVersion,
