@@ -462,134 +462,105 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC11 — indeterminate
+### AC2 — indeterminate
 
 ```
-Could not observe `npm run dev` serving the routes: it failed to start with "error when starting dev server:
-Error: Port 3000 is already in use" (a process this examination did not start holds the port, so it was not stopped). The dot reporter output of the routes e2e run (16 passed) does not show which server it ran against.
+The only command that bears on this is `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js`. It uses the dot reporter and prints only 'Tests  30 passed (30)', with no test names. Nothing in the output shows that a failed, cancelled, or timed_out CI run, a pull request, or a fork PR from 'main' leads to no deploy. Fix: name the tests in the gate run with a list reporter, as was done for AC11.
+```
+
+### AC3 — indeterminate
+
+```
+`npm run test:e2e:gate -- --project=pages` printed only '> playwright test --reporter=dot --project=pages ... Running 3 tests using 1 worker ··· 3 passed (2.0s)'. No test names are shown, so the output does not show a no-404 initial load or the shell rendering under /ai-enabler/. Fix: add --reporter=list to the run command.
+```
+
+### AC4 — indeterminate
+
+```
+No run command shows manual-dispatch behavior. The deploy-workflow test run prints only 'Tests  30 passed (30)' through the dot reporter, with no names. Nothing shows a workflow_dispatch on main publishing, or a dispatch from another branch failing with 'Deploys run from main only'.
+```
+
+### AC6 — indeterminate
+
+```
+The routes run shows '✓   3 [chromium] › e2e/routes.spec.js:32:1 › a project deep link survives a direct load and a refresh', but '✓   1 ... › these route tests run against the Vite dev server at the root'. So that run is at '/', not '/ai-enabler/'. The base-path run (`--project=pages`) printed only '··· 3 passed (2.0s)' with no names, so a direct load or refresh of /ai-enabler/#/projects/<id> is not shown.
+```
+
+### AC12 — indeterminate
+
+```
+`npm run test:e2e:gate -- --project=pages` printed '··· 3 passed (2.0s)' locally. No test names are shown, so a production build served under /ai-enabler/ passing AC3, AC6, and AC8 is not visible. 'in CI' cannot be observed from a local run either.
+```
+
+### AC13 — indeterminate
+
+```
+No run command prints the README's URL or a test name about it. `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js` shows only 'Test Files  2 passed (2)  Tests  30 passed (30)' through the dot reporter, and reading the README is outside this examination.
 ```
 
 ### AC1 — met
 
 ```
 $ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)
-      Tests  30 passed (30)
-```
-
-### AC2 — met
-
-```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)
-      Tests  30 passed (30)
-```
-
-### AC3 — met
-
-```
-$ npm run test:e2e:gate -- --project=pages
-> playwright test --reporter=dot --project=pages
-Running 3 tests using 1 worker
-···
-  3 passed (2.1s)
-EXIT=0
-```
-
-### AC4 — met
-
-```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)
-      Tests  30 passed (30)
+> vitest run --reporter=dot scripts/deploy-workflow.test.js scripts/readme.test.js ... Test Files  2 passed (2)       Tests  30 passed (30). The criterion names the deploy-workflow tests as its pre-merge check, and they pass. The live publish is post-merge and out of scope.
 ```
 
 ### AC5 — met
 
 ```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-> playwright test --reporter=dot e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker
-················
-  16 passed (6.3s)
-EXIT=0
-```
-
-### AC6 — met
-
-```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker
-················
-  16 passed (6.3s)
-EXIT=0 (base-path variant: --project=pages: 3 passed (2.1s) EXIT=0)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list
+✓   2 [chromium] › e2e/routes.spec.js:25:1 › the home route renders the shell (186ms)
 ```
 
 ### AC7 — met
 
 ```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker
-················
-  16 passed (6.3s)
-EXIT=0
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list
+✓   4 [chromium] › e2e/routes.spec.js:40:1 › an unknown project id still renders the app shell (181ms)
+✓   5 [chromium] › e2e/routes.spec.js:46:1 › the home and project routes render the same shell (349ms)
 ```
 
 ### AC8 — met
 
 ```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker
-················
-  16 passed (6.3s)
-EXIT=0
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list
+✓   7 ... › "/" becomes the home route without a new history entry
+✓   8 ... › "/#" becomes the home route without a new history entry
+✓   9 ... › "/#/nowhere" becomes the home route without a new history entry
+✓  10 ... › "/#/projects/" ...
+✓  11 ... › "/#/projects/abc/extra" ...
+(+3 lines)
 ```
 
 ### AC9 — met
 
 ```
-$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium
-Running 16 tests using 1 worker
-················
-  16 passed (6.3s)
-EXIT=0
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list
+✓  15 [chromium] › e2e/routes.spec.js:95:1 › back and forward switch the route without a reload (264ms)
+✓  16 [chromium] › e2e/routes.spec.js:117:1 › an address change to an unknown hash is replaced in place (186ms)
 ```
 
 ### AC10 — met
 
 ```
 $ npm run test:gate -- src/shell/routes.test.js
-> vitest run --reporter=dot src/shell/routes.test.js
- Test Files  1 passed (1)
-      Tests  32 passed (32)
+> vitest run --reporter=dot src/shell/routes.test.js ... Test Files  1 passed (1)       Tests  32 passed (32). EXIT=0
 ```
 
-### AC12 — met
+### AC11 — met
 
 ```
-$ npm run test:e2e:gate -- --project=pages
-> playwright test --reporter=dot --project=pages
-Running 3 tests using 1 worker
-···
-  3 passed (2.1s)
-EXIT=0 (seen locally only; a CI run was not observed)
-```
-
-### AC13 — met
-
-```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js
-Test Files  2 passed (2)
-      Tests  30 passed (30)
+$ npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium --reporter=list
+✓   1 [chromium] › e2e/routes.spec.js:18:1 › these route tests run against the Vite dev server at the root (199ms) ... 16 passed (6.1s)
 ```
 
 ### Audit details
 
 - Overall: indeterminate
 - Binding hash: f6a80e66e47650fe123c4313efa0d2846aa105ddea1d88540309c58772bee3f3
-- Inputs digest: 21b036a47c8afc7bb610a1fff48644ae818577d460f73ea8290d49b787c640ac
-- Agent: a5d26a0c6989b5940
-- Recorded at: 2026-11-21T20:42:56+00:00
+- Inputs digest: 03eda0cd6b5817c4b50ed32cd7aa44ce2206235cb1774829fdde69e79c270395
+- Agent: a4fffc32c2373b86d
+- Recorded at: 2026-11-21T20:53:49+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
