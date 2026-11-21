@@ -34,7 +34,7 @@ const parsed = (file, edited = false) => ({
 })
 const failed = (message) => ({
   type: IMPORT_EVENT.fileParsed,
-  result: { ok: false, message },
+  result: { ok: false, problems: [{ message }] },
   project: OPEN_PROJECT,
 })
 

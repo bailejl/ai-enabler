@@ -6,6 +6,7 @@ import {
   INITIAL_IMPORT_STATE,
   reduceImport,
 } from '../flow/importFlow.js'
+import { problem } from '../flow/diagnostics/problem.js'
 import { parseImport } from '../flow/importFile.js'
 import { initialEdges, initialNodes } from '../flow/initialFlow.js'
 import { createStarterProject } from '../flow/project.js'
@@ -13,7 +14,7 @@ import { projectFileName, toProjectFile, withContentHash } from '../flow/project
 import { downloadTextFile } from './download.js'
 
 const JSON_INDENT = 2
-const UNREADABLE_FILE = Object.freeze({ ok: false, message: 'This file could not be read.' })
+const UNREADABLE_FILE = Object.freeze({ ok: false, problems: [problem('FILE_UNREADABLE')] })
 
 // A file the browser cannot read is reported like any other file that cannot be imported.
 const readImport = async (file) => {

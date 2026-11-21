@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { contentHash } from './contentHash.js'
+import { isCatalogCode } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
-
-const NOT_A_PROJECT_FILE = 'This is not a project file. Choose a file exported from AI Enabler.'
 
 const step = (id, label, extra = {}) => ({
   id,
@@ -26,6 +25,15 @@ const withoutPosition = (node) =>
   Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'position'))
 
 const parse = async (file, settings) => parseImport(JSON.stringify(file), settings)
+
+// Rejected imports are checked through these, so every emitted code is proven to be in the catalog.
+const rejectedProblems = (result) => {
+  expect(result.ok).toBe(false)
+  result.problems.forEach((found) => expect(isCatalogCode(found.code)).toBe(true))
+  return result.problems
+}
+
+const codesOf = (result) => rejectedProblems(result).map((found) => found.code)
 
 const fixtures = import.meta.glob('./schema/fixtures/*.json', {
   eager: true,
@@ -55,50 +63,59 @@ describe('parseImport', () => {
       ['a numeric schemaVersion', JSON.stringify(validFile({ schemaVersion: 1 }))],
       ['a schemaVersion with a v prefix', JSON.stringify(validFile({ schemaVersion: 'v1.0.0' }))],
     ])('%s', async (_name, text) => {
-      expect(await parseImport(text)).toEqual({ ok: false, message: NOT_A_PROJECT_FILE })
+      expect(codesOf(await parseImport(text))).toEqual(['FILE_NOT_A_PROJECT'])
     })
   })
 
   it('rejects text that is not JSON', async () => {
-    expect(await parseImport('this is not json')).toEqual({
-      ok: false,
-      message: 'This file is not valid JSON.',
-    })
+    expect(codesOf(await parseImport('this is not json'))).toEqual(['FILE_NOT_JSON'])
   })
 
   it('rejects empty text as not JSON', async () => {
-    expect(await parseImport('')).toEqual({ ok: false, message: 'This file is not valid JSON.' })
+    expect(codesOf(await parseImport(''))).toEqual(['FILE_NOT_JSON'])
   })
 
-  it('reports only the version message for a newer schema with a bad step', async () => {
+  it('reports only the newer-schema problem for a newer schema with a bad step', async () => {
     const file = validFile({
       schemaVersion: '9.0.0',
       nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition(step('c', 'Build'))],
     })
-    expect(await parse(file)).toEqual({
-      ok: false,
-      message: `This file uses schema 9.0.0; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update the app or re-export the file.`,
-    })
+    const problems = rejectedProblems(await parse(file))
+    expect(problems.map((found) => found.code)).toEqual(['FILE_NEWER_SCHEMA'])
+    expect(problems[0].message).toContain('9.0.0')
+    expect(problems[0].message).toContain(CURRENT_SCHEMA_VERSION)
   })
 
   it('names a step with no position by label and number', async () => {
     const file = validFile({
       nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition(step('c', 'Build'))],
     })
-    expect(await parse(file)).toEqual({
-      ok: false,
-      message: 'Step "Build" (#3) is missing a position (position.x and position.y).',
-    })
+    const problems = rejectedProblems(await parse(file))
+    expect(problems).toHaveLength(1)
+    expect(problems[0].message).toContain('Step "Build" (#3)')
   })
 
   it('names a step with no label by number only', async () => {
     const file = validFile({
       nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition({ ...step('c'), data: {} })],
     })
-    expect(await parse(file)).toEqual({
-      ok: false,
-      message: 'Step #3 is missing a position (position.x and position.y).',
+    const problems = rejectedProblems(await parse(file))
+    expect(problems.length).toBeGreaterThan(0)
+    problems.forEach((found) => {
+      expect(found.message).toContain('Step #3')
+      expect(found.message).not.toContain('"')
     })
+  })
+
+  it('passes every validator problem through, not only the first', async () => {
+    const file = validFile({
+      project: { id: 'p1', name: '' },
+      nodes: [withoutPosition(step('a', 'Plan')), step('b', 'Design'), withoutPosition(step('c'))],
+    })
+    const problems = rejectedProblems(await parse(file))
+    expect(problems.length).toBeGreaterThan(2)
+    expect(problems.map((found) => found.code)).toContain('FILE_PROJECT_NAME_EMPTY')
+    expect(new Set(problems.map((found) => found.message)).size).toBe(problems.length)
   })
 
   it('rejects connections that form a loop', async () => {
@@ -109,21 +126,21 @@ describe('parseImport', () => {
         { id: 'c->a', source: 'c', target: 'a' },
       ],
     })
-    expect(await parse(file)).toEqual({
-      ok: false,
-      message: 'Connection 3 closes a loop in the connections.',
-    })
+    const problems = rejectedProblems(await parse(file))
+    expect(problems).toHaveLength(1)
+    expect(problems[0].message).toContain('Connection 3')
   })
 
   describe('with an injected version history', () => {
     const settings = { current: '0.2.0', released: ['0.0.0', '0.2.0'], registry: [] }
 
     it('rejects a lower version that was never released, naming both versions', async () => {
-      expect(await parse(validFile({ schemaVersion: '0.1.0' }), settings)).toEqual({
-        ok: false,
-        message:
-          'This file uses schema 0.1.0, which was never released; this app supports up to 0.2.0.',
-      })
+      const problems = rejectedProblems(
+        await parse(validFile({ schemaVersion: '0.1.0' }), settings),
+      )
+      expect(problems.map((found) => found.code)).toEqual(['FILE_UNRELEASED_SCHEMA'])
+      expect(problems[0].message).toContain('0.1.0')
+      expect(problems[0].message).toContain('0.2.0')
     })
 
     it('accepts a file at the injected current version, flagging it edited since it has no hash', async () => {
@@ -132,11 +149,12 @@ describe('parseImport', () => {
     })
 
     it('reports a version above the injected current as newer', async () => {
-      expect(await parse(validFile({ schemaVersion: '0.2.1' }), settings)).toEqual({
-        ok: false,
-        message:
-          'This file uses schema 0.2.1; this app supports up to 0.2.0. Update the app or re-export the file.',
-      })
+      const problems = rejectedProblems(
+        await parse(validFile({ schemaVersion: '0.2.1' }), settings),
+      )
+      expect(problems.map((found) => found.code)).toEqual(['FILE_NEWER_SCHEMA'])
+      expect(problems[0].message).toContain('0.2.1')
+      expect(problems[0].message).toContain('0.2.0')
     })
 
     it('upgrades a released older file through the registry, then validates it', async () => {
@@ -160,12 +178,8 @@ describe('parseImport', () => {
           upgrade: (file) => ({ ...file, project: { ...file.project, name: '' } }),
         },
       ]
-      expect(await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })).toEqual(
-        {
-          ok: false,
-          message: 'The project name (project.name) is empty.',
-        },
-      )
+      const result = await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })
+      expect(codesOf(result)).toEqual(['FILE_PROJECT_NAME_EMPTY'])
     })
 
     it('fails plainly when an upgrade throws', async () => {
@@ -178,19 +192,21 @@ describe('parseImport', () => {
           },
         },
       ]
-      expect(await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })).toEqual(
-        {
-          ok: false,
-          message: 'This file could not be upgraded from schema 0.0.0 to 0.2.0.',
-        },
+      const problems = rejectedProblems(
+        await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry }),
       )
+      expect(problems.map((found) => found.code)).toEqual(['FILE_UPGRADE_FAILED'])
+      expect(problems[0].message).toContain('0.0.0')
+      expect(problems[0].message).toContain('0.2.0')
     })
 
     it('fails plainly when a released version has no upgrade path', async () => {
-      expect(await parse(validFile({ schemaVersion: '0.0.0' }), settings)).toEqual({
-        ok: false,
-        message: 'This file uses schema 0.0.0, which this app cannot upgrade to 0.2.0.',
-      })
+      const problems = rejectedProblems(
+        await parse(validFile({ schemaVersion: '0.0.0' }), settings),
+      )
+      expect(problems.map((found) => found.code)).toEqual(['FILE_NO_UPGRADE_PATH'])
+      expect(problems[0].message).toContain('0.0.0')
+      expect(problems[0].message).toContain('0.2.0')
     })
   })
 
@@ -262,10 +278,7 @@ describe('parseImport', () => {
       const digest = async () => {
         throw new Error('no crypto')
       }
-      expect(await parse(validFile(), { digest })).toEqual({
-        ok: false,
-        message: 'This file could not be read.',
-      })
+      expect(codesOf(await parse(validFile(), { digest }))).toEqual(['FILE_UNREADABLE'])
     })
 
     it('reports no edited flag for a rejected file', async () => {

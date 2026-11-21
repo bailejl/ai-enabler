@@ -51,10 +51,8 @@ const stay = (state) => transition(state)
 
 const receiveFile = (state, { result, project }) => {
   if (!result.ok) {
-    return transition(
-      { type: IMPORT_ERROR, message: result.message },
-      { announcement: result.message },
-    )
+    const { message } = result.problems[0]
+    return transition({ type: IMPORT_ERROR, message }, { announcement: message })
   }
   const { file, edited } = result
   const isEdited = edited === true
