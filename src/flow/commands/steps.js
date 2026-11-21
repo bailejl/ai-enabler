@@ -89,10 +89,11 @@ const removeStep = (project, { stepId }) => {
   const edges = project.edges.filter(
     ({ source, target }) => source !== step.id && target !== step.id,
   )
+  const removed = project.edges.length - edges.length
   return {
     project: { ...project, nodes: project.nodes.filter((node) => node !== step), edges },
     summary: () =>
-      `Removed step ${stepRef(step, index)} and ${formatCount(project.edges.length - edges.length, 'connection')}`,
+      `Removed step ${stepRef(step, index)}; ${formatCount(removed, 'connection')} ${removed === 1 ? 'was' : 'were'} removed`,
   }
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { validateProjectFile } from '../schema/validate.js'
 import { MAX_ECHOED_TEXT } from '../text.js'
-import { GATES, runGate } from './index.js'
+import { GATES, allProblems, runGate } from './index.js'
 
 const project = { project: { id: 'p-1', name: 'Checkout' }, nodes: [], edges: [] }
 const registry = { alpha: () => [], beta: () => [] }
@@ -115,5 +116,33 @@ describe('runGate', () => {
 
   it('is ok when a registered gate returns no problems', () => {
     expect(runGate(project, 'quiet', { quiet: () => [] })).toEqual({ ok: true, problems: [] })
+  })
+})
+
+describe('allProblems', () => {
+  const marker = (code) => ({ code })
+
+  it('lists the project rules first, then each gate in registry order', () => {
+    const broken = { ...project, project: { id: 'p-1', name: '' } }
+    const registry = { alpha: () => [marker('A')], beta: () => [marker('B1'), marker('B2')] }
+    const codes = allProblems(broken, registry).map(({ code }) => code)
+    const rules = validateProjectFile(broken).problems.map(({ code }) => code)
+    expect(rules.length).toBeGreaterThan(0)
+    expect(codes).toEqual([...rules, 'A', 'B1', 'B2'])
+  })
+
+  it('runs the default gates when no registry is given', () => {
+    expect(allProblems(project).map(({ code }) => code)).toEqual(['GATE_PROJECT_EMPTY'])
+  })
+
+  it('is empty for a complete valid project', () => {
+    const built = step('s-1', 'Build', { pt: 0, lt: 0, ca: 0, queue: 0 })
+    expect(allProblems({ ...project, nodes: [built] })).toEqual([])
+  })
+
+  it('passes the project to each gate', () => {
+    const seen = []
+    allProblems(project, { probe: (given) => (seen.push(given), []) })
+    expect(seen).toEqual([project])
   })
 })

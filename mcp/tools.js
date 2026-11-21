@@ -1,7 +1,6 @@
 import { COMMANDS, checkArgs, rejectCommand } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
-import { GATES, runGate } from '../src/flow/gates/index.js'
-import { validateProjectFile } from '../src/flow/schema/validate.js'
+import { allProblems, runGate } from '../src/flow/gates/index.js'
 import {
   EMPTY_SESSION,
   applyToSession,
@@ -85,8 +84,10 @@ const openProject = async (session, { name }, { store }) => {
   return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`)
 }
 
-// Only the file the session came from may be overwritten; any other name must be a new file.
-const saveProject = async (session, { name = session.name }, { store, now }) => {
+// No name (or null) means the file the session came from. Only that file may be overwritten; any
+// other name must be a new file.
+const saveProject = async (session, args, { store, now }) => {
+  const name = args.name ?? session.name
   if (name === null) return reject(session, 'save_project', [problem('CMD_NAME_REQUIRED')])
   const built = await toSaveFile(session, { now: now(), tool: SAVE_TOOL })
   const text = JSON.stringify(built.file, null, JSON_INDENT)
@@ -107,12 +108,6 @@ const getProject = (session) => {
     project: session.project,
   })
 }
-
-// With no gate, every check: the project's own rules, then every registered gate.
-const allProblems = (project) => [
-  ...validateProjectFile(project).problems,
-  ...Object.keys(GATES).flatMap((id) => runGate(project, id).problems),
-]
 
 const listProblems = (session, { gate }) => {
   const problems =
@@ -193,6 +188,16 @@ const toToolResult = ({ ok, problems, summary, ...rest }) => ({
   },
 })
 
+/**
+ * The MCP tool result for a host result: the content as JSON text and as structured content.
+ * @param {{ isError: boolean, content: object }} result
+ */
+export const toCallResult = ({ isError, content }) => ({
+  content: [{ type: 'text', text: JSON.stringify(content) }],
+  structuredContent: content,
+  isError,
+})
+
 // A line of stderr is one line: control characters (a newline in a step name) are written out.
 const SHORT_ESCAPES = { '\n': '\\n', '\r': '\\r', '\t': '\\t' }
 const escapeControls = (text) =>
@@ -214,10 +219,19 @@ export const createToolHost = ({ store, now, newId, log }) => {
   let session = EMPTY_SESSION
   let queue = Promise.resolve()
 
+  // The call has been applied by now; a log that throws must not fail it.
+  const writeLog = (line) => {
+    try {
+      log(line)
+    } catch {
+      // There is nothing else to do with a log that cannot be written.
+    }
+  }
+
   const execute = async (name, args) => {
     const outcome = await runTool(session, name, args, { store, now, newId })
     session = outcome.session
-    if (outcome.applied) log(`${name}: ${escapeControls(outcome.result.summary)}`)
+    if (outcome.applied) writeLog(`${name}: ${escapeControls(outcome.result.summary)}`)
     return toToolResult(outcome.result)
   }
 

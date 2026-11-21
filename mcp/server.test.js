@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parseImport } from '../src/flow/importFile.js'
+import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
 
 const SERVER = fileURLToPath(new URL('./server.js', import.meta.url))
 
@@ -23,6 +24,19 @@ const TOOL_NAMES = [
   'list_problems',
 ]
 
+// The text of a saved project file with one step, as the app would export it.
+const savedProjectText = async () =>
+  JSON.stringify(
+    await withContentHash(
+      toProjectFile({
+        project: { id: 'p1', name: 'Saved' },
+        nodes: [{ id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } }],
+        edges: [],
+        now: new Date('2026-11-14T12:00:00.000Z'),
+      }),
+    ),
+  )
+
 const FORBIDDEN_INPUTS = ['path', 'file', 'dir', 'url', 'command']
 
 const cleanups = []
@@ -33,8 +47,12 @@ afterEach(async () => {
 
 // Starts `node mcp/server.js` in a fresh temp folder and speaks newline-delimited JSON-RPC to it.
 // `finish()` closes its stdin, waits for it to exit and returns everything it wrote.
-const startServer = async () => {
+const startServer = async ({ files = {} } = {}) => {
   const dir = await mkdtemp(path.join(tmpdir(), 'aie-server-'))
+  await mkdir(path.join(dir, 'projects'))
+  for (const [name, text] of Object.entries(files)) {
+    await writeFile(path.join(dir, 'projects', name), text)
+  }
   const child = spawn(process.execPath, [SERVER], { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] })
   const stdout = []
   const pending = new Map()
@@ -143,20 +161,69 @@ describe('the stdio server', () => {
   })
 
   it('writes one stderr line per applied command and only protocol messages to stdout', async () => {
-    const { call, finish } = await startServer()
+    const { call, finish } = await startServer({
+      files: { 'saved.json': await savedProjectText() },
+    })
 
-    await call('create_project', { name: 'Demo' })
+    const opened = await call('open_project', { name: 'saved.json' })
     await call('add_step', { name: 'Build\nInjected' })
     const rejected = await call('add_step', {})
     const { stdout, stderr } = await finish()
 
+    expect(opened.isError).toBe(false)
     expect(rejected.isError).toBe(true)
     const lines = stderr.split('\n')
     expect(lines.pop()).toBe('')
-    expect(lines).toHaveLength(2)
-    expect(lines[0]).toMatch(/^create_project: /)
-    expect(lines[1]).toMatch(/^add_step: .*Build\\nInjected/)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatch(/^add_step: .*Build\\nInjected/)
     expect(stdout.length).toBeGreaterThan(0)
     for (const line of stdout) expect(JSON.parse(line)).toMatchObject({ jsonrpc: '2.0' })
+  })
+
+  describe('a bad call', () => {
+    it.each([
+      ['an unknown tool', { name: 'nope', arguments: {} }, 'CMD_TOOL_UNKNOWN'],
+      [
+        'an unknown argument',
+        { name: 'add_step', arguments: { name: 'Build', path: '/etc' } },
+        'CMD_ARGUMENT_UNKNOWN',
+      ],
+      [
+        'no arguments for a tool that needs some',
+        { name: 'open_project' },
+        'FILE_NAME_NOT_ALLOWED',
+      ],
+    ])('with %s is a tool-level error', async (_label, params, code) => {
+      const { request } = await startServer()
+
+      const { result } = await request('tools/call', params)
+
+      expect(result.isError).toBe(true)
+      const content = JSON.parse(result.content[0].text)
+      expect(content).toMatchObject({ ok: false, summary: expect.stringMatching(/^Rejected /) })
+      expect(content.problems.map((found) => found.code)).toEqual([code])
+      expect(result.structuredContent).toEqual(content)
+    })
+
+    // The SDK checks `arguments` against a record before our handler runs, so the host never sees
+    // a non-object: the client gets a JSON-RPC error instead of a tool-level result.
+    it.each([
+      ['text', 'Build'],
+      ['null', null],
+      ['a list', ['Build']],
+    ])(
+      'with %s as the arguments is a JSON-RPC error, and the server stays alive',
+      async (_label, bad) => {
+        const { request, call } = await startServer()
+
+        const response = await request('tools/call', { name: 'add_step', arguments: bad })
+
+        expect(response.result).toBeUndefined()
+        expect(response.error.code).toBeTypeOf('number')
+        expect(response.error.message).toContain('arguments')
+        const created = await call('create_project', { name: 'Demo' })
+        expect(created.isError).toBe(false)
+      },
+    )
   })
 })

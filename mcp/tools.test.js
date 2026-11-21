@@ -3,7 +3,7 @@ import { COMMANDS } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
-import { TOOLS, createToolHost } from './tools.js'
+import { TOOLS, createToolHost, toCallResult } from './tools.js'
 
 const NOW = new Date('2026-11-21T10:30:00.000Z')
 const EXPORTED = new Date('2026-11-14T12:00:00.000Z')
@@ -536,19 +536,27 @@ describe('the log', () => {
     expect(lines).toEqual([])
   })
 
-  it('logs nothing for open, save, discard or reads', async () => {
+  // Each starts from a project with one unsaved change, and a cleared log.
+  it.each([
+    ['get_project', undefined],
+    ['list_problems', undefined],
+    ['list_problems', { gate: 'data-complete' }],
+    ['save_project', undefined],
+    ['discard_changes', undefined],
+    ['open_project', { name: 'missing.json' }],
+  ])('logs nothing for %s %j', async (tool, args) => {
     const { call, lines } = await withOpenProject()
     await call('add_step', { name: 'Ship' })
     lines.length = 0
-    await call('get_project')
-    await call('list_problems')
-    await call('list_problems', { gate: 'data-complete' })
-    await call('save_project')
-    await call('add_step', { name: 'Test' })
+    const result = await call(tool, args)
+    expect(result.content.summary).toBeTypeOf('string')
+    expect(lines).toEqual([])
+  })
+
+  it('logs nothing for open_project of a saved file', async () => {
+    const { call, lines } = await withOpenProject()
     lines.length = 0
-    await call('discard_changes')
-    await call('open_project', { name: 'team.json' })
-    await call('open_project', { name: 'missing.json' })
+    expect((await call('open_project', { name: 'team.json' })).isError).toBe(false)
     expect(lines).toEqual([])
   })
 })
@@ -558,6 +566,7 @@ describe('open_project', () => {
     const { call } = await withOpenProject()
     const reopened = await call('open_project', { name: 'team.json' })
     expect(reopened.content.summary).toBe('Opened "team.json": 2 steps')
+    expect(reopened.content.problems).toEqual([])
     expect((await call('get_project')).content.project.project.name).toBe('Checkout')
   })
 
@@ -711,19 +720,35 @@ describe('save_project', () => {
     expect(store.writes.at(-1)).toMatchObject({ name: 'copy.json', mustBeNew: false })
   })
 
-  it.each(['../secret.json', '..', 'a/b.json', '', 'notes.txt', 5, null])(
+  it.each(['../secret.json', '..', 'a/b.json', '', 'notes.txt', 5])(
     'passes the store problem on for the name %j',
     async (name) => {
       const { call, store } = await withOpenProject()
       await call('add_step', { name: 'Ship' })
       const result = await call('save_project', { name })
       expect(result.isError).toBe(true)
-      expect(codes(result)).toEqual(
-        name === null ? ['CMD_NAME_REQUIRED'] : ['FILE_NAME_NOT_ALLOWED'],
-      )
+      expect(codes(result)).toEqual(['FILE_NAME_NOT_ALLOWED'])
       expect(store.writes).toEqual([])
     },
   )
+
+  it('treats a null name like no name: it saves over the file the project came from', async () => {
+    const { call, store } = await withOpenProject()
+    await call('add_step', { name: 'Ship' })
+    const result = await call('save_project', { name: null })
+    expect(result.isError).toBe(false)
+    expect(result.content.summary).toBe('Saved "team.json"')
+    expect(store.writes).toHaveLength(1)
+    expect(store.writes[0]).toMatchObject({ name: 'team.json', mustBeNew: false })
+  })
+
+  it('still needs a name for a never-saved project when the name is null', async () => {
+    const { call, store } = makeHost()
+    await call('create_project', { name: 'Demo' })
+    const result = await call('save_project', { name: null })
+    expect(codes(result)).toEqual(['CMD_NAME_REQUIRED'])
+    expect(store.writes).toEqual([])
+  })
 
   it('keeps the project open with its unsaved changes when the write fails', async () => {
     const { call, store } = await withOpenProject({
@@ -770,17 +795,58 @@ describe('serialising calls', () => {
     expect(codes(await call('create_project', { name: 'Next' }))).toEqual(['CMD_UNSAVED_CHANGES'])
   })
 
-  it('keeps answering after a call throws', async () => {
-    const store = fakeStore()
+  it('keeps the applied change and its summary when the log throws', async () => {
     const host = createToolHost({
-      store,
+      store: fakeStore(),
       now: () => NOW,
       newId: () => 'id',
       log: () => {
         throw new Error('stderr closed')
       },
     })
-    await expect(host.callTool('create_project', { name: 'Demo' })).rejects.toThrow('stderr closed')
-    expect(codes(await host.callTool('get_project'))).toEqual([])
+    const created = await host.callTool('create_project', { name: 'Demo' })
+    expect(created.isError).toBe(false)
+    expect(created.content.summary).toBe('Created project "Demo"')
+    const added = await host.callTool('add_step', { name: 'Build' })
+    expect(added.isError).toBe(false)
+    expect(added.content.created).toBe('id')
+    const { content } = await host.callTool('get_project')
+    expect(content.project.nodes.map(({ data }) => data.label)).toEqual(['Build'])
+  })
+})
+
+describe('a store that throws', () => {
+  it('rejects that call and keeps answering the next', async () => {
+    const store = fakeStore({ 'team.json': await fileText([step('a', 'Plan')]) })
+    const read = store.read
+    store.read = async () => {
+      throw new Error('disk gone')
+    }
+    const host = createToolHost({ store, now: () => NOW, newId: () => 'id', log: () => {} })
+    await expect(host.callTool('open_project', { name: 'team.json' })).rejects.toThrow('disk gone')
+    store.read = read
+    expect((await host.callTool('open_project', { name: 'team.json' })).isError).toBe(false)
+  })
+})
+
+describe('toCallResult', () => {
+  it('carries the content as JSON text and as structured content, with its error flag', () => {
+    const content = { ok: false, problems: [{ code: 'X' }], total: 1, summary: 'Rejected x' }
+    const result = toCallResult({ isError: true, content })
+    expect(result).toEqual({
+      content: [{ type: 'text', text: JSON.stringify(content) }],
+      structuredContent: content,
+      isError: true,
+    })
+  })
+
+  it('maps a host result end to end, with isError false for an applied call', async () => {
+    const { call } = makeHost()
+    const result = toCallResult(await call('create_project', { name: 'Demo' }))
+    expect(result.isError).toBe(false)
+    expect(result.content).toHaveLength(1)
+    expect(result.content[0].type).toBe('text')
+    expect(JSON.parse(result.content[0].text)).toEqual(result.structuredContent)
+    expect(result.structuredContent.summary).toBe('Created project "Demo"')
   })
 })

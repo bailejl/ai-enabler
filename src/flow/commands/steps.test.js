@@ -258,7 +258,7 @@ describe('remove_step', () => {
     expect(result.ok).toBe(true)
     expect(result.project.nodes.map(({ id }) => id)).toEqual(['idea', 'release'])
     expect(result.project.edges).toEqual([])
-    expect(result.summary).toBe('Removed step "Build" (build) and 2 connections')
+    expect(result.summary).toBe('Removed step "Build" (build); 2 connections were removed')
     expect(line.nodes).toHaveLength(3)
     expect(line.edges).toHaveLength(2)
   })
@@ -266,13 +266,13 @@ describe('remove_step', () => {
   it('keeps connections that do not touch the step', () => {
     const result = run(line, 'remove_step', { stepId: 'release' })
     expect(result.project.edges).toEqual([{ id: 'e1', source: 'idea', target: 'build' }])
-    expect(result.summary).toBe('Removed step "Release" (release) and 1 connection')
+    expect(result.summary).toBe('Removed step "Release" (release); 1 connection was removed')
   })
 
   it('says 0 connections were removed for an unconnected step', () => {
     const result = run(projectWith([node('note', 'Note')]), 'remove_step', { stepId: 'note' })
     expect(result.project.nodes).toEqual([])
-    expect(result.summary).toBe('Removed step "Note" (note) and 0 connections')
+    expect(result.summary).toBe('Removed step "Note" (note); 0 connections were removed')
   })
 })
 

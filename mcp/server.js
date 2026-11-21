@@ -3,19 +3,15 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { createStore } from './store.js'
-import { TOOLS, createToolHost } from './tools.js'
+import { TOOLS, createToolHost, toCallResult } from './tools.js'
 
 const SERVER_INFO = { name: 'aie-mcp', version: '0.1.0' }
 
-// Stdout is the protocol channel, so the log goes to stderr. A failing log (a closed pipe) must
-// not fail a call that was already applied.
-const log = (line) => {
-  try {
-    process.stderr.write(`${line}\n`)
-  } catch {
-    // The call has been applied; there is nothing else to do with a log that cannot be written.
-  }
-}
+// A closed stderr pipe reports its error later, as an event; it must not take the server down.
+process.stderr.on('error', () => {})
+
+// Stdout is the protocol channel, so the log goes to stderr. The host survives a log that throws.
+const log = (line) => process.stderr.write(`${line}\n`)
 
 const host = createToolHost({
   store: createStore(process.cwd()),
@@ -30,12 +26,7 @@ const server = new Server(SERVER_INFO, { capabilities: { tools: {} } })
 server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: TOOLS }))
 
 server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
-  const { isError, content } = await host.callTool(params.name, params.arguments)
-  return {
-    content: [{ type: 'text', text: JSON.stringify(content) }],
-    structuredContent: content,
-    isError,
-  }
+  return toCallResult(await host.callTool(params.name, params.arguments))
 })
 
 await server.connect(new StdioServerTransport())

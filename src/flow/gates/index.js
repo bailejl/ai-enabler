@@ -1,5 +1,6 @@
 import { problem } from '../diagnostics/problem.js'
 import { isObject } from '../schema/primitives.js'
+import { validateProjectFile } from '../schema/validate.js'
 import { nameLabel } from '../text.js'
 import { dataComplete } from './dataComplete.js'
 
@@ -31,3 +32,15 @@ export const runGate = (project, gateId, registry = GATES) => {
   const problems = registry[gateId](project)
   return { ok: problems.length === 0, problems }
 }
+
+/**
+ * Every check over the in-memory project: the project's own rules, then every registered gate in
+ * registry order.
+ * @param {object} project
+ * @param {Record<string, (project: object) => object[]>} registry injected so tests can add gates
+ * @returns {object[]} problems
+ */
+export const allProblems = (project, registry = GATES) => [
+  ...validateProjectFile(project).problems,
+  ...Object.keys(registry).flatMap((gateId) => runGate(project, gateId, registry).problems),
+]
