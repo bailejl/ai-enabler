@@ -405,7 +405,7 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 ## Pre-PR Quality Gate
 
 - [x] Unit tests pass, each test named, including the deploy-workflow table and tip-check runs: `npx vitest run --reporter=verbose`
-- [x] E2E tests pass, `chromium` and `pages` projects, each test named: `npx playwright test --reporter=list`
+- [x] E2E tests pass, `chromium` and `pages` projects, each test named, on a port no other worktree uses: `PORT=3417 npx playwright test --reporter=list`
 - [x] Linter passes: `npm run lint`
 - [x] Deep linter passes: `npm run lint:deep`
 - [x] Workflow validation passes: `npm run lint:ci`
