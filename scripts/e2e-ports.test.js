@@ -1,41 +1,41 @@
 import { describe, expect, test } from 'vitest'
-import { DEV_PORT_MIN, DEV_PORT_SPAN, derivedPort, e2ePorts } from './e2e-ports.js'
+import { derivedPort, e2ePorts } from './e2e-ports.js'
 
 const MAIN = '/Users/dev/repos/ai-enabler'
 const WORKTREE = '/Users/dev/repos/ai-enabler/.claude/worktrees/agent-1'
+const ROOTS = [MAIN, WORKTREE, '/', 'C:\\repos\\ai-enabler', '/tmp/ünïcode']
 
 describe('derivedPort', () => {
+  // FNV-1a 32-bit of "a" is 0xe40c292c (the published test vector); 0xe40c292c % 900 = 520.
+  test('"a" hashes to the published FNV-1a vector, so it gets port 3620', () => {
+    expect(derivedPort('a')).toBe(3620)
+  })
+
+  test('the same path gets the same port on every run and machine', () => {
+    expect(derivedPort(WORKTREE)).toBe(3591)
+    expect(derivedPort(MAIN)).toBe(3921)
+  })
+
   test('two worktree paths get different ports', () => {
     expect(derivedPort(MAIN)).not.toBe(derivedPort(WORKTREE))
   })
-
-  test('the same path always gets the same port', () => {
-    expect(derivedPort(WORKTREE)).toBe(derivedPort(WORKTREE))
-  })
-
-  test.each([MAIN, WORKTREE, '/', 'C:\\repos\\ai-enabler', '/tmp/ünïcode'])(
-    '%s maps into the dev range 3100–3999',
-    (root) => {
-      const port = derivedPort(root)
-      expect(port).toBeGreaterThanOrEqual(DEV_PORT_MIN)
-      expect(port).toBeLessThan(DEV_PORT_MIN + DEV_PORT_SPAN)
-    },
-  )
 })
 
 describe('e2ePorts', () => {
-  test('with no env, the ports come from the root and no dev server is reused', () => {
-    const port = derivedPort(WORKTREE)
-    expect(e2ePorts({ env: {}, root: WORKTREE })).toEqual({
-      port,
-      previewPort: port + 1000,
-      reuseDevServer: false,
-    })
+  test.each(ROOTS)('%s gets a dev port in 3100–3999 and a preview port in 4100–4999', (root) => {
+    const { port, previewPort } = e2ePorts({ env: {}, root })
+    expect(port).toBeGreaterThanOrEqual(3100)
+    expect(port).toBeLessThanOrEqual(3999)
+    expect(previewPort).toBeGreaterThanOrEqual(4100)
+    expect(previewPort).toBeLessThanOrEqual(4999)
   })
 
-  test('the preview port of any derived port stays outside the dev range', () => {
-    const { previewPort } = e2ePorts({ env: {}, root: MAIN })
-    expect(previewPort).toBeGreaterThanOrEqual(DEV_PORT_MIN + DEV_PORT_SPAN)
+  test('with no env, the ports come from the root and no dev server is reused', () => {
+    expect(e2ePorts({ env: {}, root: WORKTREE })).toEqual({
+      port: 3591,
+      previewPort: 4591,
+      reuseDevServer: false,
+    })
   })
 
   test('an explicit PORT wins, its preview follows it, and its dev server may be reused', () => {
@@ -46,17 +46,42 @@ describe('e2ePorts', () => {
     })
   })
 
-  test('an explicit PREVIEW_PORT wins over the derived preview port', () => {
-    expect(e2ePorts({ env: { PREVIEW_PORT: '5000' }, root: WORKTREE }).previewPort).toBe(5000)
+  test('an explicit PREVIEW_PORT wins and leaves the dev port and reuse unchanged', () => {
+    expect(e2ePorts({ env: { PREVIEW_PORT: '5000' }, root: WORKTREE })).toEqual({
+      port: 3591,
+      previewPort: 5000,
+      reuseDevServer: false,
+    })
+  })
+
+  test('explicit PORT and PREVIEW_PORT are both used as given', () => {
+    expect(e2ePorts({ env: { PORT: '3417', PREVIEW_PORT: '5000' }, root: WORKTREE })).toEqual({
+      port: 3417,
+      previewPort: 5000,
+      reuseDevServer: true,
+    })
   })
 
   test('in CI an explicit PORT never reuses a dev server', () => {
-    expect(e2ePorts({ env: { PORT: '3417', CI: 'true' }, root: WORKTREE }).reuseDevServer).toBe(
-      false,
-    )
+    expect(e2ePorts({ env: { PORT: '3417', CI: 'true' }, root: WORKTREE })).toEqual({
+      port: 3417,
+      previewPort: 4417,
+      reuseDevServer: false,
+    })
   })
 
-  test.each(['', 'abc', '0'])('PORT %j is ignored and the derived port is used', (value) => {
-    expect(e2ePorts({ env: { PORT: value }, root: WORKTREE }).port).toBe(derivedPort(WORKTREE))
+  test.each(['', 'abc', '0'])('PORT %j is ignored: derived ports, no reuse', (value) => {
+    expect(e2ePorts({ env: { PORT: value }, root: WORKTREE })).toEqual({
+      port: 3591,
+      previewPort: 4591,
+      reuseDevServer: false,
+    })
   })
+
+  test.each(['', 'abc', '0'])(
+    'PREVIEW_PORT %j is ignored: the preview follows the port',
+    (value) => {
+      expect(e2ePorts({ env: { PREVIEW_PORT: value }, root: WORKTREE }).previewPort).toBe(4591)
+    },
+  )
 })
