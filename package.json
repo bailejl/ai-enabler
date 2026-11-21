@@ -18,7 +18,7 @@
     "prepare": "husky",
     "test:e2e": "playwright test",
     "test:gate": "vitest run --reporter=dot",
-    "test:e2e:gate": "PORT=${PORT:-3417} playwright test --reporter=dot",
+    "test:e2e:gate": "playwright test --reporter=dot",
     "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml"
   },
   "repository": {

@@ -1,11 +1,15 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from '@playwright/test'
+import { e2ePorts } from './scripts/e2e-ports.js'
 import { PAGES_BASE } from './scripts/pages-base.js'
 
-// PORT keeps parallel git worktrees from reusing each other's dev server.
-const port = Number(process.env.PORT) || 3000
+// Ports derive from this checkout's path, so parallel git worktrees never share a server.
+const { port, previewPort, reuseDevServer } = e2ePorts({
+  env: process.env,
+  root: fileURLToPath(new URL('.', import.meta.url)),
+})
 const baseURL = `http://localhost:${port}`
 // The production build is previewed on its own port, under the GitHub Pages base path.
-const previewPort = Number(process.env.PREVIEW_PORT) || port + 1000
 const previewURL = `http://localhost:${previewPort}`
 const PAGES_SPEC = 'pages.spec.js'
 
@@ -23,7 +27,7 @@ export default defineConfig({
       command: 'npm run dev',
       url: baseURL,
       env: { PORT: String(port) },
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: reuseDevServer,
     },
     {
       command: 'npm run build && npm run preview',

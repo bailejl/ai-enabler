@@ -405,7 +405,7 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 ## Pre-PR Quality Gate
 
 - [x] Unit tests pass, including the route module, the deploy-workflow table and the tip-check runs: `npm run test:gate`
-- [x] E2E tests pass, `chromium` and `pages` projects, on port 3417 by default so no other worktree's server is reused: `npm run test:e2e:gate`
+- [x] E2E tests pass, `chromium` and `pages` projects, on ports derived from the worktree path so no other worktree's server is reused: `npm run test:e2e:gate`
 - [x] Linter passes: `npm run lint`
 - [x] Deep linter passes: `npm run lint:deep`
 - [x] Workflow validation passes: `npm run lint:ci`
