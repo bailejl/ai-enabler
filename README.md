@@ -11,6 +11,10 @@ Early scaffold. The UI is React with [React Flow](https://reactflow.dev) (`@xyfl
 by Vite. It shows a starter value stream (Idea to Production) on a canvas you can pan, zoom, and
 drag nodes around on. None of the analysis goals above are built yet.
 
+The live site is at <https://bailejl.github.io/ai-enabler/>. It deploys after CI passes on `main`.
+Links use hash routes (`#/`, `#/projects/<id>`), not path-style URLs, so they survive a refresh on
+GitHub Pages.
+
 ## Prerequisites
 
 - Node.js `>=24.11.0` (set in `engines` in `package.json`). `.nvmrc` pins `24.11.0`, so `nvm use`
@@ -54,16 +58,21 @@ the e2e tests cover it.
 - `index.html`, `src/main.jsx` - app entry point.
 - `src/App.jsx` - the React Flow canvas.
 - `src/flow/` - value stream data and logic, kept as plain functions so it can be unit tested.
+- `src/shell/` - app shell code, including hash routes (`routes.js`) and the `useRoute` hook.
 - Unit tests sit next to the code as `*.test.js` or `*.test.jsx`.
-- `e2e/` - Playwright end-to-end tests. Playwright starts the dev server on
-  `http://localhost:3000` itself.
+- `e2e/` - Playwright end-to-end tests. Playwright starts its own dev server, and a production
+  preview under `/ai-enabler/` for the `pages` project. Each checkout gets its own ports, derived
+  from its path: dev on 3100-3999, preview on the dev port + 1000. Set `PORT` to choose the dev
+  port (an existing server on it is reused outside CI), and `PREVIEW_PORT` to choose the preview
+  port.
 - `vite.config.js` - Vite dev server and build settings.
 - `vitest.config.js` - unit test and coverage settings.
 - `playwright.config.js` - Playwright settings (Chromium only).
 - `stryker.config.mjs` - mutation testing settings.
 - `eslint.config.js` - deep lint rules.
 - `prettier.config.js` - formatting rules.
-- `scripts/` - Node tooling (push guards), with colocated `*.test.js`.
+- `scripts/` - Node tooling: push guards, the e2e port and Pages base-path helpers, and a GitHub
+  Actions expression evaluator, with colocated `*.test.js`.
 - `.husky/` - Git hooks.
 - `.claude/` - Claude Code settings, project instructions, and agent files.
 

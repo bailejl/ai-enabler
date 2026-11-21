@@ -17,7 +17,13 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "test:e2e": "playwright test",
-    "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/actions/setup/action.yml"
+    "test:gate": "vitest run --reporter=dot",
+    "test:e2e:gate": "playwright test --reporter=dot",
+    "test:gate:deploy": "vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js",
+    "test:gate:routes": "vitest run --reporter=verbose src/shell/routes.test.js",
+    "test:e2e:gate:routes": "playwright test --reporter=list --project=chromium e2e/routes.spec.js",
+    "test:e2e:gate:pages": "playwright test --reporter=list --project=pages",
+    "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml"
   },
   "repository": {
     "type": "git",
@@ -49,7 +55,8 @@
     "oxlint": "^1.93.0",
     "prettier": "^3.10.0",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "yaml": "^2.9.1"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs}": [
