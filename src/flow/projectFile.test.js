@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { contentHash } from './contentHash.js'
+import { parseImport } from './importFile.js'
 import { projectFileName, toProjectFile, withContentHash } from './projectFile.js'
 import { validateProjectFile } from './schema/validate.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 import { createStarterProject } from './project.js'
 import { initialNodes, initialEdges } from './initialFlow.js'
+
+const markedFixtureText = import.meta.glob('./schema/fixtures/0.1.0-marked.json', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+})['./schema/fixtures/0.1.0-marked.json']
 
 const NOW = new Date('2026-11-14T12:30:45.123Z')
 const PROJECT = { id: 'project-1', name: 'Delivery', extra: 'ignored' }
@@ -154,6 +161,28 @@ describe('toProjectFile', () => {
       edges: deepFreeze([{ id: 'a->b', source: 'a', target: 'b', selected: true }]),
     }
     expect(() => toProjectFile({ ...input, now: NOW })).not.toThrow()
+  })
+})
+
+describe('exporting an AI-marked project the user edited', () => {
+  const MOVED = { x: 333, y: -77 }
+
+  it('writes the current schema, drops the mark and keeps the moved position', async () => {
+    const imported = await parseImport(markedFixtureText)
+    expect(imported.file.modifiedBy).toBeDefined()
+    const nodes = imported.file.nodes.map((node) =>
+      node.id === 'build' ? { ...node, position: MOVED } : node,
+    )
+    const exported = toProjectFile({
+      project: imported.file.project,
+      nodes,
+      edges: imported.file.edges,
+      now: NOW,
+    })
+    expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(exported).not.toHaveProperty('modifiedBy')
+    expect(exported.nodes.find((node) => node.id === 'build').position).toEqual(MOVED)
+    expect(exported.nodes.find((node) => node.id === 'idea').position).toEqual({ x: 0, y: 0 })
   })
 })
 
