@@ -267,7 +267,7 @@ Feature: The production build works under the Pages base path
 ### Slice 3: Deploy workflow and README
 
 **Depends-on:** none
-**Files:** `.github/workflows/deploy.yml`, `scripts/deploy-workflow.test.js`, `package.json`, `package-lock.json`, `README.md`
+**Files:** `.github/workflows/deploy.yml`, `scripts/deploy-workflow.test.js`, `scripts/gha-expression.js`, `scripts/gha-expression.test.js`, `package.json`, `package-lock.json`, `README.md`, `scripts/readme.test.js`
 **Invariants:** `grep -q 'https://bailejl.github.io/ai-enabler/' README.md`
 
 **Behavior:**

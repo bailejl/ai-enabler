@@ -175,7 +175,7 @@ describe('tip check', () => {
     afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
     const runTip = ({ event, stubTip, stubFail = false }) => {
-      const output = path.join(dir, `output-${event}-${stubTip || 'none'}`)
+      const output = path.join(dir, `output-${event}-${stubTip || 'none'}-${stubFail}`)
       writeFileSync(output, '')
       const result = spawnSync(
         'bash',
@@ -257,8 +257,13 @@ test('deploy publishes to the github-pages environment', () => {
 
 test('a manual run off main fails with its reason', () => {
   const [step] = refuse.steps
-  expect(step.run).toContain('::error::Deploys run from main only')
-  expect(step.run).toMatch(/exit 1\s*$/)
+  expect(step.shell).toBe('bash')
+  const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH },
+  })
+  expect(result.status).toBe(1)
+  expect(result.stdout).toBe('::error::Deploys run from main only\n')
 })
 
 test('lint:ci validates the deploy workflow', () => {

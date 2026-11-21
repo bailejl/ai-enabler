@@ -12,9 +12,10 @@ permissions:
   contents: read
 
 # Never cancel a deploy halfway through. GitHub keeps one pending run per group, so a newer
-# deploy replaces an older pending one, and the tip check makes the newest green main commit
-# win. Only runs that can deploy join the pages group; any other run (failed CI, a pull
-# request, a manual run off main) takes a group of its own, so it cannot displace a deploy.
+# run replaces an older pending one. Only the current tip of main deploys: if the tip's own CI
+# fails, the site keeps the last deploy. Only runs that pass the check condition join the
+# pages group; any other run (failed CI, a pull request, a manual run off main) takes a group
+# of its own, so it cannot displace a pending deploy.
 concurrency:
   group: ${{ ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && 'pages' || github.run_id }}
   cancel-in-progress: false

@@ -58,6 +58,7 @@ the e2e tests cover it.
 - `index.html`, `src/main.jsx` - app entry point.
 - `src/App.jsx` - the React Flow canvas.
 - `src/flow/` - value stream data and logic, kept as plain functions so it can be unit tested.
+- `src/shell/` - app shell code, including hash routes (`routes.js`) and the `useRoute` hook.
 - Unit tests sit next to the code as `*.test.js` or `*.test.jsx`.
 - `e2e/` - Playwright end-to-end tests. Playwright starts its own dev server, and a production
   preview under `/ai-enabler/` for the `pages` project. Each checkout gets its own ports, derived

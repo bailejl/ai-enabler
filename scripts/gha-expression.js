@@ -30,6 +30,9 @@ export const evaluateValue = (source, context) => {
       return [value, next + 1]
     }
     if (token.startsWith("'")) return [token.slice(1, -1), at + 1]
+    if (['true', 'false', 'null'].includes(token)) {
+      throw new Error(`Unsupported literal: ${token}`)
+    }
     return [lookup(context, token) ?? null, at + 1]
   }
   const comparison = (at) => {

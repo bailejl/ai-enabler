@@ -29,6 +29,7 @@ describe('evaluateValue', () => {
     ['(a.b', 'Missing )'],
     ['a.b a.b', 'Unparsed tokens: a.b'],
     ['a.b > 1', 'Unsupported expression syntax near:  > 1'],
+    ['a.b == true', 'Unsupported literal: true'],
   ])('%j is rejected', (source, message) => {
     expect(() => evaluateValue(source, context)).toThrow(message)
   })

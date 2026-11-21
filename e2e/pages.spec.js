@@ -28,7 +28,7 @@ test('every asset of the initial load is served under the Pages base', async ({ 
   // A build with the wrong base would request /assets/..., which the preview's SPA fallback
   // can still answer with 200, so check each asset path too.
   expect(new Set(assetPaths.map(({ type }) => type))).toEqual(new Set(['script', 'stylesheet']))
-  for (const { path } of assetPaths) expect(path.startsWith(PAGES_BASE)).toBe(true)
+  expect(assetPaths.filter(({ path }) => !path.startsWith(PAGES_BASE))).toEqual([])
 })
 
 test('a bare base-path load is normalized and keeps the base path', async ({ page }) => {

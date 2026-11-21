@@ -46,7 +46,7 @@ This change adds the route layer and the deploy. It does not add project storage
 
 ### Deploy
 
-- **AC1:** A push to `main` whose CI run passes publishes that commit's build to `https://bailejl.github.io/ai-enabler/`. [I §Scope "Deploy workflow from the main branch", S2]
+- **AC1:** A push to `main` whose CI run passes publishes that commit's build to `https://bailejl.github.io/ai-enabler/`, if that commit is still the tip of `main`. An older green commit is skipped with a notice; the newer commit deploys after its own CI run passes (plan P2). [I §Scope "Deploy workflow from the main branch", S2]
 - **AC2:** A push to `main` whose CI run fails does not deploy, and the site keeps the last good build. A pull request never deploys. [S2]
 - **AC3:** The deployed page loads with no 404 for any script, stylesheet, or other asset, and renders the app shell. [I §Scope "Base path set for `<user>.github.io/<repo>/`"]
 - **AC4:** The deploy can also be started by hand from the Actions tab (`workflow_dispatch`) on `main`. [Inferred I5]
