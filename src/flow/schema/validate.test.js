@@ -326,6 +326,7 @@ describe('validateProjectFile: relational rules', () => {
     const found = onlyProblem(file)
     expect(found).toMatchObject({ code: 'STEP_ID_DUPLICATE', stepId: 'plan', field: 'id' })
     expect(found.message).toContain('Step "Build" (#3)')
+    expect(found.untrusted).toEqual({ title: 'Build', id: 'plan' })
   })
 
   it('reports every step that repeats an earlier id', () => {
@@ -344,6 +345,7 @@ describe('validateProjectFile: relational rules', () => {
     const found = onlyProblem(file)
     expect(found).toMatchObject({ code: 'CONN_ID_DUPLICATE', edgeId: 'idea->plan', field: 'id' })
     expect(found.message).toContain('Connection 2')
+    expect(found.untrusted).toEqual({ id: 'idea->plan' })
   })
 
   it.each([

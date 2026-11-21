@@ -29,12 +29,9 @@ const stepName = (node, index) => {
     : stepPositionName(index)
 }
 
-// Shape guards: the first one that fails is the only problem reported.
-const SHAPE_GUARDS = [
-  { code: 'FILE_NOT_A_PROJECT', fails: (file) => !isObject(file) },
-  { code: 'FILE_NOT_A_PROJECT', fails: (file) => !Array.isArray(file.nodes) },
-  { code: 'FILE_NOT_A_PROJECT', fails: (file) => !Array.isArray(file.edges) },
-]
+// A file that is not an object with step and connection lists is one problem and nothing else.
+const isProjectShaped = (file) =>
+  isObject(file) && Array.isArray(file.nodes) && Array.isArray(file.edges)
 
 // Per-item rules: every rule that fails is reported. `fails` takes the untrusted item and never
 // throws. `field` is the key the message names.
@@ -87,8 +84,7 @@ const CONNECTION_RULES = [
 const failedRules = (rules, subject) => rules.filter((rule) => rule.fails(subject))
 
 const checkShape = (file) => {
-  const guard = SHAPE_GUARDS.find((candidate) => candidate.fails(file))
-  return guard ? [problem(guard.code)] : []
+  return isProjectShaped(file) ? [] : [problem('FILE_NOT_A_PROJECT')]
 }
 
 const checkProject = (project) =>
@@ -145,6 +141,8 @@ const duplicateStepIds = (steps) =>
       params: { step: stepName(item, index), id: shorten(item.id) },
       field: 'id',
       ...stepRefs(item),
+      // The id is echoed into the message, so its full text is marked as user text too.
+      untrusted: { ...stepRefs(item).untrusted, id: item.id },
     }),
   )
 
@@ -154,6 +152,7 @@ const duplicateConnectionIds = (connections) =>
       params: { connection: connectionName(index), id: shorten(item.id) },
       field: 'id',
       ...connectionRefs(item),
+      untrusted: { id: item.id },
     }),
   )
 

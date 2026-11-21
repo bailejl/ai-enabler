@@ -10,7 +10,9 @@ import {
   parseSemver,
 } from './schema/version.js'
 
-const fail = (...problems) => ({ ok: false, problems })
+// Takes an array, never spread arguments: a broken file can carry more problems than a call can
+// take as arguments.
+const fail = (problems) => ({ ok: false, problems })
 const succeed = (file) => ({ ok: true, file })
 
 // Each stage takes the file so far plus the settings and returns { ok: true, file } to continue or
@@ -20,7 +22,7 @@ const parseJson = (text) => {
   try {
     return succeed(JSON.parse(text))
   } catch {
-    return fail(problem('FILE_NOT_JSON'))
+    return fail([problem('FILE_NOT_JSON')])
   }
 }
 
@@ -28,18 +30,18 @@ const parseJson = (text) => {
 // future upgrade is free to restructure them. Rejects versions newer than current or unreleased.
 const checkEnvelope = (file, { current, released }) => {
   if (!isObject(file) || parseSemver(file.schemaVersion) === null) {
-    return fail(problem('FILE_NOT_A_PROJECT'))
+    return fail([problem('FILE_NOT_A_PROJECT')])
   }
   const version = file.schemaVersion
   const params = { version, current }
-  if (compareSemver(version, current) > 0) return fail(problem('FILE_NEWER_SCHEMA', { params }))
-  if (!released.includes(version)) return fail(problem('FILE_UNRELEASED_SCHEMA', { params }))
+  if (compareSemver(version, current) > 0) return fail([problem('FILE_NEWER_SCHEMA', { params })])
+  if (!released.includes(version)) return fail([problem('FILE_UNRELEASED_SCHEMA', { params })])
   return succeed(file)
 }
 
 const validate = (file) => {
   const result = validateProjectFile(file)
-  return result.ok ? succeed(file) : fail(...result.problems)
+  return result.ok ? succeed(file) : fail(result.problems)
 }
 
 const STAGES = [checkEnvelope, upgradeToCurrent, validate]
@@ -74,6 +76,6 @@ export const parseImport = async (
   try {
     return { ...result, edited: await isEdited(parsed.file, digest) }
   } catch {
-    return fail(problem('FILE_UNREADABLE'))
+    return fail([problem('FILE_UNREADABLE')])
   }
 }

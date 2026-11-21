@@ -350,6 +350,12 @@ describe('describeImportStatus', () => {
     expect(status.more).toBeNull()
   })
 
+  it('lists the first 10 of 11 problems and says "and 1 more"', () => {
+    const status = describeRejected(11)
+    expect(status.items).toHaveLength(10)
+    expect(status.more).toBe('and 1 more')
+  })
+
   it('lists the first 10 of 14 problems and says "and 4 more"', () => {
     const status = describeRejected(14)
     expect(status.text).toBe('Import rejected: 14 problems')

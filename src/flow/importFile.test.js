@@ -100,11 +100,11 @@ describe('parseImport', () => {
       nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition({ ...step('c'), data: {} })],
     })
     const problems = rejectedProblems(await parse(file))
-    expect(problems.length).toBeGreaterThan(0)
-    problems.forEach((found) => {
-      expect(found.message).toContain('Step #3')
-      expect(found.message).not.toContain('"')
-    })
+    expect(problems.map((found) => found.code)).toEqual([
+      'STEP_POSITION_MISSING',
+      'STEP_LABEL_MISSING',
+    ])
+    expect(problems.filter((found) => !found.message.startsWith('Step #3 '))).toEqual([])
   })
 
   it('passes every validator problem through, not only the first', async () => {
@@ -113,9 +113,22 @@ describe('parseImport', () => {
       nodes: [withoutPosition(step('a', 'Plan')), step('b', 'Design'), withoutPosition(step('c'))],
     })
     const problems = rejectedProblems(await parse(file))
-    expect(problems.length).toBeGreaterThan(2)
-    expect(problems.map((found) => found.code)).toContain('FILE_PROJECT_NAME_EMPTY')
+    expect(problems.map((found) => found.code)).toEqual([
+      'FILE_PROJECT_NAME_EMPTY',
+      'STEP_POSITION_MISSING',
+      'STEP_POSITION_MISSING',
+      'STEP_LABEL_MISSING',
+    ])
     expect(new Set(problems.map((found) => found.message)).size).toBe(problems.length)
+  })
+
+  // More problems than a function call can take as spread arguments.
+  it('rejects a file with a very large number of problems without throwing', async () => {
+    const BARE_STEPS = 60_000
+    const file = validFile({ nodes: Array.from({ length: BARE_STEPS }, () => ({})), edges: [] })
+    const result = await parse(file)
+    expect(result.ok).toBe(false)
+    expect(result.problems.length).toBeGreaterThan(BARE_STEPS * 2)
   })
 
   it('rejects connections that form a loop', async () => {

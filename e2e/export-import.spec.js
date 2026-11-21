@@ -109,7 +109,14 @@ const messageFor = (code, params) => problem(code, { params }).message
 const NOT_JSON_MESSAGE = messageFor('FILE_NOT_JSON')
 const NOT_A_PROJECT_MESSAGE = messageFor('FILE_NOT_A_PROJECT')
 const LISTED_PROBLEM_LIMIT = 10
-const leadLine = (count) => `Import rejected: ${count} ${count === 1 ? 'problem' : 'problems'}`
+// Literal lead lines, so a change to the app's wording or counting fails here.
+const LEAD_LINES = {
+  1: 'Import rejected: 1 problem',
+  2: 'Import rejected: 2 problems',
+  10: 'Import rejected: 10 problems',
+  14: 'Import rejected: 14 problems',
+}
+const leadLine = (count) => LEAD_LINES[count]
 const rejectionAnnouncement = (messages) => `${leadLine(messages.length)}. ${messages[0]}`
 const NOT_JSON_ANNOUNCEMENT = rejectionAnnouncement([NOT_JSON_MESSAGE])
 // What the three Checkout Revamp steps in different-name.json add up to, in tile order.
