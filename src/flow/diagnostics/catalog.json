@@ -334,5 +334,41 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "STEP_NAME_EMPTY": {
+    "code": "STEP_NAME_EMPTY",
+    "severity": "error",
+    "title": "Step name is empty",
+    "summary": "A command was given a step name that is missing, not text, or blank.",
+    "message": "{step}: the name (name) must be text that is not empty.",
+    "fix": "Send a name that is text with at least one visible character.",
+    "docs": "#step-name-empty",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "STEP_NOT_FOUND": {
+    "code": "STEP_NOT_FOUND",
+    "severity": "error",
+    "title": "Step does not exist",
+    "summary": "A command named a step id that no step in the project has.",
+    "message": "The step with id \"{id}\" does not exist. Valid steps: {steps}.",
+    "fix": "Use the id of one of the valid steps.",
+    "docs": "#step-not-found",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "STEP_TARGET_INVALID": {
+    "code": "STEP_TARGET_INVALID",
+    "severity": "error",
+    "title": "Step id argument is invalid",
+    "summary": "A command needs the id of a step and was given none, or an id that is not text.",
+    "message": "This command needs the id of a step (stepId). Valid steps: {steps}.",
+    "fix": "Send stepId as the id of one of the valid steps.",
+    "docs": "#step-target-invalid",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

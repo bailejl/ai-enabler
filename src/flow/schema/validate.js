@@ -1,6 +1,7 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
 import { problem } from '../diagnostics/problem.js'
 import { hasText, STEP_TYPE, stepPositionName } from '../step.js'
+import { shorten } from '../text.js'
 import { isObject } from './primitives.js'
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''
@@ -11,13 +12,6 @@ const isPercentage = (value) => Number.isFinite(value) && value >= 0 && value <=
 
 const hasPosition = (node) =>
   Number.isFinite(node?.position?.x) && Number.isFinite(node?.position?.y)
-
-// User text echoed into a message is cut to this many characters, so a huge label or id cannot
-// flood the import status. The full text stays in `untrusted`.
-const MAX_ECHOED_TEXT = 80
-
-const shorten = (text) =>
-  text.length > MAX_ECHOED_TEXT ? `${text.slice(0, MAX_ECHOED_TEXT - 1)}…` : text
 
 // Steps are named by label and 1-based position. A missing or blank label leaves the position.
 const stepName = (node, index) => {

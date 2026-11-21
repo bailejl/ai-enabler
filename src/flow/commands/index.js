@@ -1,15 +1,8 @@
 import { problem } from '../diagnostics/problem.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { isObject } from '../schema/primitives.js'
-
-// User text echoed into a message or summary is cut to this many characters. The full text stays
-// in `untrusted`.
-const MAX_ECHOED_TEXT = 80
-
-const shorten = (value) => {
-  const text = String(value)
-  return text.length > MAX_ECHOED_TEXT ? `${text.slice(0, MAX_ECHOED_TEXT - 1)}…` : text
-}
+import { shorten } from '../text.js'
+import { STEP_COMMANDS } from './steps.js'
 
 // The command table: each name maps to the arguments it accepts and a pure `apply`. `apply` gets
 // the current project, the checked args and the context, and returns either `{ project, summary,
@@ -23,6 +16,7 @@ const COMMANDS = {
       summary: `Created project "${shorten(name)}"`,
     }),
   },
+  ...STEP_COMMANDS,
 }
 
 const COMMAND_NAMES = Object.keys(COMMANDS)
