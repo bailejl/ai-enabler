@@ -460,16 +460,67 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC10 — met
+### AC1 — met
 
 ```
-$ npx vitest run --reporter=verbose
-✓ src/shell/routes.test.js > resolveHash > "#/" resolves to {"name":"home"} with hash "#/" 0ms
-✓ src/shell/routes.test.js > resolveHash > "#/projects/abc" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" 0ms
-✓ src/shell/routes.test.js > resolveHash > "#/projects/abc/" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" 0ms
-✓ src/shell/routes.test.js > resolveHash > "#/nowhere" resolves to {"name":"home"} with hash "#/" 0ms
-✓ src/shell/routes.test.js > toHash > home builds "#/" 0ms
+$ npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js
+✓ scripts/deploy-workflow.test.js > job conditions > green CI on a push to main 0ms
+✓ scripts/deploy-workflow.test.js > job conditions > the build runs only when the tip check reports true 0ms
+✓ scripts/deploy-workflow.test.js > job conditions > the build runs only when the tip check reports false 0ms
+✓ scripts/deploy-workflow.test.js > tip check > when run > the CI commit that is still the tip deploys 339ms
+✓ scripts/deploy-workflow.test.js > tip check > when run > an older CI commit is skipped with a notice 10ms
+(+2 lines)
+```
+
+### AC5 — met
+
+```
+$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
+✓   2 [chromium] › e2e/routes.spec.js:25:1 › the home route renders the shell (192ms)
+16 passed (6.1s)
+```
+
+### AC7 — met
+
+```
+$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
+✓   4 [chromium] › e2e/routes.spec.js:40:1 › an unknown project id still renders the app shell (183ms)
+✓   5 [chromium] › e2e/routes.spec.js:46:1 › the home and project routes render the same shell (346ms)
+```
+
+### AC8 — met
+
+```
+$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
+✓   7 [chromium] › e2e/routes.spec.js:74:3 › "/" becomes the home route without a new history entry (334ms)
+✓   8 ... "/#" becomes the home route without a new history entry (341ms)
+✓   9 ... "/#/nowhere" becomes the home route without a new history entry (331ms)
+✓  10 ... "/#/projects/" ... (329ms)
+✓  11 ... "/#/projects/abc/extra" ... (331ms)
 (+3 lines)
+```
+
+### AC9 — met
+
+```
+$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
+✓  15 [chromium] › e2e/routes.spec.js:95:1 › back and forward switch the route without a reload (270ms)
+✓  16 [chromium] › e2e/routes.spec.js:117:1 › an address change to an unknown hash is replaced in place (189ms)
+```
+
+### AC11 — met
+
+```
+$ PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js
+✓   1 [chromium] › e2e/routes.spec.js:18:1 › these route tests run against the Vite dev server at the root (211ms)
+16 passed (6.1s)
+```
+
+### AC13 — met
+
+```
+$ npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js
+✓ scripts/readme.test.js > the README links the live site at https://bailejl.github.io/ai-enabler/ 1ms
 ```
 
 ### Audit details
@@ -477,8 +528,8 @@ $ npx vitest run --reporter=verbose
 - Overall: indeterminate
 - Binding hash: afe74f783f7f5759c738037c0389f6aeac3a3cba2e5fab444be71edabebbd257
 - Inputs digest: 7f38ed331f055ad6211d5a4a21e11716f26c37a120a0982fd8928b7cb5e94fc4
-- Agent: a8b0762090e4ab5c3
-- Recorded at: 2026-11-21T20:05:09+00:00
+- Agent: a49e139f089c56944
+- Recorded at: 2026-11-21T20:09:37+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
