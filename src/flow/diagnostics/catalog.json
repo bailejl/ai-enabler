@@ -298,5 +298,41 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "CMD_UNKNOWN": {
+    "code": "CMD_UNKNOWN",
+    "severity": "error",
+    "title": "Command is unknown",
+    "summary": "The command name is not one of the commands this server offers.",
+    "message": "Unknown command {command}. The commands are: {commands}.",
+    "fix": "Call one of the listed commands.",
+    "docs": "#cmd-unknown",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "CMD_ARGUMENTS_INVALID": {
+    "code": "CMD_ARGUMENTS_INVALID",
+    "severity": "error",
+    "title": "Command arguments are not an object",
+    "summary": "The command arguments are present but are not an object of named values.",
+    "message": "The arguments for {command} must be an object of named values.",
+    "fix": "Send the arguments as an object, for example { \"name\": \"Build\" }.",
+    "docs": "#cmd-arguments-invalid",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "CMD_ARGUMENT_UNKNOWN": {
+    "code": "CMD_ARGUMENT_UNKNOWN",
+    "severity": "error",
+    "title": "Command argument is not accepted",
+    "summary": "The command was sent an argument it does not accept, such as a position.",
+    "message": "{command} does not accept {arguments}. Accepted arguments: {accepted}.",
+    "fix": "Remove the arguments that are not accepted and send only the accepted ones.",
+    "docs": "#cmd-argument-unknown",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

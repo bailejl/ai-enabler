@@ -1062,7 +1062,7 @@ graph TD
   - [x] Step 3.2: Show the AI notice on import
   - [x] Step 3.3: The app's export drops the mark and keeps positions
 - [ ] Slice 4: Pure command layer
-  - [ ] Step 4.1: Command result, argument checks and create project
+  - [x] Step 4.1: Command result, argument checks and create project
   - [ ] Step 4.2: Step commands
   - [ ] Step 4.3: Connection commands
 - [ ] Slice 5: Gate checks
