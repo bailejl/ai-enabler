@@ -33,8 +33,13 @@ describe('toHash', () => {
     expect(toHash(home)).toBe('#/')
   })
 
-  test('a project encodes its id', () => {
-    expect(toHash(project('a b/c'))).toBe('#/projects/a%20b%2Fc')
+  test.each([
+    ['abc', '#/projects/abc'],
+    ['a b', '#/projects/a%20b'],
+    ['a/b', '#/projects/a%2Fb'],
+    ['a b/c', '#/projects/a%20b%2Fc'],
+  ])('project %j builds %j', (id, hash) => {
+    expect(toHash(project(id))).toBe(hash)
   })
 
   test.each([home, project('abc'), project('a b'), project('ü'), project('a/b')])(

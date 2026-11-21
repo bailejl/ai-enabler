@@ -76,7 +76,7 @@ Before merge, AC1, AC2, and AC4 are covered only by the parsed-workflow test (St
 Feature: Hash routes
 
   Scenario: The home route renders the shell
-    # Still passes if: "#" alone is also accepted as home without a rewrite
+    # Still passes if: the home view renders the same for every unknown hash
     Given the app is served
     When a user opens "/#/"
     Then the app shell shows the starter steps
@@ -100,7 +100,7 @@ Feature: Hash routes
     And the address hash is "#/projects/does-not-exist"
 
   Scenario: A project id with reserved characters is not rewritten
-    # Still passes if: an id with a space is shown percent-encoded
+    # Still passes if: the decoded id is never shown anywhere
     Given the app is served
     When a user opens "/#/projects/a@b"
     Then the address hash is "#/projects/a@b"
@@ -125,7 +125,7 @@ Feature: Hash routes
       | /#/projects/%E0%A4%A    |
 
   Scenario: A trailing slash on a project link is dropped
-    # Still passes if: two trailing slashes are also accepted as one
+    # Still passes if: the slashed form renders briefly before the rewrite
     Given the app is served
     When a user opens "/#/projects/abc123/"
     Then the address hash is "#/projects/abc123"
