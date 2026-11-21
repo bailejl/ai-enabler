@@ -15,6 +15,13 @@ const setHash = (page, hash) =>
 
 const historyLength = (page) => page.evaluate(() => window.history.length)
 
+test('these route tests run against the Vite dev server at the root', async ({ page }) => {
+  await page.goto('/#/')
+  await expectStarterSteps(page)
+  // Only the dev server injects the Vite client; a production build does not.
+  await expect(page.locator('script[src="/@vite/client"]')).toHaveCount(1)
+})
+
 test('the home route renders the shell', async ({ page }) => {
   await page.goto('/#/')
   await expectStarterSteps(page)

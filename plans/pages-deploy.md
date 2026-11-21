@@ -48,7 +48,7 @@ Stance on high-reversal-cost axes:
 
 ## Acceptance Criteria
 
-- [ ] AC1: A push to `main` whose CI run passes publishes that commit's build to `https://bailejl.github.io/ai-enabler/`, if the commit is still the tip of `main`. An older green commit is skipped with a notice (P2).
+- [ ] AC1: The deploy workflow publishes a green CI push to `main` if that commit is still the tip of `main`, and skips an older green commit with a notice (P2). Before merge, this is verified by the deploy-workflow tests: the condition table and the tip-check runs. The live publish to `https://bailejl.github.io/ai-enabler/` is verified by Post-merge verification item 1, not by this examination.
 - [ ] AC2: A push to `main` whose CI run does not succeed does not deploy, and the site keeps the last good build. A pull request never deploys.
 - [ ] AC3: The deployed page's initial load has no 404 for any asset and renders the app shell. Scope is the initial load: the app has no lazy chunks today.
 - [ ] AC4: The deploy can also be started by hand (`workflow_dispatch`) on `main`.
@@ -410,10 +410,9 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 - [x] Deep linter passes: `npm run lint:deep`
 - [x] Workflow validation passes: `npm run lint:ci`
 - [x] Format check passes: `npm run format:check`
-- [x] Production build uses the Pages base: `npm run build`
-- [x] Built page references assets under the Pages base: `grep -o '/ai-enabler/assets/[^"]*' dist/index.html`
-- [x] README states the live URL: `grep -n 'https://bailejl.github.io/ai-enabler/' README.md`
-- [x] Deploy workflow is in the branch: `cat .github/workflows/deploy.yml`
+- [x] Production build succeeds: `npm run build`
+- [x] Route tests run against the Vite dev server at `/` (AC11), each test named: `PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js`
+- [x] Deploy workflow and README tests pass, each test named: `npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js`
 - [x] `/code-review` passes
 - [x] README updated
 
