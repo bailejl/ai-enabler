@@ -404,15 +404,17 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 
 ## Pre-PR Quality Gate
 
-- [x] Unit tests pass, each test named, including the deploy-workflow table and tip-check runs: `npx vitest run --reporter=verbose`
-- [x] E2E tests pass, `chromium` and `pages` projects, each test named, on a port no other worktree uses: `PORT=3417 npx playwright test --reporter=list`
+- [x] Unit tests pass, including the route module, the deploy-workflow table and the tip-check runs: `npm run test:gate`
+- [x] E2E tests pass, `chromium` and `pages` projects, on port 3417 by default so no other worktree's server is reused: `npm run test:e2e:gate`
 - [x] Linter passes: `npm run lint`
 - [x] Deep linter passes: `npm run lint:deep`
 - [x] Workflow validation passes: `npm run lint:ci`
 - [x] Format check passes: `npm run format:check`
 - [x] Production build succeeds: `npm run build`
-- [x] Route tests run against the Vite dev server at `/` (AC11), each test named: `PORT=3417 npx playwright test --project chromium --reporter=list e2e/routes.spec.js`
-- [x] Deploy workflow and README tests pass, each test named: `npx vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js`
+- [x] Route tests run against the Vite dev server at `/` (AC5–AC9, AC11): `npm run test:e2e:gate -- e2e/routes.spec.js --project=chromium`
+- [x] Production build under `/ai-enabler/` (AC3, AC6, AC8, AC12): `npm run test:e2e:gate -- --project=pages`
+- [x] Route module unit tests (AC10): `npm run test:gate -- src/shell/routes.test.js`
+- [x] Deploy workflow and README tests pass (AC1, AC2, AC4, AC13): `npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js`
 - [x] `/code-review` passes
 - [x] README updated
 
