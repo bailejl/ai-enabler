@@ -404,9 +404,16 @@ Slice 2 follows Slice 1, because its routing scenarios need Slice 1's code and r
 
 ## Pre-PR Quality Gate
 
-- [x] `npm test` passes
-- [x] `npm run test:e2e` passes (`chromium` and `pages` projects)
-- [x] `npm run lint`, `npm run lint:ci`, and `npm run format:check` pass
+- [x] Unit tests pass, each test named, including the deploy-workflow table and tip-check runs: `npx vitest run --reporter=verbose`
+- [x] E2E tests pass, `chromium` and `pages` projects, each test named: `npx playwright test --reporter=list`
+- [x] Linter passes: `npm run lint`
+- [x] Deep linter passes: `npm run lint:deep`
+- [x] Workflow validation passes: `npm run lint:ci`
+- [x] Format check passes: `npm run format:check`
+- [x] Production build uses the Pages base: `npm run build`
+- [x] Built page references assets under the Pages base: `grep -o '/ai-enabler/assets/[^"]*' dist/index.html`
+- [x] README states the live URL: `grep -n 'https://bailejl.github.io/ai-enabler/' README.md`
+- [x] Deploy workflow is in the branch: `cat .github/workflows/deploy.yml`
 - [x] `/code-review` passes
 - [x] README updated
 
