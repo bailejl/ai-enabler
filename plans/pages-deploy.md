@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-21
 **Branch**: feat/pages-deploy
-**Status**: draft
+**Status**: approved
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/pages-deploy.md` (AC1–AC13, answers S1–S4). Source issue: #25 (N13).
 
