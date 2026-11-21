@@ -465,61 +465,50 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 ### AC1 — met
 
 ```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose
+$ npm run test:gate:deploy
 ✓ scripts/deploy-workflow.test.js > job conditions > green CI on a push to main 0ms
-✓ scripts/deploy-workflow.test.js > tip check > it compares the CI commit with the tip of main and reports the result 0ms
-✓ scripts/deploy-workflow.test.js > tip check > when run > the CI commit that is still the tip deploys 176ms
-✓ scripts/deploy-workflow.test.js > tip check > when run > an older CI commit is skipped with a notice 9ms
+✓ scripts/deploy-workflow.test.js > job conditions > the build runs only when the tip check reports true 0ms
+✓ scripts/deploy-workflow.test.js > tip check > when run > the CI commit that is still the tip deploys 184ms
+✓ scripts/deploy-workflow.test.js > tip check > when run > an older CI commit is skipped with a notice 11ms
 Tests  30 passed (30)
 ```
 
 ### AC2 — met
 
 ```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose
+$ npm run test:gate:deploy
 ✓ scripts/deploy-workflow.test.js > deploy workflow triggers > a push or a pull request never triggers it directly 0ms
 ✓ scripts/deploy-workflow.test.js > job conditions > failed CI on main 0ms
 ✓ scripts/deploy-workflow.test.js > job conditions > cancelled CI on main 0ms
 ✓ scripts/deploy-workflow.test.js > job conditions > timed-out CI on main 0ms
 ✓ scripts/deploy-workflow.test.js > job conditions > green CI on a pull request from a branch named main 0ms
+(+1 lines)
 ```
 
 ### AC4 — met
 
 ```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose
+$ npm run test:gate:deploy
 ✓ scripts/deploy-workflow.test.js > deploy workflow triggers > it runs after CI completes on main, or by hand 1ms
 ✓ scripts/deploy-workflow.test.js > job conditions > a manual run on main 0ms
-✓ scripts/deploy-workflow.test.js > tip check > when run > a manual run skips the comparison and deploys 4ms
+✓ scripts/deploy-workflow.test.js > tip check > when run > a manual run skips the comparison and deploys 5ms
 ✓ scripts/deploy-workflow.test.js > a manual run off main fails with its reason 0ms
-```
-
-### AC10 — met
-
-```
-$ npm run test:gate -- src/shell/routes.test.js --reporter=verbose
-✓ src/shell/routes.test.js > resolveHash > "#/" resolves to {"name":"home"} with hash "#/"
-✓ src/shell/routes.test.js > resolveHash > "#/projects/abc" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc"
-✓ src/shell/routes.test.js > resolveHash > "#/projects/abc/" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc"
-✓ src/shell/routes.test.js > resolveHash > "#/nowhere" resolves to {"name":"home"} with hash "#/"
-✓ src/shell/routes.test.js > toHash > home builds "#/"
-(+2 lines)
 ```
 
 ### AC13 — met
 
 ```
-$ npm run test:gate -- scripts/deploy-workflow.test.js scripts/readme.test.js --reporter=verbose
+$ npm run test:gate:deploy
 ✓ scripts/readme.test.js > the README links the live site at https://bailejl.github.io/ai-enabler/ 1ms
 ```
 
 ### Audit details
 
 - Overall: indeterminate
-- Binding hash: f6a80e66e47650fe123c4313efa0d2846aa105ddea1d88540309c58772bee3f3
-- Inputs digest: d7a227fea481ec04c4ada37620c2ed780c94abed9b64ddae67cb1694e1754bd5
-- Agent: a78bb598f8292f432
-- Recorded at: 2026-11-21T20:58:11+00:00
+- Binding hash: 8b7d898955002703858d656b52199fcbdabe33aea2c4af9ef356d8d601b4b379
+- Inputs digest: c6f1d2e8557230a66fbe68697321a3e122d245780a8434ea5db1c95cf9ec8108
+- Agent: ad0863ddbc58aaee1
+- Recorded at: 2026-11-21T21:16:39+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
