@@ -1,7 +1,8 @@
 import { contentHash } from './contentHash.js'
+import { problem } from './diagnostics/problem.js'
 import { REGISTRY, upgradeToCurrent } from './schema/upgrades.js'
 import { isObject } from './schema/primitives.js'
-import { NOT_A_PROJECT_FILE, validateProjectFile } from './schema/validate.js'
+import { validateProjectFile } from './schema/validate.js'
 import {
   CURRENT_SCHEMA_VERSION,
   RELEASED_SCHEMA_VERSIONS,
@@ -9,6 +10,7 @@ import {
   parseSemver,
 } from './schema/version.js'
 
+const NOT_A_PROJECT_FILE = problem('FILE_NOT_A_PROJECT').message
 const NOT_JSON = 'This file is not valid JSON.'
 const UNREADABLE = 'This file could not be read.'
 
@@ -44,7 +46,7 @@ const checkEnvelope = (file, { current, released }) => {
 
 const validate = (file) => {
   const result = validateProjectFile(file)
-  return result.ok ? succeed(file) : fail(result.message)
+  return result.ok ? succeed(file) : fail(result.problems[0].message)
 }
 
 const STAGES = [checkEnvelope, upgradeToCurrent, validate]

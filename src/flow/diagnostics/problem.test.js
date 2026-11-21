@@ -22,7 +22,7 @@ describe('problem', () => {
 
   it('fills the message template from params', () => {
     const result = problem('STEP_COUNT_INVALID', {
-      params: { step: 'Step "Plan" (#2)', fieldName: 'process time', field: 'pt' },
+      params: { step: 'Step "Plan" (#2)', fieldLabel: 'process time', field: 'pt' },
     })
     expect(result.message).toBe(
       'Step "Plan" (#2): process time (pt) must be a whole number, 0 or more.',
@@ -56,7 +56,7 @@ describe('problem', () => {
       edgeId: 'e1',
       field: 'pt',
       untrusted,
-      params: { step: 'x', fieldName: 'process time', field: 'pt' },
+      params: { step: 'x', fieldLabel: 'process time', field: 'pt' },
     })
     expect(result).toMatchObject({ stepId: 's2', edgeId: 'e1', field: 'pt', untrusted })
   })
@@ -65,15 +65,14 @@ describe('problem', () => {
     expect(problem('STEP_ID_MISSING', { params: { step: 'A' } })).not.toHaveProperty('params')
   })
 
-  it('never lets details override code, severity, message or fix', () => {
-    const result = problem('FILE_NOT_JSON', {
-      code: 'FILE_NOT_A_PROJECT',
-      severity: 'info',
-      message: 'injected',
-      fix: 'injected',
-    })
-    expect(result).toEqual(problem('FILE_NOT_JSON'))
-  })
+  it.each(['code', 'severity', 'message', 'fix', 'extra'])(
+    'throws when details carry the key "%s"',
+    (key) => {
+      expect(() => problem('FILE_NOT_JSON', { [key]: 'injected' })).toThrow(
+        `Unknown problem detail: ${key}`,
+      )
+    },
+  )
 })
 
 describe('catalog', () => {

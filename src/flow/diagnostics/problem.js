@@ -13,16 +13,22 @@ const fillTemplate = (template, params) =>
     Object.hasOwn(params, name) ? String(params[name]) : placeholder,
   )
 
+// The only keys a caller may put on a problem besides `params`. code, severity, message and fix
+// always come from the catalog.
+const DETAIL_KEYS = Object.freeze(['stepId', 'edgeId', 'field', 'untrusted'])
+
 /**
  * Builds a problem from the catalog. `details.params` fills the message template; the rest of
  * `details` (stepId, edgeId, field, untrusted) is carried through. User text belongs in
  * `untrusted` and in `params` (rendered into the message only), never in other fields.
- * `params` is not kept on the result. code, severity, message and fix always come from the
- * catalog, whatever `details` holds. Throws on a code that is not in the catalog.
+ * `params` is not kept on the result. Throws on a code that is not in the catalog, and on any
+ * other detail key.
  */
 export const problem = (code, details = {}) => {
   if (!isCatalogCode(code)) throw new Error(`Unknown diagnostic code: ${String(code)}`)
   const { params = {}, ...rest } = details
+  const unknownKeys = Object.keys(rest).filter((key) => !DETAIL_KEYS.includes(key))
+  if (unknownKeys.length > 0) throw new Error(`Unknown problem detail: ${unknownKeys.join(', ')}`)
   const entry = catalog[code]
   return {
     ...rest,

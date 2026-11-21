@@ -107,30 +107,6 @@
     "status": "active",
     "since": "0.0.0"
   },
-  "FILE_NO_STEP_LIST": {
-    "code": "FILE_NO_STEP_LIST",
-    "severity": "error",
-    "title": "File has no step list",
-    "summary": "The nodes field is missing or is not a list.",
-    "message": "The file has no list of steps (nodes).",
-    "fix": "Set nodes to a list, empty if there are no steps.",
-    "docs": "#file-no-step-list",
-    "owner": "app",
-    "status": "active",
-    "since": "0.0.0"
-  },
-  "FILE_NO_CONNECTION_LIST": {
-    "code": "FILE_NO_CONNECTION_LIST",
-    "severity": "error",
-    "title": "File has no connection list",
-    "summary": "The edges field is missing or is not a list.",
-    "message": "The file has no list of connections (edges).",
-    "fix": "Set edges to a list, empty if there are no connections.",
-    "docs": "#file-no-connection-list",
-    "owner": "app",
-    "status": "active",
-    "since": "0.0.0"
-  },
   "STEP_ID_MISSING": {
     "code": "STEP_ID_MISSING",
     "severity": "error",
@@ -196,7 +172,7 @@
     "severity": "error",
     "title": "Step count is invalid",
     "summary": "A step count field (pt, lt, queue or batch) is not a whole number of 0 or more.",
-    "message": "{step}: {fieldName} ({field}) must be a whole number, 0 or more.",
+    "message": "{step}: {fieldLabel} ({field}) must be a whole number, 0 or more.",
     "fix": "Set the field to a whole number of 0 or more, or remove it.",
     "docs": "#step-count-invalid",
     "owner": "app",
@@ -208,7 +184,7 @@
     "severity": "error",
     "title": "Step percentage is invalid",
     "summary": "The %C&A field (ca) is not a number from 0 to 100.",
-    "message": "{step}: {fieldName} ({field}) must be a number from 0 to 100.",
+    "message": "{step}: {fieldLabel} ({field}) must be a number from 0 to 100.",
     "fix": "Set the field to a number from 0 to 100, or remove it.",
     "docs": "#step-percent-invalid",
     "owner": "app",

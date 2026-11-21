@@ -330,7 +330,7 @@ describe.each(RELEASED_SCHEMA_VERSIONS)('the %s fixture', (version) => {
 
     expect(result.ok).toBe(true)
     expect(result.file.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
-    expect(validateProjectFile(result.file)).toEqual({ ok: true })
+    expect(validateProjectFile(result.file)).toEqual({ ok: true, problems: [] })
   })
 
   it('upgrades to its expected output', async () => {

@@ -87,7 +87,7 @@ describe('parseImport', () => {
     })
     expect(await parse(file)).toEqual({
       ok: false,
-      message: 'Step "Build" (#3) is missing a position.',
+      message: 'Step "Build" (#3) is missing a position (position.x and position.y).',
     })
   })
 
@@ -95,7 +95,10 @@ describe('parseImport', () => {
     const file = validFile({
       nodes: [step('a', 'Plan'), step('b', 'Design'), withoutPosition({ ...step('c'), data: {} })],
     })
-    expect(await parse(file)).toEqual({ ok: false, message: 'Step #3 is missing a position.' })
+    expect(await parse(file)).toEqual({
+      ok: false,
+      message: 'Step #3 is missing a position (position.x and position.y).',
+    })
   })
 
   it('rejects connections that form a loop', async () => {
@@ -106,7 +109,10 @@ describe('parseImport', () => {
         { id: 'c->a', source: 'c', target: 'a' },
       ],
     })
-    expect(await parse(file)).toEqual({ ok: false, message: 'The connections form a loop.' })
+    expect(await parse(file)).toEqual({
+      ok: false,
+      message: 'Connection 3 closes a loop in the connections.',
+    })
   })
 
   describe('with an injected version history', () => {
@@ -157,7 +163,7 @@ describe('parseImport', () => {
       expect(await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })).toEqual(
         {
           ok: false,
-          message: 'The project name is empty.',
+          message: 'The project name (project.name) is empty.',
         },
       )
     })
