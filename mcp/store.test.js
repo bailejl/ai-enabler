@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process'
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   mkdtemp,
@@ -10,9 +12,11 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
+import fsp from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { promisify } from 'node:util'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createStore } from './store.js'
 
 // Layout per test: <tmp>/start/projects is the projects folder, <tmp>/start/secret.json sits next
@@ -34,6 +38,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await rm(tmp, { recursive: true, force: true })
 })
 
@@ -51,6 +56,21 @@ const snapshot = async (dir) => {
   )
   return Object.assign({}, ...parts)
 }
+
+const canChmod = process.platform !== 'win32' && process.getuid?.() !== 0
+const canMakePipe = process.platform !== 'win32'
+
+// The raw name is user text, so it may appear in `untrusted` and nowhere else in the problem.
+const expectNameOnlyInUntrusted = (found, name) => {
+  expect(found.untrusted).toEqual({ name })
+  Object.entries(found)
+    .filter(([key]) => key !== 'untrusted')
+    .forEach(([key, value]) => {
+      expect(JSON.stringify(value), `the ${key} field`).not.toContain(name)
+    })
+}
+
+const MAX_BYTES = 5 * 1024 * 1024
 
 const REJECTED_NAMES = [
   '../secret.json',
@@ -94,9 +114,7 @@ describe('names outside the projects folder', () => {
 
   it('keeps the raw name in untrusted only', async () => {
     const result = await createStore(startDir).read('../secret.json')
-    const [found] = result.problems
-    expect(found.untrusted).toEqual({ name: '../secret.json' })
-    expect(JSON.stringify({ ...found, untrusted: undefined })).not.toContain('secret')
+    expectNameOnlyInUntrusted(result.problems[0], '../secret.json')
   })
 })
 
@@ -158,7 +176,7 @@ describe('read', () => {
     const result = await createStore(startDir).read('missing.json')
     expect(result.ok).toBe(false)
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_NOT_FOUND'])
-    expect(result.problems[0].untrusted).toEqual({ name: 'missing.json' })
+    expectNameOnlyInUntrusted(result.problems[0], 'missing.json')
   })
 
   it('reports a missing projects folder as FILE_NOT_FOUND and does not create it', async () => {
@@ -178,10 +196,82 @@ describe('read', () => {
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_NOT_FOUND'])
   })
 
-  it('reports a directory named like a project as FILE_NOT_FOUND', async () => {
+  it('rejects a directory named like a project as FILE_NAME_NOT_ALLOWED', async () => {
     await mkdir(path.join(folder, 'dir.json'))
     const result = await createStore(startDir).read('dir.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+  })
+
+  it.skipIf(!canMakePipe)('rejects a named pipe without opening it', async () => {
+    await promisify(execFile)('mkfifo', [path.join(folder, 'pipe.json')])
+    const result = await createStore(startDir).read('pipe.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+  })
+
+  it('rejects a hard link to a file outside the folder, and does not read it', async () => {
+    await link(path.join(outside, 'secret.json'), path.join(folder, 'hard.json'))
+    const result = await createStore(startDir).read('hard.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+    expectNameOnlyInUntrusted(result.problems[0], 'hard.json')
+    expect(result).not.toHaveProperty('text')
+  })
+
+  it.skipIf(!canChmod)('reports an unreadable file as FILE_NOT_FOUND', async () => {
+    const file = path.join(folder, 'locked.json')
+    await writeFile(file, 'locked')
+    await chmod(file, 0o000)
+    const result = await createStore(startDir).read('locked.json')
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_NOT_FOUND'])
+    expectNameOnlyInUntrusted(result.problems[0], 'locked.json')
+  })
+
+  it('reads a file of exactly 5 MB', async () => {
+    const text = 'a'.repeat(MAX_BYTES)
+    await writeFile(path.join(folder, 'big.json'), text)
+    const result = await createStore(startDir).read('big.json')
+    expect(result.ok).toBe(true)
+    expect(result.text).toHaveLength(MAX_BYTES)
+  })
+
+  it('rejects a file above 5 MB as FILE_TOO_LARGE without reading it', async () => {
+    await writeFile(path.join(folder, 'huge.json'), 'a'.repeat(MAX_BYTES + 1))
+    const open = vi.spyOn(fsp, 'open')
+    const result = await createStore(startDir).read('huge.json')
+    expect(result.ok).toBe(false)
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_TOO_LARGE'])
+    expectNameOnlyInUntrusted(result.problems[0], 'huge.json')
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it('does not follow a symlink put in place after the check', async () => {
+    await symlink(path.join(outside, 'secret.json'), path.join(folder, 'swapped.json'))
+    const realLstat = fsp.lstat
+    // The check sees a regular file, as it would just before the swap.
+    vi.spyOn(fsp, 'lstat').mockImplementation(async (file) =>
+      file.endsWith('swapped.json')
+        ? realLstat(path.join(startDir, 'secret.json'))
+        : realLstat(file),
+    )
+    const result = await createStore(startDir).read('swapped.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+    expect(result).not.toHaveProperty('text')
+  })
+
+  it('closes the file after reading it', async () => {
+    await writeFile(path.join(folder, 'team.json'), 'text')
+    const realOpen = fsp.open
+    const close = []
+    vi.spyOn(fsp, 'open').mockImplementation(async (...args) => {
+      const handle = await realOpen(...args)
+      const realClose = handle.close.bind(handle)
+      handle.close = async () => {
+        close.push('closed')
+        return realClose()
+      }
+      return handle
+    })
+    await createStore(startDir).read('team.json')
+    expect(close).toEqual(['closed'])
   })
 
   it('rejects a symlink to a file inside the folder too', async () => {
@@ -285,7 +375,7 @@ describe('write', () => {
     const result = await createStore(startDir).write('team.json', 'new', { mustBeNew: true })
     expect(result.ok).toBe(false)
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_TAKEN'])
-    expect(result.problems[0].untrusted).toEqual({ name: 'team.json' })
+    expectNameOnlyInUntrusted(result.problems[0], 'team.json')
     expect(result.problems[0].fix).toMatch(/another name/)
     expect(await snapshot(tmp)).toEqual(before)
   })
@@ -307,10 +397,29 @@ describe('write', () => {
     })
   })
 
-  it('reports a directory in the way as FILE_SAVE_FAILED', async () => {
+  it('rejects a directory in the way as FILE_NAME_NOT_ALLOWED', async () => {
     await mkdir(path.join(folder, 'dir.json'))
+    const before = await snapshot(tmp)
     const result = await createStore(startDir).write('dir.json', 'x')
-    expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+    expect(await snapshot(tmp)).toEqual(before)
+  })
+
+  it.skipIf(!canMakePipe)('rejects a named pipe in the way without opening it', async () => {
+    await promisify(execFile)('mkfifo', [path.join(folder, 'pipe.json')])
+    const result = await createStore(startDir).write('pipe.json', 'x')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+  })
+
+  it('rejects a hard link to a file outside the folder, and leaves that file unchanged', async () => {
+    await link(path.join(outside, 'secret.json'), path.join(folder, 'hard.json'))
+    const store = createStore(startDir)
+    const result = await store.write('hard.json', 'overwritten')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+    expect((await store.write('hard.json', 'x', { mustBeNew: true })).problems[0].code).toBe(
+      'FILE_NAME_NOT_ALLOWED',
+    )
+    expect(await readFile(path.join(outside, 'secret.json'), 'utf8')).toBe('outside secret')
   })
 
   it('reports a name too long for the file system as FILE_SAVE_FAILED', async () => {
@@ -332,15 +441,13 @@ describe('write', () => {
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
   })
 
-  const canChmod = process.platform !== 'win32' && process.getuid?.() !== 0
-
   it.skipIf(!canChmod)('reports an unwritable folder as FILE_SAVE_FAILED', async () => {
     await chmod(folder, 0o500)
     try {
       const result = await createStore(startDir).write('first.json', 'x')
       expect(result.ok).toBe(false)
       expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
-      expect(result.problems[0].untrusted).toEqual({ name: 'first.json' })
+      expectNameOnlyInUntrusted(result.problems[0], 'first.json')
     } finally {
       await chmod(folder, 0o700)
     }
@@ -354,5 +461,101 @@ describe('write', () => {
     const result = await createStore(startDir).write('team.json', 'x')
     expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
     expect(await readFile(file, 'utf8')).toBe('kept')
+  })
+
+  it('reports a failed write as FILE_SAVE_FAILED with the name only in untrusted', async () => {
+    const result = await createStore(path.join(startDir, 'secret.json')).write('team.json', 'x')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+    expectNameOnlyInUntrusted(result.problems[0], 'team.json')
+  })
+
+  describe('when the write fails part way', () => {
+    // Writes the first bytes to the temp file, then fails, as a full disk would.
+    const failAfterPartialWrite = () => {
+      const realWriteFile = fsp.writeFile
+      vi.spyOn(fsp, 'writeFile').mockImplementation(async (file, text, options) => {
+        await realWriteFile(file, text.slice(0, 2), options)
+        throw new Error('disk full')
+      })
+    }
+
+    it('leaves the old file intact and no temp file behind', async () => {
+      const file = path.join(folder, 'team.json')
+      await writeFile(file, 'old text')
+      const before = await snapshot(tmp)
+      failAfterPartialWrite()
+      const result = await createStore(startDir).write('team.json', 'new text')
+      expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+      expect(await snapshot(tmp)).toEqual(before)
+    })
+
+    it('does not block a retry of a new project, and leaves no temp file', async () => {
+      failAfterPartialWrite()
+      const store = createStore(startDir)
+      const failed = await store.write('first.json', 'new text', { mustBeNew: true })
+      expect(failed.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+      expect(await readdir(folder)).toEqual([])
+      vi.restoreAllMocks()
+      expect(await store.write('first.json', 'new text', { mustBeNew: true })).toEqual({ ok: true })
+      expect(await readdir(folder)).toEqual(['first.json'])
+    })
+
+    it('leaves the old file intact when the rename fails', async () => {
+      const file = path.join(folder, 'team.json')
+      await writeFile(file, 'old text')
+      const before = await snapshot(tmp)
+      vi.spyOn(fsp, 'rename').mockRejectedValue(new Error('cross-device'))
+      const result = await createStore(startDir).write('team.json', 'new text')
+      expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+      expect(await snapshot(tmp)).toEqual(before)
+    })
+
+    it('reports a link failure other than a taken name as FILE_SAVE_FAILED and cleans up', async () => {
+      const before = await snapshot(tmp)
+      vi.spyOn(fsp, 'link').mockRejectedValue(
+        Object.assign(new Error('no links'), { code: 'EPERM' }),
+      )
+      const result = await createStore(startDir).write('first.json', 'x', { mustBeNew: true })
+      expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+      expect(await snapshot(tmp)).toEqual(before)
+    })
+
+    it('treats a taken name that is not a new project as a failed save', async () => {
+      vi.spyOn(fsp, 'rename').mockRejectedValue(Object.assign(new Error('x'), { code: 'EEXIST' }))
+      const result = await createStore(startDir).write('first.json', 'x')
+      expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+    })
+  })
+
+  it('leaves no temp file behind after a successful write or new project', async () => {
+    const store = createStore(startDir)
+    await store.write('team.json', 'first')
+    await store.write('team.json', 'second')
+    await store.write('fresh.json', 'new', { mustBeNew: true })
+    expect((await readdir(folder)).sort()).toEqual(['fresh.json', 'team.json'])
+  })
+
+  it('writes a new project as a file with no other hard link', async () => {
+    await createStore(startDir).write('fresh.json', 'new', { mustBeNew: true })
+    expect((await lstat(path.join(folder, 'fresh.json'))).nlink).toBe(1)
+  })
+
+  it('writes to a temp file that is created exclusively, under a name no project can have', async () => {
+    const calls = []
+    const realWriteFile = fsp.writeFile
+    vi.spyOn(fsp, 'writeFile').mockImplementation(async (file, text, options) => {
+      calls.push({ name: path.basename(file), options })
+      return realWriteFile(file, text, options)
+    })
+    await createStore(startDir).write('team.json', 'x')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].name).toMatch(/^\./)
+    expect(calls[0].options).toEqual({ flag: 'wx' })
+  })
+
+  it('has no temp file to remove when the name is rejected', async () => {
+    const unlink = vi.spyOn(fsp, 'unlink')
+    await createStore(startDir).write('../x.json', 'x')
+    expect(unlink).not.toHaveBeenCalled()
   })
 })

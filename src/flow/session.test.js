@@ -11,7 +11,7 @@ import {
   discard,
   hasUnsavedChanges,
   markSaved,
-  openSession,
+  openInto,
   toSaveFile,
 } from './session.js'
 
@@ -55,7 +55,7 @@ const appExport = async (overrides = {}) =>
   )
 
 const opened = async (file, name = 'team.json') => {
-  const result = await openSession(JSON.stringify(file ?? (await appExport())), name)
+  const result = await openInto(EMPTY_SESSION, JSON.stringify(file ?? (await appExport())), name)
   expect(result.ok).toBe(true)
   return result.session
 }
@@ -77,10 +77,10 @@ describe('EMPTY_SESSION', () => {
   })
 })
 
-describe('openSession', () => {
+describe('openInto', () => {
   it('opens a valid file as a clean session holding the project and the file name', async () => {
     const file = await appExport()
-    const result = await openSession(JSON.stringify(file), 'team.json')
+    const result = await openInto(EMPTY_SESSION, JSON.stringify(file), 'team.json')
     expect(result).toEqual({
       ok: true,
       session: {
@@ -93,11 +93,45 @@ describe('openSession', () => {
     expect(hasUnsavedChanges(result.session)).toBe(false)
   })
 
-  it('upgrades a 0.0.0 file on open', async () => {
-    const old = { ...(await appExport()), schemaVersion: '0.0.0' }
-    const result = await openSession(JSON.stringify(old), 'old.json')
+  it('opens over a clean open project', async () => {
+    const other = await appExport({ project: { id: 'p2', name: 'Other' } })
+    const result = await openInto(await opened(), JSON.stringify(other), 'other.json')
     expect(result.ok).toBe(true)
-    expect(result.session.project.nodes).toHaveLength(3)
+    expect(result.session.name).toBe('other.json')
+    expect(result.session.project.project.id).toBe('p2')
+  })
+
+  it('upgrades a 0.0.0 file on open', async () => {
+    // The 0.0.0 hop drops a stray modifiedBy. The same malformed mark in a 0.1.0 file is
+    // rejected, so opening the 0.0.0 file only succeeds when the upgrade ran.
+    const file = await appExport()
+    const withStray = (schemaVersion) => JSON.stringify({ ...file, schemaVersion, modifiedBy: 'x' })
+    const current = await openInto(EMPTY_SESSION, withStray('0.1.0'), 'now.json')
+    expect(current.ok).toBe(false)
+    const result = await openInto(EMPTY_SESSION, withStray('0.0.0'), 'old.json')
+    expect(result.ok).toBe(true)
+    expect(result.session.project).toEqual({
+      project: file.project,
+      nodes: file.nodes,
+      edges: file.edges,
+    })
+  })
+
+  it('refuses to open while there are unsaved changes, before it parses the text', async () => {
+    const session = await changed()
+    const other = JSON.stringify(await appExport({ project: { id: 'p2', name: 'Other' } }))
+    const result = await openInto(session, other, 'other.json')
+    expect(result).toEqual({ ok: false, session, problems: [problem('CMD_UNSAVED_CHANGES')] })
+    expect(result.session).toBe(session)
+    // Not even bad text is looked at: the unsaved changes are reported, not FILE_NOT_JSON.
+    const bad = await openInto(session, 'not json at all', 'bad.json')
+    expect(bad.problems.map((found) => found.code)).toEqual(['CMD_UNSAVED_CHANGES'])
+  })
+
+  it('opens again once the changes are discarded', async () => {
+    const other = JSON.stringify(await appExport({ project: { id: 'p2', name: 'Other' } }))
+    const result = await openInto(discard(await changed()).session, other, 'other.json')
+    expect(result.ok).toBe(true)
   })
 
   it.each([
@@ -112,11 +146,12 @@ describe('openSession', () => {
       }),
       'STEP_COUNT_INVALID',
     ],
-  ])('fails on %s with its problem and no session', async (_label, text, code) => {
-    const result = await openSession(text, 'bad.json')
+  ])('fails on %s with its problem and keeps the session it has', async (_label, text, code) => {
+    const session = await opened()
+    const result = await openInto(session, text, 'bad.json')
     expect(result.ok).toBe(false)
     expect(result.problems.map((found) => found.code)).toEqual([code])
-    expect(result).not.toHaveProperty('session')
+    expect(result.session).toBe(session)
   })
 })
 
@@ -207,7 +242,7 @@ describe('applyToSession', () => {
     )
     expect(result.ok).toBe(false)
     expect(result.problems).toEqual([problem('CMD_UNSAVED_CHANGES')])
-    expect(result.summary).toBe('Rejected create_project: the open project has unsaved changes')
+    expect(result.summary).toBe('Rejected create_project: nothing changed (1 problem)')
     expect(result.session).toBe(session)
   })
 
@@ -266,6 +301,8 @@ describe('discard', () => {
   })
 })
 
+// "Nothing is written before save" holds because session.js never imports the store, so no
+// transition here can touch the disk. The tool host test (Slice 7) asserts it on the real host.
 describe('toSaveFile', () => {
   it('saves the project as 0.1.0 with the export time, the mark and a valid hash', async () => {
     const original = await appExport()
@@ -354,7 +391,7 @@ describe('toSaveFile', () => {
 
   it('fails with no open project, naming open_project and create_project', async () => {
     const result = await toSaveFile(EMPTY_SESSION, { now: NOW, tool: TOOL })
-    expect(result).toEqual({ ok: false, problems: [problem('CMD_PROJECT_NOT_OPEN')] })
+    expect(result).toEqual({ ok: false, problems: [problem('CMD_NO_PROJECT')] })
     const { message } = result.problems[0]
     expect(message).toMatch(/open_project/)
     expect(message).toMatch(/create_project/)
@@ -364,8 +401,9 @@ describe('toSaveFile', () => {
 describe('markSaved', () => {
   it('clears the unsaved changes, takes the laid-out file as the project and allows switching', async () => {
     const session = await changed()
-    const { file } = await toSaveFile(session, { now: NOW, tool: TOOL })
-    const saved = markSaved(session, file)
+    const toSave = await toSaveFile(session, { now: NOW, tool: TOOL })
+    const { file } = toSave
+    const saved = markSaved(session, toSave)
     expect(saved.changes).toBe(0)
     expect(saved.name).toBe('team.json')
     expect(saved.project).toEqual({ project: file.project, nodes: file.nodes, edges: file.edges })
@@ -380,13 +418,40 @@ describe('markSaved', () => {
       { name: 'create_project', args: { name: 'Fresh' } },
       deps(),
     ).session
-    const { file } = await toSaveFile(created, { now: NOW, tool: TOOL })
-    expect(markSaved(created, file, 'first.json').name).toBe('first.json')
+    const toSave = await toSaveFile(created, { now: NOW, tool: TOOL })
+    expect(markSaved(created, toSave, 'first.json').name).toBe('first.json')
   })
 
-  it('leaves a session with unsaved changes alone when nothing marks it saved', async () => {
+  it('keeps commands applied after the file was built, so the session stays unsaved', async () => {
     const session = await changed()
+    const toSave = await toSaveFile(session, { now: NOW, tool: TOOL })
+    const later = setQueue(session, 'b', 9).session
+    const saved = markSaved(later, toSave, 'team.json')
+    expect(saved.changes).toBe(2)
+    expect(hasUnsavedChanges(saved)).toBe(true)
+    expect(saved.project).toBe(later.project)
+    expect(saved.project.nodes[1].data.queue).toBe(9)
+    expect(saved.baseline).toEqual({
+      project: toSave.file.project,
+      nodes: toSave.file.nodes,
+      edges: toSave.file.edges,
+    })
+    expect(discard(saved).session.project).toBe(saved.baseline)
+    expect(checkCanSwitch(saved)).toEqual([problem('CMD_UNSAVED_CHANGES')])
+  })
+
+  it('stays unsaved when the changes were discarded after the file was built', async () => {
+    const session = await changed()
+    const toSave = await toSaveFile(session, { now: NOW, tool: TOOL })
+    const saved = markSaved(discard(session).session, toSave)
+    expect(saved.changes).toBe(1)
+    expect(saved.project).toBe(session.baseline)
+  })
+
+  it('does not change the session it was built from', async () => {
+    const session = await changed()
+    const before = structuredClone(session)
     await toSaveFile(session, { now: NOW, tool: TOOL })
-    expect(hasUnsavedChanges(session)).toBe(true)
+    expect(session).toEqual(before)
   })
 })

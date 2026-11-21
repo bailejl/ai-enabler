@@ -697,7 +697,7 @@ Feature: Open, edit and save a project
 #### Step 6.1: Pure editing session
 
 **Complexity**: standard
-**IMPLEMENT**: A plain session value with pure transitions: `openSession(text, name)` (through `parseImport`, so files are upgraded and must be valid), `applyToSession(session, command, deps)` (dirty only on success; positions untouched, new steps placed provisionally), `discard`, `toSaveFile(session, { now, tool })` (via `toProjectFile` and `withContentHash`, running `layoutSteps` first and adding `modifiedBy: { tool, at }` before `withContentHash`, so the hash covers it; `mcp/tools.js` passes `'aie-mcp'`), and guards for unsaved changes and no open project.
+**IMPLEMENT**: A plain session value with pure transitions: `openInto(session, text, name)` (through `parseImport`, so files are upgraded and must be valid; unsaved changes in `session` block it), `applyToSession(session, command, deps)` (dirty only on success; positions untouched, new steps placed provisionally), `discard`, `toSaveFile(session, { now, tool })` (via `toProjectFile` and `withContentHash`, running `layoutSteps` first and adding `modifiedBy: { tool, at }` before `withContentHash`, so the hash covers it; `mcp/tools.js` passes `'aie-mcp'`), and guards for unsaved changes and no open project.
 **TEST**: `session.test.js` covering the session scenarios with an injected `now` and `newId`.
 **REFACTOR**: Keep state in values passed in and returned; no closures holding state.
 **Files**: `src/flow/session.js`, `src/flow/session.test.js`

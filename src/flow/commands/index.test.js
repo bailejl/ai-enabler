@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand, createProject } from './index.js'
+import { applyCommand, createProject, rejectCommand, replacesProject } from './index.js'
+import { MAX_ECHOED_TEXT } from '../text.js'
 import { makeRun, onlyProblem } from './testHelpers.js'
 
 const newId = () => 'project-1'
@@ -159,7 +160,7 @@ describe('applyCommand with no project open', () => {
     const result = run(null, name, args)
     expect(onlyProblem(result)).toMatchObject({
       code: 'CMD_NO_PROJECT',
-      message: 'No project is open. Create or open a project first.',
+      message: 'No project is open. Call open_project or create_project first.',
     })
     expect(result.project).toBeNull()
     expect(result.summary).toBe(`Rejected ${name}: nothing changed (1 problem)`)
@@ -216,4 +217,42 @@ describe('applyCommand with values that are not text', () => {
       expect(result.summary).toMatch(/^Rejected \w+: nothing changed/)
     },
   )
+})
+
+describe('replacesProject', () => {
+  it('is true for create_project only', () => {
+    expect(replacesProject({ name: 'create_project', args: { name: 'A' } })).toBe(true)
+    expect(replacesProject({ name: 'add_step', args: { name: 'A' } })).toBe(false)
+    expect(replacesProject({ name: 'connect' })).toBe(false)
+  })
+
+  it.each([
+    null,
+    undefined,
+    {},
+    { name: 5 },
+    { name: 'nope' },
+    { name: 'toString' },
+    { name: '__proto__' },
+    { name: { toString: () => 'create_project' } },
+  ])('is false for the command %j', (command) => {
+    expect(replacesProject(command)).toBe(false)
+  })
+})
+
+describe('rejectCommand', () => {
+  it('returns the problems and a summary that says nothing changed, and no project', () => {
+    const problems = [{ code: 'A' }, { code: 'B' }]
+    expect(rejectCommand('create_project', problems)).toEqual({
+      ok: false,
+      problems,
+      summary: 'Rejected create_project: nothing changed (2 problems)',
+    })
+  })
+
+  it('cuts a long command name short in the summary', () => {
+    const { summary } = rejectCommand('x'.repeat(200), [])
+    expect(summary).not.toContain('x'.repeat(MAX_ECHOED_TEXT + 1))
+    expect(summary).toMatch(/^Rejected x+.*: nothing changed \(0 problems\)$/)
+  })
 })

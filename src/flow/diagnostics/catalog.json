@@ -143,6 +143,18 @@
     "status": "active",
     "since": "0.1.0"
   },
+  "FILE_TOO_LARGE": {
+    "code": "FILE_TOO_LARGE",
+    "severity": "error",
+    "title": "File is too large",
+    "summary": "The file is larger than the 5 MB limit for a project file, so it was not read.",
+    "message": "This file is larger than 5 MB, so it was not read. Project files are far smaller than that.",
+    "fix": "Open a smaller project file, or split the work into separate projects.",
+    "docs": "#file-too-large",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
   "FILE_SAVE_FAILED": {
     "code": "FILE_SAVE_FAILED",
     "severity": "error",
@@ -447,9 +459,9 @@
     "code": "CMD_NO_PROJECT",
     "severity": "error",
     "title": "No project is open",
-    "summary": "A command that works on a project was sent when no project is open.",
-    "message": "No project is open. Create or open a project first.",
-    "fix": "Call create_project first, or open a project, then send the command again.",
+    "summary": "A command, save or other action that needs a project was sent when no project is open.",
+    "message": "No project is open. Call open_project or create_project first.",
+    "fix": "Call open_project to load a file or create_project to start a new one, then try again.",
     "docs": "#cmd-no-project",
     "owner": "app",
     "status": "active",
@@ -499,18 +511,6 @@
     "message": "The open project has unsaved changes. Call save_project to keep them or discard_changes to drop them, then try again.",
     "fix": "Call save_project to keep the changes or discard_changes to drop them, then try again.",
     "docs": "#cmd-unsaved-changes",
-    "owner": "app",
-    "status": "active",
-    "since": "0.1.0"
-  },
-  "CMD_PROJECT_NOT_OPEN": {
-    "code": "CMD_PROJECT_NOT_OPEN",
-    "severity": "error",
-    "title": "No project is open to save",
-    "summary": "A save was requested when no project is open.",
-    "message": "No project is open. Call open_project or create_project first.",
-    "fix": "Call open_project to load a file or create_project to start a new one, then try again.",
-    "docs": "#cmd-project-not-open",
     "owner": "app",
     "status": "active",
     "since": "0.1.0"

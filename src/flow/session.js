@@ -1,4 +1,4 @@
-import { applyCommand } from './commands/index.js'
+import { applyCommand, rejectCommand, replacesProject } from './commands/index.js'
 import { problem } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
 import { layoutSteps } from './layout.js'
@@ -27,25 +27,26 @@ const toMemory = ({ project, nodes, edges }) => ({ project, nodes, edges })
 export const hasUnsavedChanges = (session) => session.changes > 0
 
 /**
- * Parses a file's text through the app's import pipeline, so the file is upgraded and must be
- * valid. Failure returns the problems and no session; the caller keeps the session it has.
- * @returns {Promise<{ ok: true, session: object } | { ok: false, problems: object[] }>}
- */
-export const openSession = async (text, name) => {
-  const result = await parseImport(text)
-  if (!result.ok) return result
-  const project = toMemory(result.file)
-  return { ok: true, session: { name, project, baseline: project, changes: 0 } }
-}
-
-/**
  * The problems that stop another file being opened or a new project being created: unsaved
  * changes in the open project. Empty when switching is allowed.
  */
 export const checkCanSwitch = (session) =>
   hasUnsavedChanges(session) ? [problem('CMD_UNSAVED_CHANGES')] : []
 
-const CREATE = 'create_project'
+/**
+ * Opens a file's text as the session, through the app's import pipeline, so the file is upgraded
+ * and must be valid. Unsaved changes in `session` block it before the text is parsed. A failure
+ * returns the problems and the session it was given.
+ * @returns {Promise<{ ok: true, session: object } | { ok: false, session: object, problems: object[] }>}
+ */
+export const openInto = async (session, text, name) => {
+  const blocked = checkCanSwitch(session)
+  if (blocked.length > 0) return { ok: false, session, problems: blocked }
+  const result = await parseImport(text)
+  if (!result.ok) return { ok: false, session, problems: result.problems }
+  const project = toMemory(result.file)
+  return { ok: true, session: { name, project, baseline: project, changes: 0 } }
+}
 
 /**
  * Applies one command to the session's project. A rejected command, including a create_project
@@ -55,20 +56,14 @@ const CREATE = 'create_project'
  * @returns {{ ok: boolean, session: object, problems: object[], summary: string, created?: string }}
  */
 export const applyToSession = (session, command, deps) => {
-  if (command?.name === CREATE && hasUnsavedChanges(session)) {
-    return {
-      ok: false,
-      session,
-      problems: checkCanSwitch(session),
-      summary: `Rejected ${CREATE}: the open project has unsaved changes`,
-    }
+  if (replacesProject(command) && hasUnsavedChanges(session)) {
+    return { ...rejectCommand(command.name, checkCanSwitch(session)), session }
   }
   const { project, ...outcome } = applyCommand(session.project, command, deps)
   if (!outcome.ok) return { ...outcome, session }
-  const next =
-    command.name === CREATE
-      ? { name: null, project, baseline: null, changes: 1 }
-      : { ...session, project, changes: session.changes + 1 }
+  const next = replacesProject(command)
+    ? { name: null, project, baseline: null, changes: 1 }
+    : { ...session, project, changes: session.changes + 1 }
   return { ...outcome, session: next }
 }
 
@@ -88,23 +83,35 @@ export const discard = (session) => {
 /**
  * Builds the file to write: the project laid out left to right, at schema 0.1.0, exported at `now`
  * and marked as changed by `tool`. The mark goes in before the hash, so the hash covers it. The
- * session is not changed; call markSaved once the file is written.
+ * session is not changed; pass the result to markSaved once the file is written. `from` is the
+ * project the file was built from.
  * @param {{ now: Date, tool: string }} settings now and tool are injected
- * @returns {Promise<{ ok: true, file: object } | { ok: false, problems: object[] }>}
+ * @returns {Promise<{ ok: true, file: object, from: object } | { ok: false, problems: object[] }>}
  */
 export const toSaveFile = async (session, { now, tool }) => {
-  if (!session.project) return { ok: false, problems: [problem('CMD_PROJECT_NOT_OPEN')] }
+  if (!session.project) return { ok: false, problems: [problem('CMD_NO_PROJECT')] }
   const { project, nodes, edges } = session.project
   const exported = toProjectFile({ project, nodes: layoutSteps(nodes, edges), edges, now })
   const marked = { ...exported, modifiedBy: { tool, at: now.toISOString() } }
-  return { ok: true, file: await withContentHash(marked) }
+  return { ok: true, file: await withContentHash(marked), from: session.project }
 }
 
 /**
- * The session after `file` (from toSaveFile) was written as `name`: clean, holding the laid-out
- * project.
+ * The session after the file from toSaveFile was written as `name`. The file becomes the
+ * baseline. When the project is still the one the file was built from, the session is clean and
+ * holds the laid-out project. When commands were applied (or changes discarded) since, the
+ * project is kept and the session stays unsaved, so those changes are not lost.
+ * @param {{ file: object, from: object }} saved The ok result of toSaveFile
  */
-export const markSaved = (session, file, name = session.name) => {
+export const markSaved = (session, { file, from }, name = session.name) => {
   const project = toMemory(file)
+  if (session.project !== from) {
+    return {
+      name,
+      project: session.project,
+      baseline: project,
+      changes: Math.max(session.changes, 1),
+    }
+  }
   return { name, project, baseline: project, changes: 0 }
 }

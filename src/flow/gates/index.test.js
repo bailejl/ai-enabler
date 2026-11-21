@@ -81,7 +81,7 @@ describe('runGate', () => {
       expect(result.ok).toBe(false)
       const [found] = result.problems
       expect(found.code).toBe('CMD_NO_PROJECT')
-      expect(found.message).toBe('No project is open. Create or open a project first.')
+      expect(found.message).toBe('No project is open. Call open_project or create_project first.')
     },
   )
 

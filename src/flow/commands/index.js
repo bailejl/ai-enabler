@@ -11,11 +11,13 @@ import { STEP_COMMANDS } from './steps.js'
 // that builds the summary (applyCommand calls it only once the candidate is valid, so it never
 // sees unchecked values) and the command's own problems, which are reported with the candidate's.
 // It never mutates its input and never validates: applyCommand validates the candidate. Names are
-// the MCP tool names. A command works on the open project unless `needsProject` is false.
+// the MCP tool names. A command works on the open project unless `needsProject` is false, and
+// `replacesProject` marks one that starts a new project in place of the open one.
 const COMMANDS = {
   create_project: {
     args: ['name'],
     needsProject: false,
+    replacesProject: true,
     apply: (_project, { name }, { newId }) => ({
       project: { project: { id: newId(), name }, nodes: [], edges: [] },
       summary: () => `Created project ${quoted(name)}`,
@@ -49,8 +51,25 @@ const checkArgs = (name, entry, args) => {
   ]
 }
 
-const rejectedSummary = (name, problems) =>
-  `Rejected ${nameLabel(name)}: nothing changed (${formatCount(problems.length, 'problem')})`
+/**
+ * True when the command starts a new project in place of the open one (create_project), so the
+ * caller can guard the open project first. False for anything else, including a malformed command.
+ */
+export const replacesProject = (command) =>
+  typeof command?.name === 'string' &&
+  Object.hasOwn(COMMANDS, command.name) &&
+  COMMANDS[command.name].replacesProject === true
+
+/**
+ * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
+ * @param {string} name The command name; shown cut short and never as part of the problems.
+ * @param {object[]} problems
+ */
+export const rejectCommand = (name, problems) => ({
+  ok: false,
+  problems,
+  summary: `Rejected ${nameLabel(name)}: nothing changed (${formatCount(problems.length, 'problem')})`,
+})
 
 /**
  * Applies one command to the in-memory project (the project file shape without schemaVersion,
@@ -63,12 +82,7 @@ const rejectedSummary = (name, problems) =>
  */
 export const applyCommand = (project, command, context) => {
   const { name, args = {} } = command ?? {}
-  const reject = (problems) => ({
-    ok: false,
-    project,
-    problems,
-    summary: rejectedSummary(name, problems),
-  })
+  const reject = (problems) => ({ ...rejectCommand(name, problems), project })
   if (typeof name !== 'string' || !Object.hasOwn(COMMANDS, name)) {
     return reject([unknownCommand(name)])
   }
