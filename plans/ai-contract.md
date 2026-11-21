@@ -1039,7 +1039,7 @@ graph TD
 #### Wave 1
 
 - [ ] Slice 1: Validator returns every problem
-  - [ ] Step 1.0: Diagnostics catalog and problem helper
+  - [x] Step 1.0: Diagnostics catalog and problem helper
   - [ ] Step 1.1: Collect every rule failure in two phases
   - [ ] Step 1.2: Import pipeline carries problems
   - [ ] Step 1.3: The import status lists every problem
