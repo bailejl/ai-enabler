@@ -11,6 +11,10 @@ Early scaffold. The UI is React with [React Flow](https://reactflow.dev) (`@xyfl
 by Vite. It shows a starter value stream (Idea to Production) on a canvas you can pan, zoom, and
 drag nodes around on. None of the analysis goals above are built yet.
 
+The live site is at <https://bailejl.github.io/ai-enabler/>. It deploys after CI passes on `main`.
+Links use hash routes (`#/`, `#/projects/<id>`), not path-style URLs, so they survive a refresh on
+GitHub Pages.
+
 ## Prerequisites
 
 - Node.js `>=24.11.0` (set in `engines` in `package.json`). `.nvmrc` pins `24.11.0`, so `nvm use`
