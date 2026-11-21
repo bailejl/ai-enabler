@@ -4,9 +4,10 @@ import { layoutSteps, STEP_CARD_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
 
 const step = (id) => ({ id, type: 'step', position: { x: 0, y: 0 }, data: { label: id } })
 const edge = (source, target) => ({ id: `${source}->${target}`, source, target })
+const ROOT_FONT_SIZE_PX = 16
 const at = (laidOut, id) => laidOut.find((n) => n.id === id).position
 
-const overlap = (a, b) =>
+const overlaps = (a, b) =>
   a.x < b.x + STEP_CARD_WIDTH &&
   b.x < a.x + STEP_CARD_WIDTH &&
   a.y < b.y + STEP_CARD_HEIGHT &&
@@ -34,7 +35,7 @@ describe('layoutSteps', () => {
       [edge('idea', 'design'), edge('idea', 'build')],
     )
     expect(at(laidOut, 'design').x).toBe(at(laidOut, 'build').x)
-    expect(overlap(at(laidOut, 'design'), at(laidOut, 'build'))).toBe(false)
+    expect(overlaps(at(laidOut, 'design'), at(laidOut, 'build'))).toBe(false)
   })
 
   it('orders rows in a column by file order, not id', () => {
@@ -45,34 +46,46 @@ describe('layoutSteps', () => {
     expect(at(laidOut, 'z').y).toBeLessThan(at(laidOut, 'a').y)
   })
 
-  it('gives the same positions for the same map and different ones for different connections', () => {
+  it('gives the same positions for the same map', () => {
     const nodes = [step('idea'), step('design'), step('build')]
     const edges = [edge('idea', 'design'), edge('idea', 'build')]
     const positions = (laidOut) => laidOut.map((n) => n.position)
-    expect(positions(layoutSteps(nodes, edges))).toEqual(positions(layoutSteps(nodes, edges)))
-    const chained = [edge('idea', 'design'), edge('design', 'build')]
-    expect(positions(layoutSteps(nodes, chained))).not.toEqual(positions(layoutSteps(nodes, edges)))
+    expect(positions(layoutSteps(nodes, edges))).toEqual(
+      positions(layoutSteps(structuredClone(nodes), structuredClone(edges))),
+    )
+  })
+
+  it('places steps by their connections', () => {
+    const nodes = [step('idea'), step('design'), step('build')]
+    const fanOut = layoutSteps(nodes, [edge('idea', 'design'), edge('idea', 'build')])
+    const chain = layoutSteps(nodes, [edge('idea', 'design'), edge('design', 'build')])
+    expect(at(fanOut, 'design').x).toBe(at(fanOut, 'build').x)
+    expect(at(chain, 'design').x).toBeLessThan(at(chain, 'build').x)
   })
 
   it('does not overlap unconnected steps', () => {
     const laidOut = layoutSteps([step('a'), step('b')], [])
-    expect(overlap(at(laidOut, 'a'), at(laidOut, 'b'))).toBe(false)
+    expect(overlaps(at(laidOut, 'a'), at(laidOut, 'b'))).toBe(false)
   })
 
   it('returns an empty array for an empty map', () => {
     expect(layoutSteps([], [])).toEqual([])
   })
 
-  it('does not mutate its inputs and keeps every other node field', () => {
-    const nodes = [{ ...step('idea'), ariaLabel: 'Step 1: idea', selected: true }, step('build')]
+  it('does not mutate its inputs', () => {
+    const nodes = [step('idea'), step('build')]
     const edges = [edge('idea', 'build')]
     const nodesBefore = structuredClone(nodes)
     const edgesBefore = structuredClone(edges)
-    const laidOut = layoutSteps(nodes, edges)
-    expect(nodes).toEqual(nodesBefore)
-    expect(edges).toEqual(edgesBefore)
-    expect(laidOut[0]).toEqual({ ...nodes[0], position: laidOut[0].position })
-    expect(laidOut[0]).not.toBe(nodes[0])
+    layoutSteps(nodes, edges)
+    expect({ nodes, edges }).toEqual({ nodes: nodesBefore, edges: edgesBefore })
+  })
+
+  it('keeps every other node field and only replaces the position', () => {
+    const node = { ...step('idea'), ariaLabel: 'Step 1: idea', selected: true }
+    const [laidOut] = layoutSteps([node], [])
+    expect(laidOut).toEqual({ ...node, position: expect.any(Object) })
+    expect(laidOut).not.toBe(node)
   })
 
   it('finishes and positions every step when the map has a loop', () => {
@@ -84,9 +97,26 @@ describe('layoutSteps', () => {
     })
   })
 
+  it('keeps a rework loop inside a chain left to right except for the loop-back', () => {
+    const laidOut = layoutSteps(
+      [step('idea'), step('build'), step('test')],
+      [edge('idea', 'build'), edge('build', 'test'), edge('test', 'build')],
+    )
+    expect(at(laidOut, 'idea').x).toBeLessThan(at(laidOut, 'build').x)
+    expect(at(laidOut, 'build').x).toBeLessThan(at(laidOut, 'test').x)
+  })
+
+  it('lays out a very long chain without running out of stack', () => {
+    const STEP_COUNT = 20_000
+    const ids = Array.from({ length: STEP_COUNT }, (_, i) => `s${i}`)
+    const edges = ids.slice(1).map((id, i) => edge(ids[i], id))
+    const laidOut = layoutSteps(ids.map(step), edges)
+    expect(at(laidOut, ids[STEP_COUNT - 1]).x).toBeGreaterThan(at(laidOut, ids[0]).x)
+  })
+
   it('keeps the card width constant in step with --card-width in index.css', () => {
     const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
     const rem = Number(/--card-width:\s*([\d.]+)rem/.exec(css)?.[1])
-    expect(rem * 16).toBe(STEP_CARD_WIDTH)
+    expect(rem * ROOT_FONT_SIZE_PX).toBe(STEP_CARD_WIDTH)
   })
 })
