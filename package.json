@@ -17,7 +17,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "test:e2e": "playwright test",
-    "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/actions/setup/action.yml"
+    "lint:ci": "action-validator .github/workflows/ci.yml && action-validator .github/workflows/deploy.yml && action-validator .github/actions/setup/action.yml"
   },
   "repository": {
     "type": "git",
@@ -49,7 +49,8 @@
     "oxlint": "^1.93.0",
     "prettier": "^3.10.0",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "yaml": "^2.9.1"
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs}": [
