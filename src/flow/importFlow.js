@@ -20,9 +20,10 @@ export const EDITED_NOTICE = 'This file was changed outside AI Enabler after it 
 // The list shows this many problems; the rest are counted in a trailing "and N more" line.
 export const MAX_LISTED_PROBLEMS = 10
 
-const pluralize = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
+const formatCount = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
 
-const describeRejection = (problems) => `Import rejected: ${pluralize(problems.length, 'problem')}`
+const describeRejection = (problems) =>
+  `Import rejected: ${formatCount(problems.length, 'problem')}`
 
 const describeMore = (problems) =>
   problems.length > MAX_LISTED_PROBLEMS ? `and ${problems.length - MAX_LISTED_PROBLEMS} more` : null
@@ -37,7 +38,7 @@ export const fromProjectFile = (file) => ({
 })
 
 const describeImported = (name, stepCount, isEdited) => {
-  const outcome = `Imported ${name}, ${pluralize(stepCount, 'step')}`
+  const outcome = `Imported ${name}, ${formatCount(stepCount, 'step')}`
   return isEdited ? `${outcome}. ${EDITED_NOTICE}` : outcome
 }
 

@@ -65,6 +65,10 @@ describe('problem', () => {
     expect(problem('STEP_ID_MISSING', { params: { step: 'A' } })).not.toHaveProperty('params')
   })
 
+  it('names every unknown detail key in the error', () => {
+    expect(() => problem('FILE_NOT_JSON', { a: 1, b: 2 })).toThrow('Unknown problem detail: a, b')
+  })
+
   it.each(['code', 'severity', 'message', 'fix', 'extra'])(
     'throws when details carry the key "%s"',
     (key) => {

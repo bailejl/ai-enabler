@@ -135,8 +135,8 @@ const repeatedIdEntries = (entries) => {
   })
 }
 
-const duplicateStepIds = (steps) =>
-  repeatedIdEntries(steps).map(({ item, index }) =>
+const duplicateStepIds = (stepEntries) =>
+  repeatedIdEntries(stepEntries).map(({ item, index }) =>
     problem('STEP_ID_DUPLICATE', {
       params: { step: stepName(item, index), id: shorten(item.id) },
       field: 'id',
@@ -146,8 +146,8 @@ const duplicateStepIds = (steps) =>
     }),
   )
 
-const duplicateConnectionIds = (connections) =>
-  repeatedIdEntries(connections).map(({ item, index }) =>
+const duplicateConnectionIds = (connectionEntries) =>
+  repeatedIdEntries(connectionEntries).map(({ item, index }) =>
     problem('CONN_ID_DUPLICATE', {
       params: { connection: connectionName(index), id: shorten(item.id) },
       field: 'id',
@@ -176,7 +176,7 @@ const connectionKindProblem = ({ kind, edge: { entry } }, nodes, firstIndexById)
 
 // Relational rules over connections that passed phase 1. Endpoints are checked against every step
 // id in the file, so a step with some other problem is still a step a connection can point to.
-const checkConnectionRelations = (nodes, connections) => {
+const checkConnectionRelations = (nodes, connectionEntries) => {
   // Built in reverse so the first step with an id wins, as a forward search would find it.
   const firstIndexById = new Map(
     nodes
@@ -186,10 +186,10 @@ const checkConnectionRelations = (nodes, connections) => {
   )
   const hasBothEndpoints = ({ item }) =>
     firstIndexById.has(item.source) && firstIndexById.has(item.target)
-  const dangling = connections.filter((entry) => !hasBothEndpoints(entry))
-  const connected = connections.filter(hasBothEndpoints)
+  const danglingEntries = connectionEntries.filter((entry) => !hasBothEndpoints(entry))
+  const connectedEntries = connectionEntries.filter(hasBothEndpoints)
   return [
-    ...dangling.map(({ item, index }) =>
+    ...danglingEntries.map(({ item, index }) =>
       problem('CONN_ENDPOINT_MISSING', {
         params: { connection: connectionName(index) },
         ...connectionRefs(item),
@@ -197,7 +197,11 @@ const checkConnectionRelations = (nodes, connections) => {
     ),
     // Each edge carries its entry so a rejected edge maps back to its place in the file.
     ...findEdgeProblems(
-      connected.map((entry) => ({ source: entry.item.source, target: entry.item.target, entry })),
+      connectedEntries.map((entry) => ({
+        source: entry.item.source,
+        target: entry.item.target,
+        entry,
+      })),
     ).map((found) => connectionKindProblem(found, nodes, firstIndexById)),
   ]
 }
@@ -215,15 +219,15 @@ const checkConnectionRelations = (nodes, connections) => {
 export const validateProjectFile = (file) => {
   const shape = checkShape(file)
   if (shape.length > 0) return { ok: false, problems: shape }
-  const steps = checkItems(file.nodes, STEP_RULES, stepProblem)
-  const connections = checkItems(file.edges, CONNECTION_RULES, connectionProblem)
+  const stepEntries = checkItems(file.nodes, STEP_RULES, stepProblem)
+  const connectionEntries = checkItems(file.edges, CONNECTION_RULES, connectionProblem)
   const problems = [
     ...checkProject(file.project),
-    ...entryProblems(steps),
-    ...entryProblems(connections),
-    ...duplicateStepIds(passedEntries(steps)),
-    ...duplicateConnectionIds(passedEntries(connections)),
-    ...checkConnectionRelations(file.nodes, passedEntries(connections)),
+    ...entryProblems(stepEntries),
+    ...entryProblems(connectionEntries),
+    ...duplicateStepIds(passedEntries(stepEntries)),
+    ...duplicateConnectionIds(passedEntries(connectionEntries)),
+    ...checkConnectionRelations(file.nodes, passedEntries(connectionEntries)),
   ]
   return { ok: problems.length === 0, problems }
 }

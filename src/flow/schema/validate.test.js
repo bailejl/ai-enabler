@@ -580,6 +580,28 @@ describe('validateProjectFile: messages and codes', () => {
     expect(found.untrusted).toEqual({ title })
   })
 
+  it.each([
+    ['keeps an 80-character title whole', 80, `Step "${'A'.repeat(80)}" (#2)`],
+    ['shortens an 81-character title', 81, `Step "${'A'.repeat(79)}…" (#2)`],
+  ])('%s', (_label, length, named) => {
+    expect(onlyProblem(withData(2, { label: 'A'.repeat(length), pt: -1 })).message).toContain(
+      `${named}:`,
+    )
+  })
+
+  it('shortens a long repeated connection id in the message and keeps it whole in untrusted', () => {
+    const id = 'x'.repeat(200)
+    const found = onlyProblem(
+      withEdge(
+        2,
+        (edge) => ({ ...edge, id }),
+        withEdge(1, (edge) => ({ ...edge, id })),
+      ),
+    )
+    expect(found.message).toContain(`"${'x'.repeat(79)}…"`)
+    expect(found.untrusted).toEqual({ id })
+  })
+
   it('shortens a long repeated step id in the message', () => {
     const id = 'x'.repeat(200)
     const file = withoutEdges(
