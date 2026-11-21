@@ -59,8 +59,11 @@ the e2e tests cover it.
 - `src/App.jsx` - the React Flow canvas.
 - `src/flow/` - value stream data and logic, kept as plain functions so it can be unit tested.
 - Unit tests sit next to the code as `*.test.js` or `*.test.jsx`.
-- `e2e/` - Playwright end-to-end tests. Playwright starts the dev server on
-  `http://localhost:3000` itself.
+- `e2e/` - Playwright end-to-end tests. Playwright starts its own dev server, and a production
+  preview under `/ai-enabler/` for the `pages` project. Each checkout gets its own ports, derived
+  from its path: dev on 3100-3999, preview on the dev port + 1000. Set `PORT` to choose the dev
+  port (an existing server on it is reused outside CI), and `PREVIEW_PORT` to choose the preview
+  port.
 - `vite.config.js` - Vite dev server and build settings.
 - `vitest.config.js` - unit test and coverage settings.
 - `playwright.config.js` - Playwright settings (Chromium only).

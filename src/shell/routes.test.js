@@ -1,5 +1,5 @@
-import { describe, expect, test, vi } from 'vitest'
-import { ROUTE, resolveHash, syncHash, toHash } from './routes.js'
+import { describe, expect, test } from 'vitest'
+import { ROUTE, resolveHash, rewriteTarget, toHash } from './routes.js'
 
 const home = { name: ROUTE.HOME }
 const project = (id) => ({ name: ROUTE.PROJECT, id })
@@ -50,28 +50,16 @@ describe('toHash', () => {
   )
 })
 
-describe('syncHash', () => {
-  const fakeWindow = (hash) => ({
-    location: { hash },
-    history: { state: { kept: true }, replaceState: vi.fn() },
-  })
-
-  test('a non-canonical hash is replaced once, keeping history state', () => {
-    const win = fakeWindow('#/nowhere')
-    expect(syncHash(win)).toEqual(home)
-    expect(win.history.replaceState).toHaveBeenCalledTimes(1)
-    expect(win.history.replaceState).toHaveBeenCalledWith({ kept: true }, '', '#/')
-  })
-
-  test('a trailing slash is replaced with the canonical project hash', () => {
-    const win = fakeWindow('#/projects/abc/')
-    expect(syncHash(win)).toEqual(project('abc'))
-    expect(win.history.replaceState).toHaveBeenCalledWith({ kept: true }, '', '#/projects/abc')
+describe('rewriteTarget', () => {
+  test.each([
+    ['', '#/'],
+    ['#/nowhere', '#/'],
+    ['#/projects/abc/', '#/projects/abc'],
+  ])('non-canonical %j is rewritten to %j', (hash, target) => {
+    expect(rewriteTarget(hash)).toBe(target)
   })
 
   test.each(['#/', '#/projects/abc', '#/projects/a@b'])('canonical %j is left alone', (hash) => {
-    const win = fakeWindow(hash)
-    syncHash(win)
-    expect(win.history.replaceState).not.toHaveBeenCalled()
+    expect(rewriteTarget(hash)).toBeNull()
   })
 })

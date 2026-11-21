@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, test } from 'vitest'
 import { parse } from 'yaml'
+import { evaluate, evaluateTemplate } from './gha-expression.js'
 
 const workflow = parse(
   readFileSync(new URL('../.github/workflows/deploy.yml', import.meta.url), 'utf8'),
 )
+const ci = parse(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'))
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const { check, build, deploy, refuse } = workflow.jobs
 
@@ -16,65 +18,17 @@ const CHECK_IF =
 const REFUSE_IF = "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'"
 const BUILD_IF = "needs.check.outputs.current == 'true'"
 
-// A tiny evaluator for the subset of GitHub expressions the job conditions use:
-// context paths, quoted strings, ==, !=, &&, || and parentheses.
-const TOKEN_SOURCE = String.raw`\s*(\(|\)|&&|\|\||==|!=|'[^']*'|[A-Za-z_][\w.]*)`
-
-const tokenize = (source, at = 0) => {
-  if (source.slice(at).trim() === '') return []
-  const token = new RegExp(TOKEN_SOURCE, 'y')
-  token.lastIndex = at
-  const match = token.exec(source)
-  if (!match) throw new Error(`Unsupported expression syntax near: ${source.slice(at)}`)
-  return [match[1], ...tokenize(source, token.lastIndex)]
-}
-
-const lookup = (context, path) => path.split('.').reduce((value, key) => value?.[key], context)
-
-// Each parser takes a token index and returns [value, nextIndex].
-const evaluate = (source, context) => {
-  const tokens = tokenize(source)
-  const primary = (at) => {
-    const token = tokens[at]
-    if (token === '(') {
-      const [value, next] = or(at + 1)
-      if (tokens[next] !== ')') throw new Error('Missing )')
-      return [value, next + 1]
-    }
-    if (token.startsWith("'")) return [token.slice(1, -1), at + 1]
-    return [lookup(context, token), at + 1]
-  }
-  const comparison = (at) => {
-    const [left, next] = primary(at)
-    const op = tokens[next]
-    if (op !== '==' && op !== '!=') return [left, next]
-    const [right, after] = primary(next + 1)
-    return [op === '==' ? left === right : left !== right, after]
-  }
-  // Folds `operand (operator operand)*` left to right.
-  const chain = (operator, operand, combine) => {
-    const rest = (value, at) => {
-      if (tokens[at] !== operator) return [value, at]
-      const [right, next] = operand(at + 1)
-      return rest(combine(value, right), next)
-    }
-    return (at) => rest(...operand(at))
-  }
-  const and = chain('&&', comparison, (a, b) => Boolean(a) && Boolean(b))
-  const or = chain('||', and, (a, b) => Boolean(a) || Boolean(b))
-  const [value, end] = or(0)
-  if (end !== tokens.length) throw new Error(`Unparsed tokens: ${tokens.slice(end).join(' ')}`)
-  return Boolean(value)
-}
-
 const workflowRun = (conclusion, event) => ({
   github: {
     event_name: 'workflow_run',
     ref: 'refs/heads/main',
-    event: { workflow_run: { conclusion, event, head_branch: 'main' } },
+    run_id: 101,
+    event: { workflow_run: { conclusion, event } },
   },
 })
-const dispatch = (ref) => ({ github: { event_name: 'workflow_dispatch', ref, event: {} } })
+const dispatch = (ref) => ({
+  github: { event_name: 'workflow_dispatch', ref, run_id: 202, event: {} },
+})
 
 describe('deploy workflow triggers', () => {
   test('it runs after CI completes on main, or by hand', () => {
@@ -84,6 +38,11 @@ describe('deploy workflow triggers', () => {
       branches: ['main'],
     })
     expect(workflow.on).toHaveProperty('workflow_dispatch')
+  })
+
+  test('the CI workflow it waits for still exists under that name and runs on push to main', () => {
+    expect(ci.name).toBe(workflow.on.workflow_run.workflows[0])
+    expect(ci.on.push.branches).toContain('main')
   })
 
   test('a push or a pull request never triggers it directly', () => {
@@ -126,6 +85,8 @@ describe('job conditions', () => {
   test('build waits for the check, and deploy waits for the build', () => {
     expect(build.needs).toBe('check')
     expect(deploy.needs).toBe('build')
+    // No condition on deploy, so a skipped build always skips it.
+    expect(deploy.if).toBeUndefined()
   })
 })
 
@@ -144,8 +105,23 @@ describe('permissions', () => {
   })
 })
 
-test('deploys queue and are never cancelled midway', () => {
-  expect(workflow.concurrency).toEqual({ group: 'pages', 'cancel-in-progress': false })
+describe('concurrency', () => {
+  const group = (context) => evaluateTemplate(workflow.concurrency.group, context)
+
+  test('deploys queue and are never cancelled midway', () => {
+    expect(workflow.concurrency['cancel-in-progress']).toBe(false)
+  })
+
+  test.each([
+    ['green CI on a push to main', workflowRun('success', 'push')],
+    ['a manual run on main', dispatch('refs/heads/main')],
+  ])('%s joins the pages queue', (_, context) => {
+    expect(group(context)).toBe('pages')
+  })
+
+  test('a manual run off main gets its own group, so it cannot displace a pending deploy', () => {
+    expect(group(dispatch('refs/heads/feat/x'))).toBe(202)
+  })
 })
 
 describe('tip check', () => {
@@ -166,7 +142,7 @@ describe('tip check', () => {
     expect(check.steps).toHaveLength(1)
   })
 
-  test('it passes the event and commit to the script', () => {
+  test('it passes the event name to the script', () => {
     expect(tip.env.EVENT).toBe('${{ github.event_name }}')
   })
 

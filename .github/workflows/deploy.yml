@@ -11,9 +11,10 @@ on:
 permissions:
   contents: read
 
-# Queue deploys; never cancel one halfway through.
+# Queue deploys; never cancel one halfway through. A manual run off main only refuses, so it
+# takes a group of its own and cannot displace a deploy waiting in the pages queue.
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && github.run_id || 'pages' }}
   cancel-in-progress: false
 
 jobs:

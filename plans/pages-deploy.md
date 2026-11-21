@@ -26,6 +26,7 @@ Stance on high-reversal-cost axes:
 - **P2. Built commit, and no stale overwrite.** For `workflow_run`, the first step compares `workflow_run.head_sha` with the current `main` tip (`git ls-remote https://github.com/${{ github.repository }} refs/heads/main`). This runs before checkout, so the step names the URL and not `origin`. If they differ, the job writes a `::notice::` and skips the remaining steps: a newer commit has its own CI run and will deploy. This also covers a re-run of an old CI run. When the SHAs match, checkout uses `head_sha`. A dispatch uses `github.sha`.
 - **P3. Permissions.** The workflow sets `contents: read` at the top level. Only the `deploy` job adds `pages: write` and `id-token: write`. Concurrency group is `pages`, with `cancel-in-progress: false`.
   - **Changed at build review:** the workflow is now three jobs. `check` runs the P1 condition and the P2 tip check, and exposes `current`. `build` (`needs: check`, `if: current == 'true'`) runs checkout, setup, `npm run build`, and `upload-pages-artifact` with read-only permissions. `deploy` (`needs: build`) holds `pages: write` and `id-token: write`, and runs only `actions/deploy-pages`. This way a compromised npm dependency never runs with Pages or OIDC permissions, and a skipped stale commit creates no `github-pages` deployment record. `actions/configure-pages` was dropped because the base path is fixed.
+  - **Changed at code review:** the concurrency group is `pages` for every run except a dispatch off `main`, which takes a group of its own (`github.run_id`). That run only refuses, so it can no longer displace a deploy waiting in the `pages` queue.
 - **P4. Base path.** `scripts/pages-base.js` exports `PAGES_BASE = '/ai-enabler/'` and a pure `viteBase({ command, isPreview })`. It returns `PAGES_BASE` for a build or a preview, and `/` otherwise. `vite.config.js` becomes a function config that calls `viteBase`. `vitest.config.js` calls that function with `{ command: 'serve', mode: 'test' }` before `mergeConfig`. `playwright.config.js` imports `PAGES_BASE`, so the value is named once and neither config imports the other.
 - **P5. Router.** `src/shell/routes.js` holds pure functions, and `src/shell/useRoute.js` is a thin hook. No router dependency. The module lives in `src/shell/` because it is app navigation, not value stream logic, and a header comment says so. The id is parsed but not used (S3).
 - **P6. Canonical hash.** `resolveHash(hash)` returns `{ route, hash }`.
@@ -34,6 +35,7 @@ Stance on high-reversal-cost axes:
   - A valid id such as `a@b` or `a%2Fb` is never rewritten.
   - `route.id` is the decoded id. `toHash(route)` builds a hash from a route, encoding the id with `encodeURIComponent`, for code that creates links (E1).
 - **P7. Sync function.** `syncHash(win)` in `routes.js` reads `win.location.hash` and resolves it. It calls `win.history.replaceState(win.history.state, '', canonical)` when the hash is not canonical, and returns the route. The hook only wires `useState`, the mount call, and the `hashchange` listener to it. `syncHash` is unit tested with a stub `win`.
+  - **Changed at code review:** `routes.js` stays pure. `syncHash` became `rewriteTarget(hash)`, which returns the canonical hash to write, or `null` when the hash is already canonical. The `useRoute` effect does the `replaceState` call and sets the route. `rewriteTarget` is unit tested; the history write is covered by `e2e/routes.spec.js`.
 - **P8. Observable route.** The app root gets `data-route="home|project"`. It changes nothing visible. It makes AC9 testable now, and N14 and E1 can read it later.
 - **P9. Production-build e2e.** `playwright.config.js` gets a second `webServer`:
   - Command `npm run build && npm run preview`, with `env: { PORT: String(previewPort) }`. Vite reads `PORT` for `preview.port`.
@@ -45,6 +47,8 @@ Stance on high-reversal-cost axes:
   A `pages` project runs only `e2e/pages.spec.js`, and `chromium` ignores that file. `npm run test:e2e` runs both projects, so CI and the pre-push hook check the production base path with no workflow change.
 
 - **P10. Workflow tests parse YAML.** `scripts/deploy-workflow.test.js` parses `deploy.yml` with the `yaml` package. `yaml` is already in the lockfile as a transitive dependency; this plan adds it as an explicit dev dependency. The test scopes assertions to the top level and to each job. It also evaluates the `deploy` and `refuse` job conditions over a table of (event, conclusion, CI event, ref) cases, using a small evaluator for the exact expression shape used. The `if` expressions use only `==`, `&&`, `||`, and parentheses over `github.*`. The test also pins each expression string, so any edit forces an update to the table. `scripts/ci-workflow.test.js` is not changed.
+  - **Changed at code review:** the evaluator moved to `scripts/gha-expression.js` with its own tests (`scripts/gha-expression.test.js`). It follows GitHub's semantics: `&&` and `||` return an operand, and `==` compares strings case-insensitively. It also evaluates the `${{ }}` concurrency group. The workflow test also checks that `ci.yml` is still named `CI` and runs on push to `main`, so renaming CI cannot silently stop deploys.
+- **P11. Per-worktree e2e ports (added at build).** `scripts/e2e-ports.js` derives the e2e dev port from the checkout path (FNV-1a, 3100–3999), and the preview port as the dev port + 1000, so two worktrees never share or reuse each other's servers. An explicit `PORT` or `PREVIEW_PORT` overrides the derived value. A derived port never reuses an existing server; an explicit `PORT` outside CI may. This replaces P9's `PORT + 1000` default when `PORT` is unset. Tested in `scripts/e2e-ports.test.js`.
 
 ## Acceptance Criteria
 
@@ -156,12 +160,12 @@ Feature: Hash routes
 #### Step 1.1: Route module parses, builds, and syncs hashes
 
 **Complexity**: standard
-**IMPLEMENT**: Add `src/shell/routes.js` with a header comment explaining why it lives in `src/shell/` (P5). It exports `ROUTE` (`home`, `project`), `resolveHash`, `toHash`, and `syncHash`, with the rules in P6 and P7.
+**IMPLEMENT**: Add `src/shell/routes.js` with a header comment explaining why it lives in `src/shell/` (P5). It exports `ROUTE` (`home`, `project`), `resolveHash`, `toHash`, and `rewriteTarget`, with the rules in P6 and P7.
 **TEST**: Table-driven Vitest cases in `src/shell/routes.test.js`.
 
 - `resolveHash` covers every row of the Slice 1 Outline, plus `#/`, `#/projects/abc`, `#/projects/abc/`, `#/projects/a@b`, `#/projects/a+b`, `#/projects/a,b`, and `#/projects/a%2Fb`. Each case states the expected route and canonical hash. Valid ids keep their raw hash.
 - `toHash` round-trips: `resolveHash(toHash(route)).route` equals `route` for home and for the ids `abc`, `a b`, `ü`, and `a/b`.
-- `syncHash` uses a stub `win`. It calls `replaceState` once for a non-canonical hash and never for a canonical one, and it returns the route.
+- `rewriteTarget` returns the canonical hash for a non-canonical one, and `null` for a canonical one.
 
 **REFACTOR**: Name the route patterns as constants, and drop any branch the tests do not exercise.
 **Files**: `src/shell/routes.js`, `src/shell/routes.test.js`
@@ -171,8 +175,10 @@ Feature: Hash routes
 #### Step 1.2: The app follows the hash
 
 **Complexity**: standard
-**IMPLEMENT**: Add `src/shell/useRoute.js`. It calls `syncHash(window)` on mount and on every `hashchange`, keeps the route in state, removes the listener on unmount, and returns the route. `App.jsx` calls `useRoute()` above `Shell` and sets `data-route` on the app root (P8). Shell state persists across hash changes.
+**IMPLEMENT**: Add `src/shell/useRoute.js`. On mount and on every `hashchange`, it rewrites a non-canonical hash in place with `replaceState` (using `rewriteTarget`), keeps the route in state, removes the listener on unmount, and returns the route. `App.jsx` calls `useRoute()` above `Shell` and sets `data-route` on the app root (P8). Shell state persists across hash changes.
 **TEST**: `e2e/routes.spec.js` covers every Slice 1 scenario against `npm run dev` at `/` (AC11).
+
+- **Changed at code review:** the Outline's malformed project links (`/#/projects/`, `/#/projects/abc/extra`, `/#/projects/abc//`, `/#/projects/%E0%A4%A`) and the trailing-slash scenario are covered by the `resolveHash` table in `src/shell/routes.test.js`. The e2e Outline keeps one address per AC8 kind (`/`, `/#`, `/#/nowhere`), which proves the in-place rewrite. "The same app shell" is checked by comparing the rendered step labels, not markup.
 
 - Read `location.hash` and `history.length` with `page.evaluate`.
 - Change the hash with `page.evaluate(() => { location.hash = … })`, which records a history entry the way the address bar does.
@@ -327,15 +333,11 @@ Feature: Deploy to GitHub Pages after green CI
 #### Step 3.1: Deploy workflow gated on green CI
 
 **Complexity**: complex
-**IMPLEMENT**: Add `.github/workflows/deploy.yml` per P1–P3. The `deploy` job runs these steps in order:
+**IMPLEMENT**: Add `.github/workflows/deploy.yml` per P1–P3, as three jobs plus `refuse`:
 
-1. The tip check (P2).
-2. Checkout at the P2 ref, with `persist-credentials: false`.
-3. `./.github/actions/setup`.
-4. `npm run build`.
-5. `actions/configure-pages`.
-6. `actions/upload-pages-artifact` with `path: dist`.
-7. `actions/deploy-pages` in environment `github-pages`, whose `url` is the deploy step's `page_url` output.
+1. `check` runs the P1 condition and the P2 tip check, and outputs `current`. It has no checkout.
+2. `build` (`needs: check`, runs only when `current` is `'true'`) checks out the P2 ref with `persist-credentials: false`, runs `./.github/actions/setup` and `npm run build`, and uploads `dist` with `actions/upload-pages-artifact`. It has read-only permissions.
+3. `deploy` (`needs: build`) has `pages: write` and `id-token: write`, and runs only `actions/deploy-pages` in environment `github-pages`, whose `url` is the deploy step's `page_url` output.
 
 The `refuse` job handles an off-`main` dispatch. Add `yaml` as a dev dependency, and extend `lint:ci` to validate `deploy.yml`.
 **TEST**: `scripts/deploy-workflow.test.js` (P10) asserts these:
@@ -348,8 +350,8 @@ The `refuse` job handles an off-`main` dispatch. Add `yaml` as a dev dependency,
   - dispatch on main: deploy.
   - dispatch on another ref: refuse, with no deploy.
 - Top-level permissions are exactly `contents: read`. Only `deploy` has `pages: write` and `id-token: write`.
-- Concurrency is `pages` with `cancel-in-progress: false`.
-- The tip check runs before checkout, and later steps are gated on its output.
+- Concurrency is `pages` with `cancel-in-progress: false`, and an off-`main` dispatch gets its own group.
+- The tip check runs with no checkout, and `build` is gated on its output.
 - Checkout uses `workflow_run.head_sha`, and `upload-pages-artifact` gets `dist`.
 - The `lint:ci` script validates `.github/workflows/deploy.yml`.
 

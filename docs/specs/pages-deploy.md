@@ -27,7 +27,7 @@ This change adds the route layer and the deploy. It does not add project storage
 
 - **Deploy workflow** (`.github/workflows/`): builds with `npm run build` and publishes `dist/` with the official GitHub Pages actions. It runs for `main` only [I §Scope], and only after CI passes on that commit [S2]. It reuses `.github/actions/setup`.
 - **Base path** (`vite.config.js`): the production build resolves every asset under `/ai-enabler/` [I §Scope]. The dev server keeps working at `http://localhost:<PORT>/` [Inferred I3]. The mechanism (an absolute `/ai-enabler/` or a relative `./` base) is a plan decision; either meets AC3.
-- **Route module** (`src/flow/routes.js` or similar): a pure function that maps a hash string to a route value (`home`, `project` with an id, or unknown) and back. It has unit tests and no React import [Inferred I4, CLAUDE.md conventions].
+- **Route module** (`src/shell/routes.js`; plan P5 moved it from `src/flow/` because it maps URLs to views, not value stream logic): a pure function that maps a hash string to a route value (`home`, `project` with an id, or unknown) and back. It has unit tests and no React import [Inferred I4, CLAUDE.md conventions].
 - **Route hook** (`src/shell/`): reads `window.location.hash`, listens for `hashchange`, and gives the current route to `App.jsx`. It is the single place that touches `window.location` [Inferred I4].
 
 **Constraints**
@@ -36,7 +36,7 @@ This change adds the route layer and the deploy. It does not add project storage
 - No server-side or 404.html redirect [I §Scope].
 - Existing e2e tests keep running against `npm run dev` at `/` [Inferred I3].
 - Deploy permissions are scoped to the deploy job: `pages: write`, `id-token: write`. The CI workflow stays `contents: read` [Inferred I6].
-- No change to the save-file format, so the AC23 parity rule in `plans/mvp-order.md` does not apply. D1 has not shipped, so the catalog-code rule does not apply yet [Inferred I8].
+- No change to the save-file format, so the AC23 save-file parity rule of the MVP order (kept outside this repository) does not apply. D1 has not shipped, so the catalog-code rule does not apply yet [Inferred I8].
 
 **Dependencies**
 

@@ -33,9 +33,9 @@ export const resolveHash = (hash) => {
 export const toHash = (route) =>
   route.name === ROUTE.PROJECT ? `${PROJECT_PREFIX}${encodeURIComponent(route.id)}` : HOME_HASH
 
-// Rewrites a non-canonical hash in place (no new history entry) and returns the route.
-export const syncHash = (win) => {
-  const { route, hash } = resolveHash(win.location.hash)
-  if (win.location.hash !== hash) win.history.replaceState(win.history.state, '', hash)
-  return route
+// The hash to write in place of a non-canonical one, or null when the hash is already
+// canonical. Pure: the caller does the history write.
+export const rewriteTarget = (hash) => {
+  const canonical = resolveHash(hash).hash
+  return canonical === hash ? null : canonical
 }

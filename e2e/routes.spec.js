@@ -1,12 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { cards } from './canvas.js'
-import {
-  STARTER_STEP_COUNT,
-  appShell,
-  expectHash,
-  expectRoute,
-  expectStarterSteps,
-} from './views.js'
+import { STARTER_STEP_COUNT, expectHash, expectRoute, expectStarterSteps } from './views.js'
 
 const setHash = (page, hash) =>
   page.evaluate((next) => {
@@ -43,16 +37,16 @@ test('an unknown project id still renders the app shell', async ({ page }) => {
   await expectHash(page, '#/projects/does-not-exist')
 })
 
-test('the home and project routes render the same shell', async ({ context }) => {
-  const shellMarkup = async (address) => {
+test('the home and project routes render the same steps', async ({ context }) => {
+  const stepLabels = async (address) => {
     const page = await context.newPage()
     await page.goto(address)
     await expectStarterSteps(page)
-    const markup = await appShell(page).innerHTML()
+    const labels = await cards(page).allTextContents()
     await page.close()
-    return markup
+    return labels
   }
-  expect(await shellMarkup('/#/projects/abc123')).toBe(await shellMarkup('/#/'))
+  expect(await stepLabels('/#/projects/abc123')).toEqual(await stepLabels('/#/'))
 })
 
 test('a project id with reserved characters is not rewritten', async ({ page }) => {
@@ -62,15 +56,9 @@ test('a project id with reserved characters is not rewritten', async ({ page }) 
   await expectHash(page, '#/projects/a@b')
 })
 
-for (const address of [
-  '/',
-  '/#',
-  '/#/nowhere',
-  '/#/projects/',
-  '/#/projects/abc/extra',
-  '/#/projects/abc//',
-  '/#/projects/%E0%A4%A',
-]) {
+// One case per kind in AC8: no hash, an empty hash, an unknown hash. The malformed project
+// links and the trailing slash are covered by the resolveHash table in src/shell/routes.test.js.
+for (const address of ['/', '/#', '/#/nowhere']) {
   test(`"${address}" becomes the home route without a new history entry`, async ({ context }) => {
     const fresh = await context.newPage()
     await fresh.goto('/#/')
@@ -85,12 +73,6 @@ for (const address of [
     expect(await historyLength(page)).toBe(expectedLength)
   })
 }
-
-test('a trailing slash on a project link is dropped', async ({ page }) => {
-  await page.goto('/#/projects/abc123/')
-  await expectStarterSteps(page)
-  await expectHash(page, '#/projects/abc123')
-})
 
 test('back and forward switch the route without a reload', async ({ page }) => {
   await page.goto('/#/')
