@@ -10,6 +10,7 @@ export default function ConfirmDialog({
   currentName,
   incomingName,
   isEdited,
+  aiNotice,
   onConfirm,
   onCancel,
 }) {
@@ -51,6 +52,7 @@ export default function ConfirmDialog({
             <strong>{incomingName}</strong>.
           </p>
           {isEdited && <p>{EDITED_NOTICE}</p>}
+          {aiNotice && <p>{aiNotice}</p>}
         </div>
         <div className="dialog__actions">
           <button type="button" className="button" onClick={onConfirm}>

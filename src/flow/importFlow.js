@@ -17,6 +17,21 @@ export const IMPORT_CANCELLED = 'Import cancelled'
 // AC48: shown in the confirmation and the outcome line for a file that does not match its hash.
 export const EDITED_NOTICE = 'This file was changed outside AI Enabler after it was exported.'
 
+// AC15: shown in place of EDITED_NOTICE for an unedited file marked as changed by an AI tool.
+// `date` is YYYY-MM-DD.
+export const AI_NOTICE = (tool, date) =>
+  `This file was changed by AI tools (${tool}) on ${date}. Review the steps and numbers before relying on them.`
+
+// The mark's time is ISO 8601, with or without an offset; the notice names the UTC day.
+const utcDate = (at) => new Date(at).toISOString().slice(0, 10)
+
+const describeChangedBy = (changedBy) =>
+  changedBy ? AI_NOTICE(changedBy.tool, utcDate(changedBy.at)) : null
+
+// The notices that apply to an imported file, in the order they are shown and spoken.
+const noticesFor = (isEdited, aiNotice) =>
+  [isEdited ? EDITED_NOTICE : null, aiNotice].filter(Boolean)
+
 // The list shows this many problems; the rest are counted in a trailing "and N more" line.
 export const MAX_LISTED_PROBLEMS = 10
 
@@ -37,9 +52,9 @@ export const fromProjectFile = (file) => ({
   edges: file.edges.map(toExportEdge),
 })
 
-const describeImported = (name, stepCount, isEdited) => {
+const describeImported = (name, stepCount, notices) => {
   const outcome = `Imported ${name}, ${formatCount(stepCount, 'step')}`
-  return isEdited ? `${outcome}. ${EDITED_NOTICE}` : outcome
+  return notices.length > 0 ? `${outcome}. ${notices.join(' ')}` : outcome
 }
 
 // D2: exact match, no case folding, no trimming. The file's id never decides.
@@ -68,8 +83,10 @@ const receiveFile = (state, { result, project }) => {
       { announcement: `${describeRejection(problems)}. ${problems[0].message}` },
     )
   }
-  const { file, edited } = result
+  const { file, edited, changedBy } = result
   const isEdited = edited === true
+  const aiNotice = describeChangedBy(changedBy)
+  const notices = noticesFor(isEdited, aiNotice)
   const isSame = isSameName(project, file.project)
   const message = describeConfirmation(isSame, file.project.name)
   return transition(
@@ -79,6 +96,7 @@ const receiveFile = (state, { result, project }) => {
       status: state.status ?? null,
       file,
       isEdited,
+      aiNotice,
       currentName: project.name,
       incomingName: file.project.name,
       message,
@@ -87,13 +105,17 @@ const receiveFile = (state, { result, project }) => {
         ? { id: project.id, name: project.name }
         : { id: file.project.id, name: file.project.name },
     },
-    // The dialog shows the notice, so an edited file speaks it when the dialog opens.
-    { announcement: isEdited ? `${message} ${EDITED_NOTICE}` : null },
+    // The dialog shows the notices, so a file with one speaks it when the dialog opens.
+    { announcement: notices.length > 0 ? `${message} ${notices.join(' ')}` : null },
   )
 }
 
 const confirmReplace = (state) => {
-  const announcement = describeImported(state.project.name, state.file.nodes.length, state.isEdited)
+  const announcement = describeImported(
+    state.project.name,
+    state.file.nodes.length,
+    noticesFor(state.isEdited, state.aiNotice),
+  )
   return transition(
     { type: IMPORT_IDLE, status: announcement },
     { announcement, replacement: { project: state.project, ...fromProjectFile(state.file) } },
@@ -133,8 +155,9 @@ export const describeImportStatus = (state) => {
 
 /**
  * Pure import flow.
- * State: { type: 'idle', status } | { type: 'confirming', status, file, isEdited, currentName,
- *   incomingName, message, project } | { type: 'error', problems: object[] }.
+ * State: { type: 'idle', status } | { type: 'confirming', status, file, isEdited, aiNotice,
+ *   currentName, incomingName, message, project } | { type: 'error', problems: object[] }.
+ * `aiNotice` is the AI notice text or null.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
  *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.
  * @returns {{ state: object, announcement: string | null,

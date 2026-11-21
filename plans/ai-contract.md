@@ -1059,7 +1059,7 @@ graph TD
 
 - [ ] Slice 3: Schema 0.1.0 and the AI mark
   - [x] Step 3.1: Release schema 0.1.0 with an optional mark
-  - [ ] Step 3.2: Show the AI notice on import
+  - [x] Step 3.2: Show the AI notice on import
   - [ ] Step 3.3: The app's export drops the mark and keeps positions
 - [ ] Slice 4: Pure command layer
   - [ ] Step 4.1: Command result, argument checks and create project
