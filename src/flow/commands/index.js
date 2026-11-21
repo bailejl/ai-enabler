@@ -13,7 +13,7 @@ import { STEP_COMMANDS } from './steps.js'
 // It never mutates its input and never validates: applyCommand validates the candidate. Names are
 // the MCP tool names. A command works on the open project unless `needsProject` is false, and
 // `replacesProject` marks one that starts a new project in place of the open one.
-const COMMANDS = {
+export const COMMANDS = {
   create_project: {
     args: ['name'],
     needsProject: false,
@@ -35,7 +35,8 @@ const unknownCommand = (name) =>
     untrusted: { command: name },
   })
 
-const checkArgs = (name, entry, args) => {
+// The problems with the args a tool was sent: not an object, or an argument the entry does not list.
+export const checkArgs = (name, entry, args) => {
   if (!isObject(args)) return [problem('CMD_ARGUMENTS_INVALID', { params: { command: name } })]
   const unknown = Object.keys(args).filter((key) => !entry.args.includes(key))
   if (unknown.length === 0) return []

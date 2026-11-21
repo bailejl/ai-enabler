@@ -514,5 +514,29 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "CMD_TOOL_UNKNOWN": {
+    "code": "CMD_TOOL_UNKNOWN",
+    "severity": "error",
+    "title": "Tool is unknown",
+    "summary": "The tool name is not one of the tools this server offers.",
+    "message": "Unknown tool {tool}. The tools are: {tools}.",
+    "fix": "Call one of the listed tools.",
+    "docs": "#cmd-tool-unknown",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "CMD_NAME_REQUIRED": {
+    "code": "CMD_NAME_REQUIRED",
+    "severity": "error",
+    "title": "File name is required",
+    "summary": "A project that was never saved or opened from a file was saved without a name.",
+    "message": "This project has no file yet, so save_project needs a name for it, such as \"demo.json\".",
+    "fix": "Call save_project again with name set to a plain file name ending in .json.",
+    "docs": "#cmd-name-required",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }
