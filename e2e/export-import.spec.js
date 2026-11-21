@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { test, expect } from '@playwright/test'
 import { contentHash } from '../src/flow/contentHash.js'
 import { initialNodes } from '../src/flow/initialFlow.js'
+import { problem } from '../src/flow/diagnostics/problem.js'
 import { toMetricTiles } from '../src/flow/metrics.js'
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
@@ -103,8 +104,14 @@ const CHECKOUT_NAME = 'Checkout Revamp'
 const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
 const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
-const NOT_JSON_MESSAGE = 'This file is not valid JSON.'
-const NOT_A_PROJECT_MESSAGE = 'This is not a project file. Choose a file exported from AI Enabler.'
+// Expected wording comes from the diagnostics catalog, so a reworded message is one edit there.
+const messageFor = (code, params) => problem(code, { params }).message
+const NOT_JSON_MESSAGE = messageFor('FILE_NOT_JSON')
+const NOT_A_PROJECT_MESSAGE = messageFor('FILE_NOT_A_PROJECT')
+const LISTED_PROBLEM_LIMIT = 10
+const leadLine = (count) => `Import rejected: ${count} ${count === 1 ? 'problem' : 'problems'}`
+const rejectionAnnouncement = (messages) => `${leadLine(messages.length)}. ${messages[0]}`
+const NOT_JSON_ANNOUNCEMENT = rejectionAnnouncement([NOT_JSON_MESSAGE])
 // What the three Checkout Revamp steps in different-name.json add up to, in tile order.
 const CHECKOUT_TILE_TEXTS = [
   '1d 5h',
@@ -115,9 +122,24 @@ const CHECKOUT_TILE_TEXTS = [
   '1h 10m',
   '3',
 ]
-const UNREADABLE_MESSAGE = 'This file could not be read.'
+const UNREADABLE_MESSAGE = messageFor('FILE_UNREADABLE')
 const LONG_NAME_LENGTH = 100
 const NARROW_VIEWPORT = { width: 1024, height: 768 }
+
+// A file whose every step lacks a position and that has no connections: one problem per step.
+const unplacedStepsFile = (count) => ({
+  ...readFixture('same-name.json'),
+  nodes: Array.from({ length: count }, (_, index) => ({
+    id: `step-${index + 1}`,
+    type: 'step',
+    data: { label: `Idle ${index + 1}` },
+  })),
+  edges: [],
+})
+const unplacedMessages = (count) =>
+  Array.from({ length: count }, (_, index) =>
+    messageFor('STEP_POSITION_MISSING', { step: `Step "Idle ${index + 1}" (#${index + 1})` }),
+  )
 
 const fixtureSteps = (name) => readFixture(name).nodes.map((node) => node.data)
 
@@ -373,12 +395,12 @@ test.describe('invalid files are rejected with a plain message', () => {
   }
 
   const REJECTED_FILES = [
-    { name: 'text that is not JSON', contents: 'this is not json', message: NOT_JSON_MESSAGE },
-    { name: 'an array', contents: [], message: NOT_A_PROJECT_MESSAGE },
+    { name: 'text that is not JSON', contents: 'this is not json', messages: [NOT_JSON_MESSAGE] },
+    { name: 'an array', contents: [], messages: [NOT_A_PROJECT_MESSAGE] },
     {
       name: 'a file with no schemaVersion',
       contents: withoutSchemaVersion(),
-      message: NOT_A_PROJECT_MESSAGE,
+      messages: [NOT_A_PROJECT_MESSAGE],
     },
     {
       name: 'schemaVersion "9.0.0" and a bad step',
@@ -387,7 +409,9 @@ test.describe('invalid files are rejected with a plain message', () => {
         schemaVersion: '9.0.0',
         nodes: [{ id: 'broken', data: {} }],
       },
-      message: `This file uses schema 9.0.0; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update the app or re-export the file.`,
+      messages: [
+        messageFor('FILE_NEWER_SCHEMA', { version: '9.0.0', current: CURRENT_SCHEMA_VERSION }),
+      ],
     },
     {
       name: 'step #3 "Build" with no position',
@@ -395,7 +419,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         ...omit(step, 'position'),
         data: { ...step.data, label: 'Build' },
       })),
-      message: 'Step "Build" (#3) is missing a position.',
+      messages: [messageFor('STEP_POSITION_MISSING', { step: 'Step "Build" (#3)' })],
     },
     {
       name: 'connections that form a loop',
@@ -403,31 +427,47 @@ test.describe('invalid files are rejected with a plain message', () => {
         ...validFile(),
         edges: [...validFile().edges, { id: 'ship->intake', source: 'ship', target: 'intake' }],
       },
-      message: 'The connections form a loop.',
+      messages: [messageFor('CONN_LOOP', { connection: 'Connection 3' })],
     },
     {
       name: 'connection #2 with no id',
       contents: withSecondEdge((edge) => omit(edge, 'id')),
-      message: 'Connection 2 is missing an id.',
+      messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with the number 42 as its id',
       contents: withSecondEdge((edge) => ({ ...edge, id: 42 })),
-      message: 'Connection 2 is missing an id.',
+      messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with an empty id',
       contents: withSecondEdge((edge) => ({ ...edge, id: '' })),
-      message: 'Connection 2 is missing an id.',
+      messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with the id of connection #1',
       contents: withSecondEdge((edge) => ({ ...edge, id: validFile().edges[0].id })),
-      message: `Two connections share the id "${validFile().edges[0].id}".`,
+      messages: [
+        messageFor('CONN_ID_DUPLICATE', {
+          connection: 'Connection 2',
+          id: validFile().edges[0].id,
+        }),
+      ],
+    },
+    {
+      name: 'two different problems: a step with no position and a connection with no id',
+      contents: {
+        ...withThirdStep((step) => omit(step, 'position')),
+        edges: validFile().edges.map((edge, index) => (index === 1 ? omit(edge, 'id') : edge)),
+      },
+      messages: [
+        messageFor('STEP_POSITION_MISSING', { step: 'Step "Ship" (#3)' }),
+        messageFor('CONN_ID_MISSING', { connection: 'Connection 2' }),
+      ],
     },
   ]
 
-  for (const { name, contents, message } of REJECTED_FILES) {
+  for (const { name, contents, messages } of REJECTED_FILES) {
     test(`${name}`, async ({ page }) => {
       await page.goto('/')
       const before = await exportProjectFile(page)
@@ -438,21 +478,50 @@ test.describe('invalid files are rejected with a plain message', () => {
       await chooseFile(page, asUpload(contents))
 
       const status = importStatus(page)
-      await expect(status).toContainText(message)
+      const heading = status.getByRole('heading', { name: leadLine(messages.length) })
+      await expect(heading).toBeVisible()
+      await expect(status.getByRole('listitem')).toHaveText(messages)
       await expect(status.getByRole('button', { name: 'Dismiss' })).toBeVisible()
       await expect(confirmDialog(page)).toHaveCount(0)
-      await expect(importButton(page)).toBeFocused()
+      await expect(heading).toBeFocused()
       await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
       await expect(projectNameInHeader(page)).toHaveText(STARTER_PROJECT_NAME)
       expect(await tileTexts(page)).toEqual(tilesBefore)
-      await expect(page.getByRole('status').filter({ hasText: message })).toHaveCount(1)
+      const spoken = rejectionAnnouncement(messages)
+      await expect(page.getByRole('status').filter({ hasText: spoken })).toHaveCount(1)
       // Read once, after everything has settled: a poll would miss a later duplicate.
-      expect(await spokenMessages(page)).toEqual([message])
+      expect(await spokenMessages(page)).toEqual([spoken])
       const after = await exportProjectFile(page)
       expect(after.nodes).toEqual(before.nodes)
       expect(after.edges).toEqual(before.edges)
     })
   }
+
+  test('a file with 14 problems lists 10 and counts the rest', async ({ page }) => {
+    await page.goto('/')
+    const messages = unplacedMessages(14)
+
+    await chooseFile(page, asUpload(unplacedStepsFile(14)))
+
+    const status = importStatus(page)
+    await expect(status.getByRole('heading', { name: leadLine(14) })).toBeFocused()
+    await expect(status.getByRole('listitem')).toHaveCount(LISTED_PROBLEM_LIMIT)
+    await expect(status.getByRole('listitem')).toHaveText(messages.slice(0, LISTED_PROBLEM_LIMIT))
+    await expect(status).toContainText('and 4 more')
+    await expect(status).not.toContainText(messages[LISTED_PROBLEM_LIMIT])
+    await expect(announcer(page)).toHaveText(rejectionAnnouncement(messages))
+  })
+
+  test('exactly 10 problems list all 10 with no "more" line', async ({ page }) => {
+    await page.goto('/')
+
+    await chooseFile(page, asUpload(unplacedStepsFile(10)))
+
+    const status = importStatus(page)
+    await expect(status.getByRole('heading', { name: leadLine(10) })).toBeVisible()
+    await expect(status.getByRole('listitem')).toHaveCount(LISTED_PROBLEM_LIMIT)
+    await expect(status).not.toContainText('more')
+  })
 })
 
 test('the visible import status is not itself a live region', async ({ page }) => {
@@ -508,11 +577,13 @@ test('choosing the same invalid file again shows and announces the error again',
   await recordAnnouncements(page)
 
   await chooseFile(page, invalidFile)
-  await expect.poll(() => spokenMessages(page)).toEqual([NOT_JSON_MESSAGE])
+  await expect.poll(() => spokenMessages(page)).toEqual([NOT_JSON_ANNOUNCEMENT])
   await expect(fileInput(page)).toHaveValue('')
   await chooseFile(page, invalidFile)
 
-  await expect.poll(() => spokenMessages(page)).toEqual([NOT_JSON_MESSAGE, NOT_JSON_MESSAGE])
+  await expect
+    .poll(() => spokenMessages(page))
+    .toEqual([NOT_JSON_ANNOUNCEMENT, NOT_JSON_ANNOUNCEMENT])
   await expect(importStatus(page)).toContainText(NOT_JSON_MESSAGE)
 })
 
@@ -528,14 +599,14 @@ test('a file the browser cannot read shows the standard error and frees the inpu
 
   await expect(importStatus(page)).toContainText(UNREADABLE_MESSAGE)
   await expect(importStatus(page).getByRole('button', { name: 'Dismiss' })).toBeVisible()
-  await expect(announcer(page)).toHaveText(UNREADABLE_MESSAGE)
+  await expect(announcer(page)).toHaveText(rejectionAnnouncement([UNREADABLE_MESSAGE]))
   await expect(fileInput(page)).toHaveValue('')
 })
 
 test('Dismiss removes the error and returns focus to Import', async ({ page }) => {
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
-  await expect(importStatus(page)).toBeVisible()
+  await expect(importStatus(page).getByRole('heading')).toBeFocused()
 
   await importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
 
@@ -549,6 +620,13 @@ test.describe('import states pass an accessibility scan', () => {
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     await chooseFile(page, asUpload('this is not json'))
     await expect(importStatus(page)).toBeVisible()
+    expect(await scan(page)).toEqual([])
+  })
+
+  test('with a capped list of problems showing', async ({ page }) => {
+    await page.goto('/')
+    await chooseFile(page, asUpload(unplacedStepsFile(14)))
+    await expect(importStatus(page)).toContainText('and 4 more')
     expect(await scan(page)).toEqual([])
   })
 

@@ -1042,7 +1042,7 @@ graph TD
   - [x] Step 1.0: Diagnostics catalog and problem helper
   - [x] Step 1.1: Collect every rule failure in two phases
   - [x] Step 1.2: Import pipeline carries problems
-  - [ ] Step 1.3: The import status lists every problem
+  - [x] Step 1.3: The import status lists every problem
 - [ ] Slice 2: Deterministic auto-layout
   - [ ] Step 2.1: Layered left-to-right layout
 

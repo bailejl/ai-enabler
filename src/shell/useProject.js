@@ -2,6 +2,7 @@ import { addEdge, useEdgesState, useNodesState, useReactFlow } from '@xyflow/rea
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   IMPORT_CONFIRMING,
+  IMPORT_ERROR,
   IMPORT_EVENT,
   INITIAL_IMPORT_STATE,
   reduceImport,
@@ -26,7 +27,8 @@ const readImport = async (file) => {
 }
 
 // Runs import events through the pure reducer and performs what it asks for: speak, replace the
-// map, and hand focus back to the Import button once the dialog (if any) has gone.
+// map, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
+// keeps focus off the button: the status heading takes it, and Dismiss returns it to the button.
 const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
   const previousState = useRef(importState)
@@ -35,7 +37,8 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
   useEffect(() => {
     const hasChanged = previousState.current !== importState
     previousState.current = importState
-    if (hasChanged && importState.type !== IMPORT_CONFIRMING) returnFocusRef.current?.focus()
+    const keepsFocus = importState.type === IMPORT_CONFIRMING || importState.type === IMPORT_ERROR
+    if (hasChanged && !keepsFocus) returnFocusRef.current?.focus()
   }, [importState, returnFocusRef])
 
   const dispatchImport = useCallback(
