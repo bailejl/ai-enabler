@@ -1053,7 +1053,7 @@ graph TD
   - [x] Step 1.2: Import pipeline carries problems
   - [x] Step 1.3: The import status lists every problem
 - [ ] Slice 2: Deterministic auto-layout
-  - [ ] Step 2.1: Layered left-to-right layout
+  - [x] Step 2.1: Layered left-to-right layout
 
 #### Wave 2
 
