@@ -460,63 +460,26 @@ Plan tier: complex (Step 3.1 is `complex`, and the deploy permissions are securi
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC1 — indeterminate
-
-```
-No run command can observe a real push to main publishing to https://bailejl.github.io/ai-enabler/, and network calls are out of scope. What the tests do show: 'scripts/deploy-workflow.test.js > job conditions > green CI on a push to main', 'tip check > when run > the CI commit that is still the tip deploys' and 'tip check > when run > an older CI commit is skipped with a notice' all pass, and deploy.yml contains 'echo "::notice::Skipping $HEAD_SHA: main is now at $tip, which deploys once its ow…
-```
-
-### AC11 — indeterminate
-
-```
-No run command shows `npm run dev` serving the routes. The Playwright list output shows the [chromium] route tests passing at root paths ("/", "/#/"), but it does not say which server served them. Vitest shows '{"command":"serve","isPreview":false} resolves to "/"', which is the base setting, not observed dev-server behavior. Checking AC5-AC9 against the dev server would need a browser against `npm run dev`, which no plan command provides.
-```
-
-### AC2 — met
-
-```
-$ npx vitest run --reporter=verbose
-✓ scripts/deploy-workflow.test.js > job conditions > failed CI on main | ✓ ... > cancelled CI on main | ✓ ... > timed-out CI on main | ✓ ... > green CI on a pull request from a branch named main | ✓ scripts/deploy-workflow.test.js > deploy workflow triggers > a push or a pull request never triggers it directly | Test Files  24 passed (24) Tests  855 passed (855). deploy.yml: "if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_ru…
-```
-
-### AC4 — met
-
-```
-$ cat .github/workflows/deploy.yml
-on:
-  workflow_run: ...
-  workflow_dispatch:
- ... (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'). Vitest: ✓ scripts/deploy-workflow.test.js > job conditions > a manual run on main; ✓ tip check > when run > a manual run skips the comparison and deploys; ✓ a manual run off main fails with its reason
-```
-
 ### AC10 — met
 
 ```
 $ npx vitest run --reporter=verbose
-✓ src/shell/routes.test.js > resolveHash > "#/" resolves to {"name":"home"} with hash "#/" | ✓ ... > "#/projects/abc" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" | ✓ ... > "#/projects/abc/" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" | ✓ ... > "#/nowhere" resolves to {"name":"home"} with hash "#/" | ✓ src/shell/routes.test.js > toHash > home builds "#/" | ✓ ... > toHash > project "abc" builds "#/projects/abc"
-```
-
-### AC13 — met
-
-```
-$ grep -n 'https://bailejl.github.io/ai-enabler/' README.md
-14:The live site is at <https://bailejl.github.io/ai-enabler/>. It deploys after CI passes on `main`.
+✓ src/shell/routes.test.js > resolveHash > "#/" resolves to {"name":"home"} with hash "#/" 0ms
+✓ src/shell/routes.test.js > resolveHash > "#/projects/abc" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" 0ms
+✓ src/shell/routes.test.js > resolveHash > "#/projects/abc/" resolves to {"name":"project","id":"abc"} with hash "#/projects/abc" 0ms
+✓ src/shell/routes.test.js > resolveHash > "#/nowhere" resolves to {"name":"home"} with hash "#/" 0ms
+✓ src/shell/routes.test.js > toHash > home builds "#/" 0ms
+(+3 lines)
 ```
 
 ### Audit details
 
-- Overall: tainted
-- Binding hash: 814971e4599ba52a1dac2de09a4064bae5576abc7625ace3ea53665b4d4eb1cf
-- Inputs digest: 3bc42e55359e4b204db0f2bb6d0b32b8919aa1beb84296cb714ab40707a994d6
-- Agent: a88bae27f1b2a4503
-- Recorded at: 2026-11-21T19:51:54+00:00
-- Audit findings:
-  - read .github/workflows/deploy.yml: cat .github/workflows/deploy.yml
-  - read README.md: grep -n 'https://bailejl.github.io/ai-enabler/' README.md
-  - read .github/workflows/deploy.yml: cd /Users/jlb/repos/ai-enabler/.claude/worktrees/agent-a25cc5e9b1a87b0fb && cat .github/workflows/deploy.yml
-  - read README.md: cd /Users/jlb/repos/ai-enabler/.claude/worktrees/agent-a25cc5e9b1a87b0fb && grep -n 'https://bailejl.github.io/ai-enabler/' README.md
-  - read dist/index.html: grep -o '/ai-enabler/assets/[^"]*' dist/index.html
-  - read dist/index.html: cd /Users/jlb/repos/ai-enabler/.claude/worktrees/agent-a25cc5e9b1a87b0fb && grep -o '/ai-enabler/assets/[^"]*' dist/index.html
+- Overall: indeterminate
+- Binding hash: afe74f783f7f5759c738037c0389f6aeac3a3cba2e5fab444be71edabebbd257
+- Inputs digest: 7f38ed331f055ad6211d5a4a21e11716f26c37a120a0982fd8928b7cb5e94fc4
+- Agent: a8b0762090e4ab5c3
+- Recorded at: 2026-11-21T20:05:09+00:00
+- Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
 
