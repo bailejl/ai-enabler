@@ -122,6 +122,16 @@ describe('parseImport', () => {
     expect(new Set(problems.map((found) => found.message)).size).toBe(problems.length)
   })
 
+  // AC17: a file's claim to have been made by AI tools never skips validation.
+  it('rejects an invalid file that carries an AI mark and lists every problem', async () => {
+    const file = validFile({
+      modifiedBy: { tool: 'aie-mcp', at: '2026-11-21T00:00:00.000Z' },
+      project: { id: 'p1', name: '' },
+      nodes: [withoutPosition(step('a', 'Plan')), step('b', 'Design')],
+    })
+    expect(codesOf(await parse(file))).toEqual(['FILE_PROJECT_NAME_EMPTY', 'STEP_POSITION_MISSING'])
+  })
+
   // More problems than a function call can take as spread arguments.
   it('rejects a file with a very large number of problems without throwing', async () => {
     const BARE_STEPS = 60_000

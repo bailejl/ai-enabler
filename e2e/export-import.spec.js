@@ -472,6 +472,19 @@ test.describe('invalid files are rejected with a plain message', () => {
         messageFor('CONN_ID_MISSING', { connection: 'Connection 2' }),
       ],
     },
+    // AC17: a mark saying AI tools made the file never skips validation.
+    {
+      name: 'an AI-marked file with two different problems',
+      contents: {
+        ...withThirdStep((step) => omit(step, 'position')),
+        modifiedBy: { tool: 'aie-mcp', at: '2026-11-21T00:00:00.000Z' },
+        edges: validFile().edges.map((edge, index) => (index === 1 ? omit(edge, 'id') : edge)),
+      },
+      messages: [
+        messageFor('STEP_POSITION_MISSING', { step: 'Step "Ship" (#3)' }),
+        messageFor('CONN_ID_MISSING', { connection: 'Connection 2' }),
+      ],
+    },
   ]
 
   for (const { name, contents, messages } of REJECTED_FILES) {

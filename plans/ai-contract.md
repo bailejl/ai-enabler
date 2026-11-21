@@ -101,7 +101,7 @@ Feature: Validation reports every problem
     # Still passes if: the message text is reworded
     Given a file whose steps are not a list
     When the file is validated
-    Then exactly one problem is reported with the not-a-project code
+    Then exactly one problem is reported with the FILE_NOT_A_PROJECT code
 
   Scenario: Importing an invalid file lists every problem
     # Still passes if: list items use a different bullet style
@@ -129,6 +129,12 @@ Feature: Validation reports every problem
     When the user imports a file that is not JSON
     Then the import is rejected with one problem saying the file is not valid JSON
 
+  Scenario: An invalid file with an AI mark is still rejected
+    # Still passes if: the mark's tool name differs
+    When the user imports an invalid file with two problems that carries a modifiedBy AI mark
+    Then the import is rejected with the lead line "Import rejected: 2 problems"
+    And both problems are listed
+
   Scenario: Importing a valid file still works
     # Still passes if: the confirmation text is reworded
     When the user imports a valid exported file and confirms
@@ -140,7 +146,7 @@ Feature: Validation reports every problem
 #### Step 1.0: Diagnostics catalog and problem helper
 
 **Complexity**: standard
-**IMPLEMENT**: `src/flow/diagnostics/catalog.json` with today's validation codes, and `problem(code, details)` returning `{ code, severity, message, fix, ...details }` from the catalog. User text goes only in `untrusted`.
+**IMPLEMENT**: `src/flow/diagnostics/catalog.json` with today's validation codes, and `problem(code, details)` returning `{ code, severity, message, fix, ...details }` from the catalog. Codes are area-prefixed UPPER_SNAKE. A message may name a step by its title, shortened to 80 characters (for example `Step "Plan" (#2): process time (pt) must be a whole number, 0 or more.`); the raw user text is also kept in `untrusted` (for example `untrusted: { title }`). `code`, `fix` and `field` never hold user text.
 **TEST**: `problem.test.js`: known code, unknown code throws, every catalog entry has every required field and a unique, area-prefixed code.
 **REFACTOR**: Keep message templates in the catalog, not in rule code.
 **Files**: `src/flow/diagnostics/catalog.json`, `src/flow/diagnostics/problem.js`, `src/flow/diagnostics/problem.test.js`
@@ -160,7 +166,7 @@ Feature: Validation reports every problem
 #### Step 1.2: Import pipeline carries problems
 
 **Complexity**: standard
-**IMPLEMENT**: The import pipeline result becomes `{ ok: false, problems }`. `checkEnvelope`, `upgradeToCurrent` and the JSON parse emit one problem each, with codes `not-json`, `not-a-project`, `newer-schema`, `unreleased-schema` and `upgrade-failed`.
+**IMPLEMENT**: The import pipeline result becomes `{ ok: false, problems }`. `checkEnvelope`, `upgradeToCurrent` and the JSON parse emit one problem each, with codes `FILE_NOT_JSON`, `FILE_NOT_A_PROJECT`, `FILE_NEWER_SCHEMA`, `FILE_UNRELEASED_SCHEMA`, `FILE_NO_UPGRADE_PATH` and `FILE_UPGRADE_FAILED`, plus `FILE_UNREADABLE` when the file cannot be read or hashed.
 **TEST**: `importFile.test.js` and `upgrades.test.js` updated to the problems shape.
 **REFACTOR**: Remove the single-`message` result once nothing reads it.
 **Files**: `src/flow/importFile.js`, `src/flow/importFile.test.js`, `src/flow/schema/upgrades.js`, `src/flow/schema/upgrades.test.js`
@@ -171,7 +177,7 @@ Feature: Validation reports every problem
 
 **Complexity**: standard
 **IMPLEMENT**: `IMPORT_ERROR` state holds `problems`; `describeImportStatus` returns a lead line, up to 10 items and an "and N more" line; the announcement is the lead line plus the first problem. `ImportStatus` renders a heading (tabindex -1, focused on rejection) and a `<ul>`; `App.jsx` passes the list. Dismiss keeps returning focus to Import.
-**TEST**: `importFlow.test.js` for the description and cap; e2e for two problems, 14 problems, focus, dismiss, not-JSON and an unchanged map.
+**TEST**: `importFlow.test.js` for the description and cap; e2e for two problems, 14 problems, focus, dismiss, not-JSON and an unchanged map; `importFile.test.js` and e2e for an invalid file carrying a `modifiedBy` AI mark, still rejected with every problem listed (AC17; Slice 3 adds the mark's own checks).
 **REFACTOR**: Keep all wording in `importFlow.js` so components only render.
 **Files**: `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ImportStatus.jsx`, `src/App.jsx`, `e2e/export-import.spec.js`
 **Covers**: AC2, AC17
@@ -429,11 +435,11 @@ Feature: One validated change at a time
     Then the result fails with the <code> problem and the project is unchanged
 
     Examples:
-      | connection          | code             |
-      | Build to Build      | self-connection  |
-      | Idea to Build again | duplicate        |
-      | Build to Idea       | loop             |
-      | Idea to "ghost"     | missing-endpoint |
+      | connection          | code                  |
+      | Build to Build      | CONN_SELF             |
+      | Idea to Build again | CONN_DUPLICATE        |
+      | Build to Idea       | CONN_LOOP             |
+      | Idea to "ghost"     | CONN_ENDPOINT_MISSING |
 
   Scenario: Disconnecting a connection that does not exist
     # Still passes if: the problem names the connection by its endpoints instead of its id
@@ -671,10 +677,10 @@ Feature: Open, edit and save a project
     And no project is open
 
     Examples:
-      | file                                  | code          |
-      | "missing.json", which does not exist  | not-found     |
-      | "broken.json", which is not JSON      | not-json      |
-      | "bad.json", with a negative pt        | invalid-value |
+      | file                                  | code               |
+      | "missing.json", which does not exist  | FILE_NOT_FOUND     |
+      | "broken.json", which is not JSON      | FILE_NOT_JSON      |
+      | "bad.json", with a negative pt        | STEP_COUNT_INVALID |
 
   Scenario: Saving with no open project
     # Still passes if: the problem suggests create_project only
@@ -698,7 +704,7 @@ Feature: Open, edit and save a project
 #### Step 6.2: Confined projects-folder store and test wiring
 
 **Complexity**: complex
-**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `not-found` or `save-failed` problems.
+**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `FILE_NOT_FOUND` or `FILE_SAVE_FAILED` problems (new catalog codes).
 **TEST**: `mcp/store.test.js` against a temp directory: every outline name for read and write, a non-string name, a name with a NUL byte, saving a new project over an existing file, a symlink inside pointing out, a symlinked save target, a missing folder, an unwritable folder, a missing file.
 **REFACTOR**: One `resolveName` used by both read and write.
 **Files**: `mcp/store.js`, `mcp/store.test.js`, `vitest.config.js`, `stryker.config.mjs`
