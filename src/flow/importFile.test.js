@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { contentHash } from './contentHash.js'
 import { isCatalogCode } from './diagnostics/problem.js'
-import { parseImport } from './importFile.js'
+import { parseImport, unreadableImport } from './importFile.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 
 const step = (id, label, extra = {}) => ({
@@ -330,5 +330,12 @@ describe('parseImport', () => {
       const result = await parseImport(fixtures[`./schema/fixtures/${version}.json`])
       expect(result.edited).toBe(false)
     })
+  })
+})
+
+describe('unreadableImport', () => {
+  it('is a rejection with the one unreadable-file problem', () => {
+    expect(unreadableImport()).toMatchObject({ ok: false, problems: [{ code: 'FILE_UNREADABLE' }] })
+    expect(unreadableImport().problems).toHaveLength(1)
   })
 })

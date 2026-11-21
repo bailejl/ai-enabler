@@ -54,6 +54,13 @@ const runStages = (first, settings) =>
 const isEdited = async (file, digest) => (await contentHash(file, { digest })) !== file.contentHash
 
 /**
+ * The result for a file whose contents could not be read or hashed, whether the browser failed to
+ * read it or the hash could not be computed.
+ * @returns {{ ok: false, problems: object[] }}
+ */
+export const unreadableImport = () => fail([problem('FILE_UNREADABLE')])
+
+/**
  * Turns the text of a chosen file into a validated project file at the current schema version.
  * `edited` says the file changed outside the app since it was exported (it has no matching
  * contentHash); the hash is checked against the file as read, before any upgrade.
@@ -76,6 +83,6 @@ export const parseImport = async (
   try {
     return { ...result, edited: await isEdited(parsed.file, digest) }
   } catch {
-    return fail([problem('FILE_UNREADABLE')])
+    return unreadableImport()
   }
 }
