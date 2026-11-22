@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
-import vitestConfig from '../../../vitest.config.js'
 import catalog from './catalog.json' with { type: 'json' }
 import { checkDiagnostics } from './gate.js'
 import { serializeRecord, toRecord } from './record.js'
@@ -203,12 +202,6 @@ describe('checkDiagnostics: no global suppression (AC11)', () => {
       expect(text).not.toMatch(/['"](node:)?fs(\/promises)?['"]/)
     },
   )
-})
-
-describe('the unit gate in the Vitest config (AC12)', () => {
-  it('runs vitest.setup.js before every test', () => {
-    expect(vitestConfig.test.setupFiles).toContain('./vitest.setup.js')
-  })
 })
 
 // Runs the fixtures that exercise vitest.setup.js once, through the selftest config, and reads

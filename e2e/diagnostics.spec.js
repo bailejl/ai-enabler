@@ -132,8 +132,11 @@ test('a step name from the file never reaches the console', async ({
   await chooseFile(page, asUpload(markerFile()))
 
   await expect(importStatus(page)).toContainText(SECRET)
-  const records = await recordsAfter(page, messages, 1)
-  expect(records.length).toBeGreaterThan(0)
+  const records = await recordsAfter(page, messages, 2)
+  expect(records.map(({ record }) => record.code)).toEqual([
+    'STEP_POSITION_MISSING',
+    'STEP_COUNT_INVALID',
+  ])
   expect(messages.map(({ text }) => text).filter((text) => text.includes(SECRET))).toEqual([])
   expect(pageErrors.filter((text) => text.includes(SECRET))).toEqual([])
 })

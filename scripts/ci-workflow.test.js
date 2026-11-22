@@ -4,48 +4,41 @@ import { parse } from 'yaml'
 import vitestConfig from '../vitest.config.js'
 import { runCommands, runsOnPullRequest } from './ci-workflow.js'
 
-const WORKFLOW = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
+const WORKFLOW_TEXT = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
 const PACKAGE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const workflow = parse(WORKFLOW_TEXT)
 
-const GUARD_STEP = 'node scripts/schema-fixture-guard-cli.js origin/main'
-const UNIT_TEST_STEP = 'npm test'
-const E2E_TEST_STEP = 'npm run test:e2e'
+const GUARD_COMMAND = 'node scripts/schema-fixture-guard-cli.js origin/main'
+const UNIT_TEST_COMMAND = 'npm test'
+const E2E_TEST_COMMAND = 'npm run test:e2e'
 
-// Reads one job's block, from its two-space key to the next top-level job key.
-const jobBlock = (name) => {
-  const lines = WORKFLOW.split('\n')
-  const start = lines.indexOf(`  ${name}:`)
-  if (start === -1) return ''
-  const rest = lines.slice(start + 1)
-  const end = rest.findIndex((line) => /^ {2}\S/.test(line))
-  return (end === -1 ? rest : rest.slice(0, end)).join('\n')
-}
+const jobCommands = (jobName) => runCommands({ jobs: { [jobName]: workflow.jobs[jobName] } })
 
-const runSteps = (name) =>
-  [...jobBlock(name).matchAll(/^\s+(?:- )?run: (.+)$/gm)].map((match) => match[1].trim())
+// `continue-on-error` can be a boolean or the string 'true', on the job or on any of its steps.
+const toleratesFailure = (job) =>
+  [job, ...(job.steps ?? [])].some((part) => String(part['continue-on-error']) === 'true')
 
 describe('CI workflow', () => {
   test('the unit job runs the schema fixture guard against origin/main', () => {
-    expect(runSteps('unit')).toContain(GUARD_STEP)
+    expect(jobCommands('unit')).toContain(GUARD_COMMAND)
   })
 
   test('the unit job runs the fixture guard before the unit tests', () => {
-    const steps = runSteps('unit')
-    const guard = steps.indexOf(GUARD_STEP)
-    const unitTests = steps.indexOf(UNIT_TEST_STEP)
+    const commands = jobCommands('unit')
+    const guard = commands.indexOf(GUARD_COMMAND)
+    const unitTests = commands.indexOf(UNIT_TEST_COMMAND)
     expect(guard).toBeGreaterThanOrEqual(0)
     expect(unitTests).toBeGreaterThanOrEqual(0)
     expect(guard).toBeLessThan(unitTests)
   })
 
   test('the e2e job runs the Playwright suite', () => {
-    expect(runSteps('e2e')).toContain(E2E_TEST_STEP)
+    expect(jobCommands('e2e')).toContain(E2E_TEST_COMMAND)
   })
 
-  test.each(['unit', 'e2e'])('the %s job does not tolerate a failing step', (name) => {
-    const block = jobBlock(name)
-    expect(block).not.toBe('')
-    expect(block).not.toMatch(/continue-on-error:\s*true/)
+  test.each(['unit', 'e2e'])('the %s job does not tolerate a failing step', (jobName) => {
+    expect(workflow.jobs[jobName]).toBeDefined()
+    expect(toleratesFailure(workflow.jobs[jobName])).toBe(false)
   })
 })
 
@@ -88,13 +81,11 @@ describe('runCommands', () => {
 })
 
 describe('the gates run in CI (AC12)', () => {
-  const workflow = parse(WORKFLOW)
-
   test('the workflow runs on pull_request', () => {
     expect(runsOnPullRequest(workflow)).toBe(true)
   })
 
-  test.each(['npm test', 'npm run test:e2e'])('the workflow runs %s', (command) => {
+  test.each([UNIT_TEST_COMMAND, E2E_TEST_COMMAND])('the workflow runs %s', (command) => {
     expect(runCommands(workflow)).toContain(command)
   })
 

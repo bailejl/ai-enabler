@@ -1,6 +1,7 @@
 // The diagnostics gate: given what a test wrote to the console, returns one failure line per
-// problem. Both the unit gate (Vitest) and the e2e gate (Playwright) call it. There is no way to
-// let a code or console text pass except naming the code in `expected` for that one test.
+// problem. Both the unit gate (Vitest) and the e2e gate (Playwright) call it. A record, or an
+// uncoded error or warning, fails the test unless the test names the record's code in `expected`;
+// that is the only way to let one pass. Uncoded info and log text is not checked.
 
 import catalog from './catalog.json' with { type: 'json' }
 import { parseRecord } from './record.js'
@@ -24,8 +25,7 @@ const recordLineFor = (record, expected) => {
   return FAILURE_LINE.unexpected(record.code, severity, fix)
 }
 
-const entryLineFor = (entry, expected) => {
-  const record = parseRecord(entry.text)
+const entryLineFor = ({ entry, record }, expected) => {
   if (record) return recordLineFor(record, expected)
   return UNCODED_LEVELS.includes(entry.level) ? FAILURE_LINE.uncoded(entry.level, entry.text) : null
 }
@@ -42,10 +42,10 @@ export const checkDiagnostics = (options) => {
     throw new Error(`checkDiagnostics does not accept: ${unsupportedKeys.join(', ')}`)
   }
   const { entries, pageErrors = [], expected = [] } = options
-  const records = entries.map((entry) => parseRecord(entry.text)).filter(Boolean)
-  const seenCodes = records.map((record) => record.code)
+  const parsed = entries.map((entry) => ({ entry, record: parseRecord(entry.text) }))
+  const seenCodes = parsed.flatMap(({ record }) => (record ? [record.code] : []))
   return [
-    ...entries.map((entry) => entryLineFor(entry, expected)).filter(Boolean),
+    ...parsed.map((item) => entryLineFor(item, expected)).filter(Boolean),
     ...expected.filter((code) => !seenCodes.includes(code)).map(FAILURE_LINE.notSeen),
     ...pageErrors.map(FAILURE_LINE.pageError),
   ]
