@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { Protocol } from '@modelcontextprotocol/sdk/shared/protocol.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { z } from 'zod'
 import { createStore } from './store.js'
 import { SERVER_NAME, TOOLS, createToolHost, toCallResult } from './tools.js'
 
@@ -25,7 +27,15 @@ const server = new Server(SERVER_INFO, { capabilities: { tools: {} } })
 
 server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: TOOLS }))
 
-server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
+const CallToolAnyArguments = z.object({
+  method: z.literal('tools/call'),
+  params: z.looseObject({ name: z.string(), arguments: z.unknown().optional() }),
+})
+
+// The SDK's Server re-checks every tools/call against its own schema, which only admits an object
+// for `arguments`, before any handler runs. Registering through the base class skips that check, so
+// our schema decides and the host answers a non-object `arguments` with a problem result.
+Protocol.prototype.setRequestHandler.call(server, CallToolAnyArguments, async ({ params }) => {
   return toCallResult(await host.callTool(params.name, params.arguments))
 })
 

@@ -216,24 +216,26 @@ describe('the stdio server', () => {
       expect(result.structuredContent).toEqual(content)
     })
 
-    // The SDK checks `arguments` against a record before our handler runs, so the host never sees
-    // a non-object: the client gets a JSON-RPC error instead of a tool-level result.
+    // The server accepts any `arguments` value, so a non-object one reaches the host and gets the
+    // same tool-level problem result as any other bad call, not a JSON-RPC error.
     it.each([
       ['text', 'Build'],
       ['null', null],
-      ['a list', ['Build']],
+      ['a list', ['x']],
     ])(
-      'with %s as the arguments is a JSON-RPC error, and the server stays alive',
+      'with %s as the arguments is a tool-level error, and the server stays alive',
       async (_label, bad) => {
         const { request, call } = await startServer()
+        await call('create_project', { name: 'Demo' })
 
-        const response = await request('tools/call', { name: 'add_step', arguments: bad })
+        const { result } = await request('tools/call', { name: 'add_step', arguments: bad })
 
-        expect(response.result).toBeUndefined()
-        expect(response.error.code).toBeTypeOf('number')
-        expect(response.error.message).toContain('arguments')
-        const created = await call('create_project', { name: 'Demo' })
-        expect(created.isError).toBe(false)
+        expect(result.isError).toBe(true)
+        const content = JSON.parse(result.content[0].text)
+        expect(content).toMatchObject({ ok: false, summary: expect.stringMatching(/^Rejected /) })
+        expect(content.problems.map((found) => found.code)).toEqual(['CMD_ARGUMENTS_INVALID'])
+        expect(result.structuredContent).toEqual(content)
+        expect((await call('get_project', {})).isError).toBe(false)
       },
     )
   })
