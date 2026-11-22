@@ -1083,9 +1083,9 @@ graph TD
 
 #### Wave 5
 
-- [ ] Slice 8: JSON Schema, llms.txt and AGENTS.md
-  - [ ] Step 8.1: JSON Schema for 0.1.0
-  - [ ] Step 8.2: llms.txt, AGENTS.md and the product plan
+- [x] Slice 8: JSON Schema, llms.txt and AGENTS.md
+  - [x] Step 8.1: JSON Schema for 0.1.0
+  - [x] Step 8.2: llms.txt, AGENTS.md and the product plan
 
 #### Wave 6
 
