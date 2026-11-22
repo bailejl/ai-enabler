@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/ui-on-commands
-**Status**: draft
+**Status**: approved
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-on-commands.md` (AC1–AC15, gate passed 2026-11-22). Row 6 of `plans/mvp-order.md`.
 **Build waits for**: D1 (`feat/diagnostics-core`) to merge. Slice 4 uses D1's `report(problem)` sink, its Vitest and Playwright gates (`expectDiagnostics`, `e2e/fixtures.js`) and `CHANGELOG.md`. Slices 1–3 do not need D1 to compile, but every new e2e spec imports D1's fixture, so the whole build starts after D1 merges.
@@ -502,6 +502,19 @@ Ratings are on each step. Step 3.3 is `complex`: it moves the app's source of tr
 
 ## Pre-PR Quality Gate
 
+**Run commands:**
+
+- `npm test`
+- `npm run test:coverage`
+- `npm run test:e2e`
+- `npm run test:e2e:gate:pages`
+- `npm run lint`
+- `npm run lint:deep`
+- `npm run format:check`
+- `npm run build`
+- `npm run build:plugin`
+- `npm run check:plugin`
+
 - [ ] D1 merged to main and this branch rebased on it
 - [ ] `npm test`, `npm run test:e2e` (D1 gates on), `npm run test:coverage` at the current bar
 - [ ] `npx stryker run` on `src/flow/commands`, `src/flow/canvas.js`, `src/flow/editFlow.js`, `src/flow/problemsView.js`, `mcp/tools.js`
@@ -512,8 +525,8 @@ Ratings are on each step. Step 3.3 is `complex`: it moves the app's source of tr
 
 ## Risks & Open Questions
 
-- **Split into two PRs?** Slices 1 and 2 (UI-only flag, all-or-nothing edits, MCP filter, shared panel for import) could ship as their own PR, so the riskier canvas rewire does not hold them. Recommended: one PR, because the problems panel and `applyCommands` have no user value until Slice 3 uses them, and two PRs would each need the bundle-serial merge slot. Answer at this gate.
-- **Narrowing "every problem".** `applyCommands` stops at the first rejected command (design decision above). If that is accepted, the spec's AC3 wording becomes "with every problem of the rejected command".
+- **Split into two PRs?** Answered 2026-11-22: one PR. Slices 1 and 2 (UI-only flag, all-or-nothing edits, MCP filter, shared panel for import) could ship as their own PR, so the riskier canvas rewire does not hold them. Recommended: one PR, because the problems panel and `applyCommands` have no user value until Slice 3 uses them, and two PRs would each need the bundle-serial merge slot. Answer at this gate.
+- **Narrowing "every problem".** Accepted 2026-11-22; the spec's AC3 and architecture lines now say so. `applyCommands` stops at the first rejected command (design decision above). If that is accepted, the spec's AC3 wording becomes "with every problem of the rejected command".
 - The move rule relies on React Flow 12.12.1 sending `dragging: false` on drop and on arrow keys (read from its source). A React Flow upgrade could change that; `canvas.test.js` pins the shapes and `edits.spec.js` pins the behavior.
 - `onBeforeDelete` returning `false` must also stop React Flow's own `remove` changes; the Delete and Backspace e2e tests prove it.
 - The edit panel's long-list case ("and N more") is covered by `problemsView.test.js` and the import e2e (14 problems), not by an edit e2e: one command cannot yield more than 10 problems today.
@@ -538,6 +551,10 @@ Round 1: Parallelization approved. Acceptance, Design, UX and Strategic asked fo
 - Round 2 warnings applied: observable Thens; unit-level labels; the arrow-key scenario checks the connection; the repeat announcement is observed through text changes; the focus card follows the existing rule; `moveEdit` ignores changes without a position; Dismiss treats the body as no target; panel height is capped; focus after delete runs after the resync.
 - Noted for E5: arrow keys make one move edit per key press, so undo history will be fine-grained; E5 decides whether to coalesce.
 - Observations kept: dependency direction is clean; `uiOnly` extends the existing entry pattern; rollback is a plain revert plus a bundle rebuild.
+
+## Approval
+
+Approved by the user on 2026-11-22, through the coordinator: one PR; the first-rejection narrowing (spec updated); the last Acceptance fix accepted without a third review round. Build waits for D1 to merge.
 
 ## Build Progress
 
