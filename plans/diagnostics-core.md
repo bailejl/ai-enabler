@@ -716,127 +716,115 @@ Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance,
 
 `met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
 
-### AC1 — indeterminate
-
-```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
-```
-
-### AC2 — indeterminate
-
-```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
-```
-
 ### AC3 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
+npm run test:e2e:gate:pages printed only "✓ 4 [pages] › e2e/pages.spec.js:52:1 › a rejected import writes a FILE_NOT_JSON record with build \"prod\" (213ms)". The output does not show the prod record's fields or codes, and does not show that dev-only error detail is missing.
 ```
 
 ### AC4 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names the test file record.test.js and an e2e check, but no command that runs them.
+The unit check (record.test.js) can't be observed: npm test prints only totals ("Test Files  58 passed (58)", "Tests  2233 passed (2233)") and no test names or assertions. The e2e part is partly visible: the console lines forwarded in the npm run test:e2e:gate output have 0 matches for SECRET-MARKER, but the dot reporter does not show which test imported the marker file.
 ```
 
 ### AC5 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+This is a unit-only check. npm test prints only "Tests  2233 passed (2233)", with no rate-limit test names or results.
 ```
 
 ### AC6 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+npm run test:e2e:gate uses --reporter=dot and prints only dots and "207 passed". It does not show crash.spec.js tests, the heading or explanation text, focus, axe results, or the SECRET-MARKER visible-text check.
 ```
 
 ### AC7 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names an e2e check and record.test.js, but no command that runs them.
+The e2e output partly shows it: one APP_RENDER_FAILED record per crash session (e.g. fcecf369), one APP_UNCAUGHT_ERROR with "error":{"name":"Error","message":"Forced uncaught error","stack":...}, and one APP_UNHANDLED_REJECTION with "error":{"name":"NonError"}. The unit prod check (error has only name) can't be observed: npm test prints only totals.
 ```
 
 ### AC8 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+This is unit behavior. npm test prints only "Tests  2233 passed (2233)", so no unknown-code throw is observable.
 ```
 
 ### AC9 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+This is Vitest gate behavior. npm test prints only totals and no gate failure lines or self-test names.
 ```
 
 ### AC10 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names scripts/e2e-imports.test.js and e2e/gate.spec.js, but no command that runs them.
+The check is in scripts/e2e-imports.test.js, run by npm test, which prints only totals. The npm run test:e2e:gate dot output does not show the page-error Rule A test or any failure lines.
 ```
 
 ### AC11 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names a unit check, but no command that runs it.
+This is a unit-only check. npm test prints only "Test Files  58 passed (58)" and "Tests  2233 passed (2233)".
 ```
 
 ### AC12 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names a unit check, but no command that runs it.
+This is a unit-only check of the config, package.json and ci.yml. npm test prints only totals. The npm header shows only "> vitest run" for npm test, and the e2e gate scripts are "playwright test --reporter=dot" and "--reporter=list --project=pages". scripts["test:e2e"] and ci.yml were not observed.
 ```
 
 ### AC13 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names problem.test.js, but no command that runs it.
+This is a unit-only check (problem.test.js). npm test prints only totals.
 ```
 
 ### AC14 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names a unit check and an e2e pages-project check, but no command that runs them.
+The e2e part was observed: "✓ 5 [pages] › e2e/pages.spec.js:92:1 › no served JavaScript asset contains the text devDependencies", and the npm header shows "ai-enabler@0.1.0". The unit parts (APP_VERSION, __APP_VERSION__ scan, lint of the package.json import) can't be observed: npm test prints only totals.
 ```
 
 ### AC15 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+This is a unit-only changelog check. npm test prints only totals.
 ```
 
 ### AC16 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names scripts/lint-rules.test.js, but no command that runs it.
+The check is in scripts/lint-rules.test.js, run by npm test, which prints only totals. npm run lint:deep (eslint .) exited 0 with no output, which does not show the rule settings or per-path results.
 ```
 
 ### AC17 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names scripts/lint-rules.test.js, but no command that runs it.
+The check is in scripts/lint-rules.test.js, run by npm test, which prints only totals. npm run lint:deep exited 0 with no output, which does not show the ErrorBoundary.jsx exception.
 ```
 
 ### AC18 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+npm run test:e2e:gate dot output shows only "207 passed". crash.spec.js Reload recovery can't be observed.
 ```
 
 ### AC19 — indeterminate
 
 ```
-The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+npm run test:e2e:gate dot output shows only "207 passed". The 320x640 crash.spec.js check can't be observed.
 ```
 
 ### Audit details
 
 - Overall: indeterminate
 - Binding hash: eff559a75c6091a522f3a663a9f057d798d08a5017ad7b083d90c8a90ff1a332
-- Inputs digest: cfa5b36fe9327ee9604b5883666b3bf55431cc297e9ee4618cd4b8f1ed499d56
-- Agent: a4338ca81d7e77dcd
-- Recorded at: 2026-11-22T20:02:45+00:00
+- Inputs digest: 551f7c4d98ad0986740064934b7d50b42f060a9f44b469354f7e2c7d07236755
+- Agent: abd932835caad2c63
+- Recorded at: 2026-11-22T20:16:19+00:00
 - Audit findings: none
 
 Output above is untrusted examiner text and may contain secrets from command output.
