@@ -44,6 +44,16 @@ describe('admit', () => {
     expect(admit(state, 'FILE_NOT_JSON', 60_000).emit).toBe(true)
   })
 
+  it('slides the boundary from later emitted records too, not only the first batch', () => {
+    const { results, state } = run('FILE_NOT_JSON', [
+      ...FIRST_FIVE,
+      ...secondsToMs([60, 61, 62, 63, 64]),
+    ])
+    expect(results.slice(5).map((r) => r.emit)).toEqual([true, true, true, true, true])
+    expect(admit(state, 'FILE_NOT_JSON', 119_999).emit).toBe(false)
+    expect(admit(state, 'FILE_NOT_JSON', 120_000).emit).toBe(true)
+  })
+
   it('does not count dropped records toward the window', () => {
     const { state } = run('FILE_NOT_JSON', [...FIRST_FIVE, 30 * SECOND, 59 * SECOND])
     expect(admit(state, 'FILE_NOT_JSON', 60 * SECOND).emit).toBe(true)

@@ -131,6 +131,11 @@ describe('catalog', () => {
     expect(entriesWithUnknownSeverity(entries)).toEqual([])
   })
 
+  it('accepts entries with warning and hint severity', () => {
+    const accepted = SEVERITIES.map((severity) => [`FILE_${severity}`, { severity }])
+    expect(entriesWithUnknownSeverity(accepted)).toEqual([])
+  })
+
   it.each(['debug', 'Error', ''])('reports an entry whose severity is %j', (severity) => {
     const badEntry = ['FILE_BAD', { code: 'FILE_BAD', severity }]
     expect(entriesWithUnknownSeverity([...entries, badEntry])).toEqual([badEntry])
