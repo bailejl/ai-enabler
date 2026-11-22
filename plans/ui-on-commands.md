@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/ui-on-commands
-**Status**: in-progress
+**Status**: implemented
 **Examination**: not-applicable (plugin recorder bug: it does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-on-commands.md` (AC1–AC15, gate passed 2026-11-22). Row 6 of `plans/mvp-order.md`.
