@@ -151,6 +151,10 @@ body,
 
 .import-status {
   grid-area: status;
+}
+
+.import-status,
+.problems-panel {
   display: flex;
   align-items: center;
   gap: var(--header-gap);
@@ -159,37 +163,42 @@ body,
   color: var(--tile-text);
 }
 
-.import-status--error {
+.problems-panel {
   background: var(--status-needs-attention-background);
 }
 
 .import-status__text,
-.import-status__heading,
-.import-status__more {
+.problems-panel__heading,
+.problems-panel__more {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.import-status__body {
+.problems-panel__body {
   flex: 1;
   min-width: 0;
 }
 
-.import-status__heading {
+.problems-panel__heading {
   font-size: inherit;
 }
 
 /* Focus moves here by script after a rejection, which :focus-visible may not match. */
-.import-status__heading:focus {
+.problems-panel__heading:focus {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
 
-.import-status__list {
+.problems-panel__list {
   margin: 0;
   padding-left: 1.25rem;
   overflow-wrap: anywhere;
+}
+
+/* The "Fix:" label is text, so the line reads the same without colour. */
+.problems-panel__fix {
+  display: block;
 }
 
 .menu {

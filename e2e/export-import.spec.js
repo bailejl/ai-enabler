@@ -108,6 +108,8 @@ const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 // Expected wording comes from the diagnostics catalog, so a reworded message is one edit there.
 const messageFor = (code, params) => problem(code, { params }).message
+// A listed problem reads as its message, then its "Fix:" line.
+const listedText = (code, message) => `${message} Fix: ${problem(code).fix}`
 const NOT_JSON_MESSAGE = messageFor('FILE_NOT_JSON')
 const NOT_A_PROJECT_MESSAGE = messageFor('FILE_NOT_A_PROJECT')
 const LISTED_PROBLEM_LIMIT = 10
@@ -523,7 +525,9 @@ test.describe('invalid files are rejected with a plain message', () => {
       const status = importStatus(page)
       const heading = status.getByRole('heading', { name: leadLine(messages.length) })
       await expect(heading).toBeVisible()
-      await expect(status.getByRole('listitem')).toHaveText(messages)
+      await expect(status.getByRole('listitem')).toHaveText(
+        messages.map((message, index) => listedText(codes[index], message)),
+      )
       await expect(status.getByRole('button', { name: 'Dismiss' })).toBeVisible()
       await expect(confirmDialog(page)).toHaveCount(0)
       await expect(heading).toBeFocused()
@@ -550,7 +554,11 @@ test.describe('invalid files are rejected with a plain message', () => {
     const status = importStatus(page)
     await expect(status.getByRole('heading', { name: leadLine(14) })).toBeFocused()
     await expect(status.getByRole('listitem')).toHaveCount(LISTED_PROBLEM_LIMIT)
-    await expect(status.getByRole('listitem')).toHaveText(messages.slice(0, LISTED_PROBLEM_LIMIT))
+    await expect(status.getByRole('listitem')).toHaveText(
+      messages
+        .slice(0, LISTED_PROBLEM_LIMIT)
+        .map((message) => listedText('STEP_POSITION_MISSING', message)),
+    )
     await expect(status).toContainText('and 4 more')
     await expect(status).not.toContainText(messages[LISTED_PROBLEM_LIMIT])
     await expect(announcer(page)).toHaveText(rejectionAnnouncement(messages))
@@ -987,11 +995,14 @@ test.describe('a file changed by an AI tool', () => {
     file.nodes[0] = { ...file.nodes[0], data: { ...file.nodes[0].data, pt: -1 } }
     await chooseFile(page, asUpload(await withHash(file)))
     await expect(importStatus(page).getByRole('listitem')).toHaveText([
-      messageFor('STEP_COUNT_INVALID', {
-        step: `Step "${file.nodes[0].data.label}" (#1)`,
-        fieldLabel: 'process time',
-        field: 'pt',
-      }),
+      listedText(
+        'STEP_COUNT_INVALID',
+        messageFor('STEP_COUNT_INVALID', {
+          step: `Step "${file.nodes[0].data.label}" (#1)`,
+          fieldLabel: 'process time',
+          field: 'pt',
+        }),
+      ),
     ])
     await expect(confirmDialog(page)).toHaveCount(0)
     await expect(page.getByText('changed by AI tools')).toHaveCount(0)
@@ -1008,9 +1019,8 @@ test.describe('a file changed by an AI tool', () => {
     const file = { ...readMarked(), modifiedBy: { ...readMarked().modifiedBy, tool: forged } }
     await chooseFile(page, asUpload(await withHash(file)))
     await expect(importStatus(page).getByRole('listitem')).toHaveText([
-      messageFor('MARK_TOOL_INVALID'),
+      listedText('MARK_TOOL_INVALID', messageFor('MARK_TOOL_INVALID')),
     ])
-    await expect(importStatus(page)).toContainText('Removing the modifiedBy field fixes the file.')
     await expect(page.getByText(forged)).toHaveCount(0)
     await expect(confirmDialog(page)).toHaveCount(0)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)

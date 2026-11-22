@@ -427,41 +427,43 @@ describe('describeImportStatus', () => {
   const describeRejected = (count) =>
     describeImportStatus(reduceAll([failedWith(manyProblems(count))]).state)
 
-  it('leads one problem with the singular count and lists its message', () => {
+  const itemOf = (message) => ({ code: 'TEST_PROBLEM', message, fix: 'Fix it.' })
+
+  it('leads one problem with the singular count and lists its message and fix', () => {
     expect(describeImportStatus(reduceAll([failed(NOT_JSON)]).state)).toEqual({
-      text: 'Import rejected: 1 problem',
       isError: true,
-      items: [NOT_JSON],
-      more: null,
+      view: { heading: 'Import rejected: 1 problem', items: [itemOf(NOT_JSON)], more: null },
     })
   })
 
   it('leads several problems with the plural count and lists them in order', () => {
     expect(describeRejected(2)).toEqual({
-      text: 'Import rejected: 2 problems',
       isError: true,
-      items: ['Problem 1.', 'Problem 2.'],
-      more: null,
+      view: {
+        heading: 'Import rejected: 2 problems',
+        items: [itemOf('Problem 1.'), itemOf('Problem 2.')],
+        more: null,
+      },
     })
   })
 
   it('lists exactly 10 problems with no "more" line', () => {
-    const status = describeRejected(10)
-    expect(status.items).toHaveLength(10)
-    expect(status.more).toBeNull()
+    const { view } = describeRejected(10)
+    expect(view.items).toHaveLength(10)
+    expect(view.more).toBeNull()
   })
 
   it('lists the first 10 of 11 problems and says "and 1 more"', () => {
-    const status = describeRejected(11)
-    expect(status.items).toHaveLength(10)
-    expect(status.more).toBe('and 1 more')
+    const { view } = describeRejected(11)
+    expect(view.items).toHaveLength(10)
+    expect(view.more).toBe('and 1 more')
   })
 
   it('lists the first 10 of 14 problems and says "and 4 more"', () => {
-    const status = describeRejected(14)
-    expect(status.text).toBe('Import rejected: 14 problems')
-    expect(status.items).toEqual(manyProblems(10).map(({ message }) => message))
-    expect(status.more).toBe('and 4 more')
+    const { view } = describeRejected(14)
+    expect(view.heading).toBe('Import rejected: 14 problems')
+    expect(view.items).toEqual(manyProblems(10).map(({ message }) => itemOf(message)))
+    expect(view.more).toBe('and 4 more')
   })
 
   it('announces the full count but only the first of many problems', () => {

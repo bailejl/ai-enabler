@@ -1,4 +1,5 @@
 import { toExportEdge, toExportNode } from './projectFile.js'
+import { toProblemsView } from './problemsView.js'
 import { withAriaLabel } from './step.js'
 import { formatCount } from './text.js'
 
@@ -33,14 +34,8 @@ const describeChangedBy = (changedBy) =>
 const noticesFor = (isEdited, aiNotice) =>
   [isEdited ? EDITED_NOTICE : null, aiNotice].filter(Boolean)
 
-// The list shows this many problems; the rest are counted in a trailing "and N more" line.
-export const MAX_LISTED_PROBLEMS = 10
-
 const describeRejection = (problems) =>
   `Import rejected: ${formatCount(problems.length, 'problem')}`
-
-const describeMore = (problems) =>
-  problems.length > MAX_LISTED_PROBLEMS ? `and ${problems.length - MAX_LISTED_PROBLEMS} more` : null
 
 export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
 
@@ -127,19 +122,16 @@ const HANDLERS = {
 
 /**
  * What the visible status shows for a state: the last outcome (idle) or the rejection. Nothing
- * shows while a confirmation is pending or before any import. A rejection is the lead line in
- * `text`, up to MAX_LISTED_PROBLEMS messages in `items`, and "and N more" in `more` (null when
- * every problem is listed); an outcome is just `text`.
- * @returns {{ text: string, isError: false } | { text: string, isError: true, items: string[],
- *   more: string | null } | null}
+ * shows while a confirmation is pending or before any import. A rejection is a shared problems
+ * `view` (see toProblemsView) led by the count; an outcome is just `text`.
+ * @returns {{ text: string, isError: false } | { isError: true,
+ *   view: ReturnType<typeof toProblemsView> } | null}
  */
 export const describeImportStatus = (state) => {
   if (state.type === IMPORT_ERROR) {
     return {
-      text: describeRejection(state.problems),
       isError: true,
-      items: state.problems.slice(0, MAX_LISTED_PROBLEMS).map(({ message }) => message),
-      more: describeMore(state.problems),
+      view: toProblemsView(describeRejection(state.problems), state.problems),
     }
   }
   if (state.type === IMPORT_IDLE && state.status) return { text: state.status, isError: false }
