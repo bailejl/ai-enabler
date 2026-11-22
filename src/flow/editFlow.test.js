@@ -137,6 +137,17 @@ describe('runEdit', () => {
       expect(result.project).toBe(PROJECT)
       expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
     })
+
+    it('reports an earlier rejected command instead of a later create_project', () => {
+      const commands = [
+        { name: 'remove_step', args: { stepId: 'nope' } },
+        { name: 'create_project', args: { name: 'O' } },
+      ]
+      const result = runEdit(startingEdit(), commands, context)
+      expect(result.ok).toBe(false)
+      expect(result.problems.map((p) => p.code)).toEqual(['STEP_NOT_FOUND'])
+      expect(result.project).toBe(PROJECT)
+    })
   })
 
   it('names a new connection with the injected id', () => {

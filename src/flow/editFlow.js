@@ -15,9 +15,10 @@ export const INITIAL_EDIT_STATE = Object.freeze({ rejection: null, focusReturn: 
  * Runs one edit (a list of commands) as a whole and redraws the canvas from the result. The
  * canvas is always rebuilt from the resulting project, so a rejected edit snaps the view back to
  * the project (a dragged card returns). Focus is asked to move only for an accepted edit that
- * changed something; an empty edit is accepted, changes nothing and does not ask. A command that
- * replaces the project (create_project) belongs to import, so an edit holding one is rejected as
- * an unknown command and nothing changes.
+ * changed something; an empty edit is accepted, changes nothing and does not ask. An edit offers
+ * only `EDIT_COMMAND_NAMES`: a command that replaces the project (create_project) is rejected as an
+ * unknown command when it is reached. As always, the first rejected command decides, so an earlier
+ * rejected command is reported instead; either way nothing changes.
  * @param {{ project: object, canvas: { nodes: object[], edges: object[] } }} current
  * @param {{ name: string, args?: object }[]} commands
  * @param {{ newId: () => string }} context

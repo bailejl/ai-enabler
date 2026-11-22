@@ -75,7 +75,8 @@ export const replacesProject = (command) =>
   Object.hasOwn(COMMANDS, command.name) &&
   COMMANDS[command.name].replacesProject === true
 
-// The commands an edit may hold: all but the ones that replace the project (those belong to import).
+// The commands a canvas edit may hold: all but the ones that replace the project (the app replaces
+// a project through import, not an edit).
 export const EDIT_COMMAND_NAMES = COMMAND_NAMES.filter((name) => !replacesProject({ name }))
 
 // Whether a `[name, command]` entry of COMMANDS is an MCP tool: the ones flagged `uiOnly` serve the

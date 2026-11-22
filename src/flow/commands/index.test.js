@@ -271,7 +271,10 @@ describe('replacesProject', () => {
 })
 
 describe('unknownCommand', () => {
-  const listed = (problem) => problem.message.split('The commands are: ')[1].replace(/\.$/, '')
+  const listed = (problem) => {
+    expect(problem.message).toContain('The commands are: ')
+    return problem.message.split('The commands are: ')[1].replace(/\.$/, '')
+  }
 
   it('lists every command by default', () => {
     const problem = unknownCommand('fly')
