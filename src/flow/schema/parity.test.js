@@ -3,6 +3,17 @@ import { COMMANDS } from '../commands/index.js'
 import projectSchema from '../../../public/schema/project-0.1.0.json'
 
 // AC23: every writable field in the save-file JSON Schema can be set by some command.
+// Only MCP commands count: a UI-only command (flagged `uiOnly`) is not a tool, so a client cannot
+// use it to set a field.
+const MCP_COMMANDS = Object.fromEntries(
+  Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly),
+)
+
+// True when the "command.argument" reference names an argument of a command in `commands`.
+const hasArgument = (commands, ref) => {
+  const [command, argument] = ref.split('.')
+  return commands[command]?.args.includes(argument) ?? false
+}
 
 // The JSON path of every leaf the schema describes, as `a.b` and `list[].c`. Walks `properties` and
 // array `items`. A `const` leaf holds one fixed value, so nobody writes it: ASSUMPTION, it covers
@@ -23,11 +34,7 @@ const writablePaths = (schema, path = '') => {
 const pathsWithoutCommand = (schema, { exempt, mapping, commands }) => {
   const isExempt = (path) =>
     exempt.some((prefix) => path === prefix || path.startsWith(`${prefix}.`))
-  const isSet = (path) =>
-    (mapping[path] ?? []).some((ref) => {
-      const [command, argument] = ref.split('.')
-      return commands[command]?.args.includes(argument)
-    })
+  const isSet = (path) => (mapping[path] ?? []).some((ref) => hasArgument(commands, ref))
   return writablePaths(schema).filter((path) => !isExempt(path) && !isSet(path))
 }
 
@@ -59,7 +66,7 @@ const MAPPING = {
   'edges[].target': ['connect.targetId'],
 }
 
-const options = { exempt: EXEMPT, mapping: MAPPING, commands: COMMANDS }
+const options = { exempt: EXEMPT, mapping: MAPPING, commands: MCP_COMMANDS }
 
 describe('save-file parity', () => {
   it('has a command argument for every writable path in the JSON Schema', () => {
@@ -74,8 +81,7 @@ describe('save-file parity', () => {
   it.each(Object.entries(MAPPING).flatMap(([path, refs]) => refs.map((ref) => [path, ref])))(
     'maps %s to %s, which exists in the command table',
     (_path, ref) => {
-      const [command, argument] = ref.split('.')
-      expect(COMMANDS[command].args).toContain(argument)
+      expect(hasArgument(MCP_COMMANDS, ref)).toBe(true)
     },
   )
 
@@ -96,5 +102,33 @@ describe('save-file parity', () => {
   it('fails and names a field whose mapped argument is not in the command table', () => {
     const mapping = { ...MAPPING, 'project.name': ['create_project.title'] }
     expect(pathsWithoutCommand(projectSchema, { ...options, mapping })).toEqual(['project.name'])
+  })
+
+  describe('with a UI-only command', () => {
+    const MOVE = { 'nodes[].position.x': ['move_step.x'], 'nodes[].position.y': ['move_step.y'] }
+    const withoutPositionExemption = EXEMPT.filter((prefix) => prefix !== 'nodes[].position')
+
+    it('has a UI-only command to check against', () => {
+      expect(COMMANDS.move_step.uiOnly).toBe(true)
+      expect(COMMANDS.move_step.args).toEqual(['stepId', 'x', 'y'])
+    })
+
+    it('does not count it as a command that sets a field', () => {
+      const missing = pathsWithoutCommand(projectSchema, {
+        exempt: withoutPositionExemption,
+        mapping: { ...MAPPING, ...MOVE },
+        commands: MCP_COMMANDS,
+      })
+      expect(missing).toEqual(['nodes[].position.x', 'nodes[].position.y'])
+    })
+
+    it('does not count a mapping to it as an argument in the command table', () => {
+      expect(hasArgument(COMMANDS, 'move_step.x')).toBe(true)
+      expect(hasArgument(MCP_COMMANDS, 'move_step.x')).toBe(false)
+    })
+
+    it('keeps positions exempt, so the real schema needs no command for them', () => {
+      expect(pathsWithoutCommand(projectSchema, options)).toEqual([])
+    })
   })
 })
