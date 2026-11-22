@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter, UUID_V4 } from './console.js'
+import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, waitForRecords, UUID_V4 } from './console.js'
 import { asUpload, chooseFile, importStatus, readFixture } from './views.js'
 
 const SECRET = 'SECRET-MARKER'
@@ -41,7 +41,7 @@ test('a file that is not JSON writes exactly one coded error record', async ({
   const before = Date.now()
   await chooseFile(page, asUpload('this is not json'))
 
-  const records = await recordsAfter(page, messages, 1)
+  const records = await waitForRecords(page, messages, 1)
   const after = Date.now()
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
@@ -71,12 +71,12 @@ test('a file with three problems writes three records, again on a second import'
   await page.goto('/')
 
   await chooseFile(page, asUpload(threeProblemFile()))
-  const afterFirst = await recordsAfter(page, messages, 3)
+  const afterFirst = await waitForRecords(page, messages, 3)
   expect(afterFirst.map(({ record }) => record.code)).toEqual(THREE_PROBLEM_CODES)
 
   await dismissStatus(page)
   await chooseFile(page, asUpload(threeProblemFile()))
-  const afterSecond = await recordsAfter(page, messages, 6)
+  const afterSecond = await waitForRecords(page, messages, 6)
   expect(afterSecond.map(({ record }) => record.code)).toEqual([
     ...THREE_PROBLEM_CODES,
     ...THREE_PROBLEM_CODES,
@@ -92,11 +92,11 @@ test('records in one page load share version and session', async ({
   diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
-  await recordsAfter(page, messages, 1)
+  await waitForRecords(page, messages, 1)
   await dismissStatus(page)
   await chooseFile(page, asUpload('{ still not json'))
 
-  const records = await recordsAfter(page, messages, 2)
+  const records = await waitForRecords(page, messages, 2)
 
   expect(records).toHaveLength(2)
   const [first, second] = records.map(({ record }) => record)
@@ -110,11 +110,11 @@ test('a reload starts a new session', async ({ page, capture, diagnostics }) => 
   diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
-  const [{ record: beforeReload }] = await recordsAfter(page, messages, 1)
+  const [{ record: beforeReload }] = await waitForRecords(page, messages, 1)
 
   await page.reload()
   await chooseFile(page, asUpload('this is not json'))
-  const [, { record: afterReload }] = await recordsAfter(page, messages, 2)
+  const [, { record: afterReload }] = await waitForRecords(page, messages, 2)
 
   expect(afterReload.session).toMatch(UUID_V4)
   expect(afterReload.session).not.toBe(beforeReload.session)
@@ -132,7 +132,7 @@ test('a step name from the file never reaches the console', async ({
   await chooseFile(page, asUpload(markerFile()))
 
   await expect(importStatus(page)).toContainText(SECRET)
-  const records = await recordsAfter(page, messages, 2)
+  const records = await waitForRecords(page, messages, 2)
   expect(records.map(({ record }) => record.code)).toEqual([
     'STEP_POSITION_MISSING',
     'STEP_COUNT_INVALID',

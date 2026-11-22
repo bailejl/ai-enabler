@@ -7,14 +7,14 @@
 import { test as base, expect } from '@playwright/test'
 import { checkDiagnostics } from '../src/flow/diagnostics/gate.js'
 import { collectConsole, flushConsole } from './console.js'
-import { createDiagnostics } from './diagnostics-api.js'
+import { createExpectedCodes } from './diagnostics-api.js'
 
 export { expect }
 
 // Playwright's ConsoleMessage.type() reports the `warn` method as `warning`; the gate uses the
 // method names.
-const CONSOLE_LEVEL = Object.freeze({ warning: 'warn' })
-const toLevel = (type) => CONSOLE_LEVEL[type] ?? type
+const LEVEL_BY_CONSOLE_TYPE = Object.freeze({ warning: 'warn' })
+const toLevel = (type) => LEVEL_BY_CONSOLE_TYPE[type] ?? type
 
 /**
  * The gate's failure lines for what `page` wrote since `ledger` began collecting, given the codes
@@ -52,7 +52,7 @@ export const test = base.extend({
   },
 
   diagnostics: async ({ diagnosticsLedger }, provide) => {
-    await provide(createDiagnostics(diagnosticsLedger.expected))
+    await provide(createExpectedCodes(diagnosticsLedger.expected))
   },
 
   gate: [

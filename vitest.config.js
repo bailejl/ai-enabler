@@ -18,6 +18,8 @@ export default mergeConfig(
           // Test-only helpers shared by colocated tests
           'src/**/testHelpers.js',
           'src/main.jsx',
+          // Dev-only crash trigger; e2e/crash.spec.js covers it, like main.jsx
+          'src/shell/DevCrashTrigger.jsx',
           'src/App.jsx',
           // The gate's wiring and the fixtures that test it
           'vitest.setup.js',

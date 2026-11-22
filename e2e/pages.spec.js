@@ -1,8 +1,8 @@
 import { test, expect } from './fixtures.js'
 import { PAGES_BASE } from '../scripts/pages-base.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import { DEV_CRASH_EVENT } from '../src/shell/devCrash.js'
-import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter, recordsIn } from './console.js'
+import { CRASH_KIND, DEV_CRASH_EVENT } from '../src/shell/devCrash.js'
+import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, waitForRecords, recordsIn } from './console.js'
 import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
@@ -61,7 +61,7 @@ test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async 
 
   await chooseFile(page, asUpload('this is not json'))
 
-  const records = await recordsAfter(page, messages, 1)
+  const records = await waitForRecords(page, messages, 1)
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
   expect(type).toBe('error')
@@ -104,11 +104,14 @@ test('the dev crash event does nothing in production', async ({ page, capture })
   await page.goto(`${PAGES_BASE}#/`)
   await expectStarterSteps(page)
 
-  await page.evaluate((eventName) => {
-    for (const detail of ['render', 'error', 'rejection']) {
-      window.dispatchEvent(new CustomEvent(eventName, { detail }))
-    }
-  }, DEV_CRASH_EVENT)
+  await page.evaluate(
+    ([eventName, kinds]) => {
+      for (const detail of kinds) {
+        window.dispatchEvent(new CustomEvent(eventName, { detail }))
+      }
+    },
+    [DEV_CRASH_EVENT, Object.values(CRASH_KIND)],
+  )
   // A timer round trip, so a crash forced from a timer or a rejection would have happened by now.
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)))
 

@@ -342,15 +342,11 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
   })
 
   it('still captures the console after a test restored every mock', () => {
-    // Guard: the test before it must have restored every mock
-    expect(outcomes['isolation.fixture.js > passes while restoring every mock']).toMatchObject({
-      status: 'passed',
-    })
     expect(
-      outcomes['isolation.fixture.js > fails on an uncoded error after mocks were restored'],
+      outcomes['isolation.fixture.js > fails on an uncoded error after restoring every mock'],
     ).toMatchObject({
       status: 'failed',
-      message: expect.stringContaining('uncoded error: after restore'),
+      message: expect.stringContaining('uncoded error: x'),
     })
   })
 
@@ -384,9 +380,9 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
     })
   })
 
-  it('does not fail a test that only reads the gate spy', () => {
+  it('does not fail a test that restores its own console spy', () => {
     expect(
-      outcomes['spyreplaced.fixture.js > passes when the test only reads the gate spy'],
+      outcomes['spyreplaced.fixture.js > passes when the test restores its own console spy'],
     ).toMatchObject({ status: 'passed' })
   })
 })

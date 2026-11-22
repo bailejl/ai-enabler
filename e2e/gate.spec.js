@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import catalog from '../src/flow/diagnostics/catalog.json' with { type: 'json' }
 import { serializeRecord, toErrorRecord } from '../src/flow/diagnostics/record.js'
 import { cards, settledBox } from './canvas.js'
@@ -66,8 +68,10 @@ const pageErrorsFrom = async (browser, { kind, handled }) => {
     const pageErrors = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     const handlerRan = handled ? page.waitForEvent('console') : undefined
-    await raise(page, { kind, handledText: handled ? HANDLED_TEXT : undefined })
-    await handlerRan
+    await Promise.all([
+      raise(page, { kind, handledText: handled ? HANDLED_TEXT : undefined }),
+      handlerRan,
+    ])
     if (!handled) await expect.poll(() => pageErrors.length).toBeGreaterThan(0)
     await settle(page)
     return pageErrors
@@ -191,18 +195,63 @@ test.describe('the diagnostics gate reports', () => {
   })
 })
 
-test.describe('the test fixture fails a test', () => {
-  test('that wrote an undeclared record', async ({ page }) => {
-    test.fail()
-    await page.goto('/')
+// The fixture skips the gate once a test has already failed, and test.fail() passes on any
+// failure, so neither shows that the gate itself failed a test. A child run of the self-test
+// config (e2e/gate-wiring.selftest.js) does: its report says which tests failed and with what.
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
+const SELFTEST_CONFIG = 'playwright.selftest.config.js'
+const SELFTEST_TIMEOUT_MS = 60_000
 
-    await chooseFile(page, asUpload(NOT_JSON))
+const testsIn = (suite) => [
+  ...(suite.specs ?? []).flatMap((spec) =>
+    spec.tests.map(({ results }) => ({
+      title: spec.title,
+      status: results.at(-1).status,
+      message: results
+        .at(-1)
+        .errors.map(({ message }) => message)
+        .join('\n'),
+    })),
+  ),
+  ...(suite.suites ?? []).flatMap(testsIn),
+]
+
+const runGateSelfTest = (baseURL) => {
+  // Nothing from this run's worker (Playwright's own PW_ settings) may reach the child.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('PW_')),
+  )
+  const child = spawnSync('npx', ['playwright', 'test', '-c', SELFTEST_CONFIG, '--reporter=json'], {
+    cwd: REPO_ROOT,
+    env: { ...env, GATE_SELFTEST_BASE_URL: baseURL, NO_COLOR: '1' },
+    encoding: 'utf8',
+    timeout: SELFTEST_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
   })
+  // The tests fail on purpose, so the exit code says nothing; the report does.
+  if (!child.stdout) {
+    throw new Error(`self-test run wrote no report (${child.error?.message}): ${child.stderr}`)
+  }
+  return Object.fromEntries(
+    JSON.parse(child.stdout)
+      .suites.flatMap(testsIn)
+      .map((result) => [result.title, result]),
+  )
+}
 
-  test('that wrote an uncoded console error', async ({ page }) => {
-    test.fail()
-    await page.goto('/')
+test('the test fixture fails a test that breaks the gate', async ({ baseURL }) => {
+  test.setTimeout(SELFTEST_TIMEOUT_MS + 30_000)
 
-    await page.evaluate(() => window.console.error('not a record'))
+  const outcomes = runGateSelfTest(baseURL)
+
+  expect(outcomes['that wrote an undeclared record']).toMatchObject({
+    status: 'failed',
+    message: expect.stringContaining(
+      `unexpected FILE_NOT_JSON (${NOT_JSON_SEVERITY}): ${NOT_JSON_FIX}`,
+    ),
+  })
+  expect(outcomes['that wrote an uncoded console error']).toMatchObject({
+    status: 'failed',
+    message: expect.stringContaining('uncoded error: not a record'),
   })
 })

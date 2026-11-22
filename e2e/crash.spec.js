@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js'
-import { DEV_CRASH_EVENT, DEV_CRASH_READY_ATTRIBUTE } from '../src/shell/devCrash.js'
+import { CRASH_KIND, DEV_CRASH_EVENT, DEV_CRASH_READY_ATTRIBUTE } from '../src/shell/devCrash.js'
 import { scan } from './axe.js'
-import { recordsAfter, recordsIn } from './console.js'
+import { waitForRecords, recordsIn } from './console.js'
 import {
   asUpload,
   importAndConfirm,
@@ -33,9 +33,9 @@ test('an uncaught error writes one APP_UNCAUGHT_ERROR record and no other consol
   diagnostics.expect(['APP_UNCAUGHT_ERROR'])
   await openStarterView(page)
 
-  await forceCrash(page, 'error')
+  await forceCrash(page, CRASH_KIND.error)
 
-  const records = await recordsAfter(page, messages, 1)
+  const records = await waitForRecords(page, messages, 1)
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
   expect(type).toBe('error')
@@ -57,9 +57,9 @@ test('an unhandled rejection with a string reason writes one APP_UNHANDLED_REJEC
   diagnostics.expect(['APP_UNHANDLED_REJECTION'])
   await openStarterView(page)
 
-  await forceCrash(page, 'rejection')
+  await forceCrash(page, CRASH_KIND.rejection)
 
-  const records = await recordsAfter(page, messages, 1)
+  const records = await waitForRecords(page, messages, 1)
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
   expect(type).toBe('error')
@@ -84,7 +84,7 @@ const crashWithSecretOnMap = async (page) => {
   await openStarterView(page)
   await importAndConfirm(page, asUpload(mapWithSecretStep()), replaceQuestion('Checkout Revamp'))
   await expect(page.getByText(SECRET, { exact: true })).toBeVisible()
-  await forceCrash(page, 'render')
+  await forceCrash(page, CRASH_KIND.render)
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible()
 }
 
@@ -98,7 +98,7 @@ test('a render crash shows the crash screen and writes one APP_RENDER_FAILED rec
 
   await crashWithSecretOnMap(page)
 
-  const records = await recordsAfter(page, messages, 1)
+  const records = await waitForRecords(page, messages, 1)
   expect(records).toHaveLength(1)
   expect(records[0].type).toBe('error')
   expect(records[0].record.code).toBe('APP_RENDER_FAILED')
@@ -122,7 +122,7 @@ test('the crash screen shows no map content and the console has none', async ({
 
   await crashWithSecretOnMap(page)
 
-  await recordsAfter(page, messages, 1)
+  await waitForRecords(page, messages, 1)
   expect(await page.locator('body').innerText()).not.toContain(SECRET)
   expect(messages.filter(({ text }) => text.includes(SECRET))).toEqual([])
   expect(pageErrors.filter((text) => text.includes(SECRET))).toEqual([])
@@ -134,7 +134,7 @@ test('the crash screen fits a 320 px wide window', async ({ page, diagnostics })
   await page.setViewportSize(NARROW_VIEWPORT)
   await openStarterView(page)
 
-  await forceCrash(page, 'render')
+  await forceCrash(page, CRASH_KIND.render)
 
   const reload = page.getByRole('button', { name: 'Reload' })
   await expect(reload).toBeVisible()
@@ -149,7 +149,7 @@ test('the crash screen fits a 320 px wide window', async ({ page, diagnostics })
 test('Reload brings the map back', async ({ page, diagnostics }) => {
   diagnostics.expect(['APP_RENDER_FAILED'])
   await openStarterView(page)
-  await forceCrash(page, 'render')
+  await forceCrash(page, CRASH_KIND.render)
 
   await page.getByRole('button', { name: 'Reload' }).click()
 

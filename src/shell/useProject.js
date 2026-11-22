@@ -34,6 +34,9 @@ const readImport = async (file) => {
 const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
   const previousState = useRef(importState)
+  // The newest state, written only where a state is set. The reducer runs against this, not the
+  // state a callback captured at render time, so a dispatch after an `await` sees every earlier one.
+  const latestImportState = useRef(importState)
   const latestRequestId = useRef(0)
 
   useEffect(() => {
@@ -46,12 +49,13 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
 
   const dispatchImport = useCallback(
     (event) => {
-      const { state, announcement, replacement } = reduceImport(importState, event)
+      const { state, announcement, replacement } = reduceImport(latestImportState.current, event)
+      latestImportState.current = state
       setImportState(state)
       if (announcement) announce(announcement)
       if (replacement) applyReplacement(replacement)
     },
-    [importState, announce, applyReplacement],
+    [announce, applyReplacement],
   )
 
   // When two reads overlap, only the one started last may change the state.

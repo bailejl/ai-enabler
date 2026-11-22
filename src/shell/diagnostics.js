@@ -3,7 +3,7 @@
 
 import defaultCatalog from '../flow/diagnostics/catalog.json' with { type: 'json' }
 import { admit } from '../flow/diagnostics/rateLimit.js'
-import { serializeRecord, toErrorRecord, toRecord } from '../flow/diagnostics/record.js'
+import { BUILD, errorDetail, serializeRecord, toRecord } from '../flow/diagnostics/record.js'
 import { APP_VERSION } from './version.js'
 
 const PLATFORM = 'browser'
@@ -58,7 +58,7 @@ export const newSessionId = () =>
 export const createDiagnostics = ({
   console: sink = globalThis.console,
   now = Date.now,
-  build = import.meta.env.DEV ? 'dev' : 'prod',
+  build = import.meta.env.DEV ? BUILD.dev : BUILD.prod,
   session = newSessionId(),
   version = APP_VERSION,
   catalog = defaultCatalog,
@@ -68,7 +68,9 @@ export const createDiagnostics = ({
   // The limiter state is committed only after the record is built, so a build that throws does
   // not use up a slot of the code's rate limit.
   const write = (code, buildRecord) => {
-    if (!Object.hasOwn(catalog, code)) throw new Error(`Unknown diagnostic code: ${String(code)}`)
+    if (typeof code !== 'string' || !Object.hasOwn(catalog, code)) {
+      throw new Error(`Unknown diagnostic code: ${String(code)}`)
+    }
     const at = now()
     const admission = admit(limiterState, code, at)
     const record = admission.emit
@@ -88,8 +90,8 @@ export const createDiagnostics = ({
 
   const reportError = (code, error) =>
     write(code, (context, suppressed) => ({
-      ...toErrorRecord(code, error, context, suppressed),
-      severity: catalog[code].severity,
+      ...toRecord({ code, severity: catalog[code].severity }, context, suppressed),
+      error: errorDetail(error, context.build),
     }))
 
   const reset = () => {

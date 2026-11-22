@@ -9,6 +9,7 @@ import { toMetricTiles } from '../src/flow/metrics.js'
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, edgeBetween, selectEdge, settledBox } from './canvas.js'
+import { ISO_UTC_TIMESTAMP } from './console.js'
 import {
   asUpload,
   chooseFile,
@@ -23,7 +24,6 @@ import {
 
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
-const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 const EXPORT_NODE_FIELDS = ['data', 'id', 'position', 'type']
 const EDGE_FIELDS = ['id', 'source', 'target']
 

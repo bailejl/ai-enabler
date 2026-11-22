@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { problem } from '../flow/diagnostics/problem.js'
-import { RATE_LIMIT, RATE_WINDOW_MS } from '../flow/diagnostics/rateLimit.js'
+import { MAX_RECORDS_PER_WINDOW, RATE_WINDOW_MS } from '../flow/diagnostics/rateLimit.js'
 import { parseRecord } from '../flow/diagnostics/record.js'
 import {
   createDiagnostics,
@@ -9,7 +9,7 @@ import {
   reportError,
   resetDiagnostics,
 } from './diagnostics.js'
-import { expectDiagnostics } from '../testHelpers.js'
+import { capturedConsoleCalls, expectDiagnostics } from '../testHelpers.js'
 import { APP_VERSION } from './version.js'
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -170,6 +170,19 @@ describe('reportError', () => {
     expect(calls.map(({ method }) => method)).toEqual(['warn'])
     expect(parseRecord(calls[0].text).severity).toBe('warning')
   })
+
+  it('writes a code that only the sink catalog has, with its severity', () => {
+    const { reportError: write, calls } = sinkWith({ catalog: TEST_CATALOG })
+
+    write('TEST_ERROR', crash)
+
+    expect(calls.map(({ method }) => method)).toEqual(['error'])
+    expect(parseRecord(calls[0].text)).toMatchObject({
+      code: 'TEST_ERROR',
+      severity: 'error',
+      error: { name: 'TypeError', message: SECRET },
+    })
+  })
 })
 
 describe('an unknown code', () => {
@@ -183,11 +196,22 @@ describe('an unknown code', () => {
     expect(sink.calls).toEqual([])
   })
 
+  it.each([
+    ['report', (sink, code) => sink.report({ code })],
+    ['reportError', (sink, code) => sink.reportError(code, new Error('x'))],
+  ])('throws from %s on a code that is not a string, and writes nothing', (_name, call) => {
+    const sink = sinkWith({ catalog: { ...TEST_CATALOG, 1: { severity: 'error' } } })
+
+    expect(() => call(sink, 1)).toThrow('Unknown diagnostic code: 1')
+    expect(() => call(sink, undefined)).toThrow('Unknown diagnostic code: undefined')
+    expect(sink.calls).toEqual([])
+  })
+
   it('does not read the clock, so it cannot use up a rate limit slot', () => {
     const now = vi.fn(() => 0)
     const sink = sinkWith({ now })
 
-    for (let count = 0; count <= RATE_LIMIT; count += 1) {
+    for (let count = 0; count <= MAX_RECORDS_PER_WINDOW; count += 1) {
       expect(() => sink.report({ code: 'NOPE_UNKNOWN' })).toThrow('NOPE_UNKNOWN')
     }
 
@@ -197,7 +221,7 @@ describe('an unknown code', () => {
 
 describe('rate limit', () => {
   const IN_WINDOW = [0, 1000, 2000, 3000, 4000, 10_000, 20_000]
-  const DROPPED_COUNT = IN_WINDOW.length - RATE_LIMIT
+  const DROPPED_COUNT = IN_WINDOW.length - MAX_RECORDS_PER_WINDOW
 
   it('drops records over the limit and carries the dropped count on the next emitted one', () => {
     const times = [...IN_WINDOW, RATE_WINDOW_MS + 4000]
@@ -205,16 +229,16 @@ describe('rate limit', () => {
     times.forEach(() => write(problem('FILE_NOT_JSON')))
 
     const records = recordsOf(calls)
-    expect(records).toHaveLength(RATE_LIMIT + 1)
+    expect(records).toHaveLength(MAX_RECORDS_PER_WINDOW + 1)
     records
-      .slice(0, RATE_LIMIT)
+      .slice(0, MAX_RECORDS_PER_WINDOW)
       .forEach((record) => expect(record).not.toHaveProperty('suppressed'))
-    expect(records[RATE_LIMIT].suppressed).toBe(DROPPED_COUNT)
+    expect(records[MAX_RECORDS_PER_WINDOW].suppressed).toBe(DROPPED_COUNT)
   })
 
   it('limits each code on its own', () => {
     const { report: write, calls } = sinkWith()
-    for (let count = 0; count <= RATE_LIMIT; count += 1) write(problem('FILE_NOT_JSON'))
+    for (let count = 0; count <= MAX_RECORDS_PER_WINDOW; count += 1) write(problem('FILE_NOT_JSON'))
 
     write(problem('STEP_ID_MISSING'))
 
@@ -225,14 +249,15 @@ describe('rate limit', () => {
 
   it('starts counting again after reset', () => {
     const sink = sinkWith()
-    for (let count = 0; count <= RATE_LIMIT; count += 1) sink.report(problem('FILE_NOT_JSON'))
-    expect(sink.calls).toHaveLength(RATE_LIMIT)
+    for (let count = 0; count <= MAX_RECORDS_PER_WINDOW; count += 1)
+      sink.report(problem('FILE_NOT_JSON'))
+    expect(sink.calls).toHaveLength(MAX_RECORDS_PER_WINDOW)
 
     sink.reset()
     sink.report(problem('FILE_NOT_JSON'))
 
-    expect(sink.calls).toHaveLength(RATE_LIMIT + 1)
-    expect(parseRecord(sink.calls[RATE_LIMIT].text)).not.toHaveProperty('suppressed')
+    expect(sink.calls).toHaveLength(MAX_RECORDS_PER_WINDOW + 1)
+    expect(parseRecord(sink.calls[MAX_RECORDS_PER_WINDOW].text)).not.toHaveProperty('suppressed')
   })
 })
 
@@ -281,9 +306,7 @@ describe('the default sink', () => {
     report(problem('FILE_NOT_JSON'))
     reportError('APP_UNCAUGHT_ERROR', new Error('x'))
 
-    // Without mockImplementation this returns the gate's own spy, so only its calls are read
-    const { calls } = vi.spyOn(console, 'error').mock
-    const [firstRecord, secondRecord] = calls.map(([text]) => parseRecord(text))
+    const [firstRecord, secondRecord] = capturedConsoleCalls('error').map(parseRecord)
     expect(firstRecord).toMatchObject({ code: 'FILE_NOT_JSON', version: APP_VERSION, build: 'dev' })
     expect(secondRecord).toMatchObject({ code: 'APP_UNCAUGHT_ERROR', error: { name: 'Error' } })
   })

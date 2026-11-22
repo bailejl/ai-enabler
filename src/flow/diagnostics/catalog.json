@@ -567,7 +567,7 @@
     "code": "APP_UNCAUGHT_ERROR",
     "severity": "error",
     "title": "An uncaught error occurred",
-    "summary": "An error was thrown outside any handler and reached the window.",
+    "summary": "An error was thrown outside any handler and reached the window, or React recovered from a render error.",
     "message": "The app hit an error that nothing handled.",
     "fix": "Reload the page if the app stops responding. If it keeps happening, report this code.",
     "docs": "#app-uncaught-error",

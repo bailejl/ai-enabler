@@ -27,3 +27,7 @@ export const expectDiagnostics = (codes) => {
 
 /** The failure lines for the current test, empty when it is clean. */
 export const finishCapture = () => checkDiagnostics({ entries, expected })
+
+/** The text of every console call captured so far in this test at `level` (`error`, `warn`, ...). */
+export const capturedConsoleCalls = (level) =>
+  entries.filter((entry) => entry.level === level).map((entry) => entry.text)

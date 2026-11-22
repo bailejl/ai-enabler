@@ -1,39 +1,41 @@
 // Runs before every Vitest test: captures console.error, console.warn and console.info, resets the
 // diagnostics sink, and fails the test when it wrote anything the gate does not allow, or when it
-// replaced a gate spy and so hid console output from the gate. The decisions about console text
-// live in src/flow/diagnostics/gate.js; this file only wires them to the test lifecycle.
+// left a replacement console method in place and so hid console output from the gate. The
+// decisions about console text live in src/flow/diagnostics/gate.js; this file only wires them to
+// the test lifecycle.
+//
+// The capture is installed by plain assignment, not vi.spyOn, so vi.restoreAllMocks() and
+// mockRestore() inside a test cannot unhook it. A test's own spy that it restores puts the
+// capture back, which is fine; any other replacement left in place fails the test.
 
-import { afterEach, beforeEach, vi } from 'vitest'
+import { afterEach, beforeEach } from 'vitest'
 import { resetDiagnostics } from './src/shell/diagnostics.js'
 import { captureConsole, finishCapture, startCapture } from './src/testHelpers.js'
 
 const CAPTURED_LEVELS = ['error', 'warn', 'info']
 
-let gateSpies = []
+let installed = []
 
-const installGateSpy = (level) => {
+const install = (level) => {
+  const original = globalThis.console[level]
   const capture = (...args) => captureConsole(level, args)
-  const spy = vi.spyOn(console, level).mockImplementation(capture)
-  return { level, spy, capture }
-}
-
-// A restored console is fine (the real one is back); a mock that is not the gate's own is not.
-const isReplaced = ({ level, spy, capture }) => {
-  const current = globalThis.console[level]
-  return vi.isMockFunction(current) && (current !== spy || spy.getMockImplementation() !== capture)
+  globalThis.console[level] = capture
+  return { level, original, capture }
 }
 
 beforeEach(() => {
   startCapture()
   resetDiagnostics()
-  gateSpies = CAPTURED_LEVELS.map(installGateSpy)
+  installed = CAPTURED_LEVELS.map(install)
 })
 
 afterEach(() => {
-  const replaced = gateSpies
-    .filter(isReplaced)
+  const replaced = installed
+    .filter(({ level, capture }) => globalThis.console[level] !== capture)
     .map(({ level }) => `console.${level} spy replaced: use expectDiagnostics or inject a console`)
-  gateSpies.forEach(({ spy }) => spy.mockRestore())
+  installed.forEach(({ level, original }) => {
+    globalThis.console[level] = original
+  })
   const failures = [...finishCapture(), ...replaced]
   if (failures.length > 0) throw new Error(failures.join('\n'))
 })

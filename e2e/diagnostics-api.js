@@ -3,6 +3,6 @@
 // can import it without loading Playwright.
 
 /** `expected` is the array the gate reads at the end of the test; `expect` appends to it. */
-export const createDiagnostics = (expected) => ({
+export const createExpectedCodes = (expected) => ({
   expect: (codes) => expected.push(...codes),
 })

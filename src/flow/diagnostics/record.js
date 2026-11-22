@@ -46,6 +46,9 @@ export const KNOWN_FIELDS = Object.freeze([
 
 const SOURCE = 'aie'
 
+/** The two values of a record's `build`: a dev build, which keeps crash detail, and a prod build. */
+export const BUILD = Object.freeze({ dev: 'dev', prod: 'prod' })
+
 const CONTEXT_KEYS = Object.freeze(['version', 'session', 'platform', 'build', 'time'])
 
 const pick = (source, keys) => Object.fromEntries(keys.map((key) => [key, source[key]]))
@@ -79,12 +82,16 @@ const safeErrorName = (error) => {
   }
 }
 
-// Only a dev build keeps the message and stack. Anything that is not exactly 'dev' is treated as
-// production, so an unexpected build value never leaks detail.
-const errorDetail = (error, build) => {
+/**
+ * The `error` detail of a crash record. Only a dev build keeps the message and stack of an Error.
+ * Anything that is not exactly `BUILD.dev` is treated as production, so an unexpected build value
+ * never leaks detail. A thrown value that is not an Error is named "NonError" and its text is
+ * never kept.
+ */
+export const errorDetail = (error, build) => {
   const isError = error instanceof Error
   const name = isError ? safeErrorName(error) : NON_ERROR_NAME
-  if (build !== 'dev' || !isError) return { name }
+  if (build !== BUILD.dev || !isError) return { name }
   return { name, message: error.message, stack: error.stack }
 }
 

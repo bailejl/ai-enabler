@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { createDiagnostics } from '../e2e/diagnostics-api.js'
+import { createExpectedCodes } from '../e2e/diagnostics-api.js'
 import { FIXTURE_FILE, filesImportingTest } from './e2e-imports.js'
 
 const E2E_DIR = new URL('../e2e/', import.meta.url)
@@ -109,12 +109,12 @@ describe('the e2e folder (AC10)', () => {
 
 describe('the fixture gate code (AC11)', () => {
   test('gives tests a diagnostics object with exactly one key, expect', () => {
-    expect(Object.keys(createDiagnostics([]))).toEqual(['expect'])
+    expect(Object.keys(createExpectedCodes([]))).toEqual(['expect'])
   })
 
   test('records the codes a test declares, across calls', () => {
     const expected = []
-    const diagnostics = createDiagnostics(expected)
+    const diagnostics = createExpectedCodes(expected)
 
     diagnostics.expect(['A_CODE'])
     diagnostics.expect(['B_CODE', 'C_CODE'])

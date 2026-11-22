@@ -29,7 +29,7 @@ export const recordsIn = (messages) =>
 export const flushConsole = (page) => page.evaluate(() => undefined)
 
 // Waits until `count` records have arrived, then lets any later console events land.
-export const recordsAfter = async (page, messages, count) => {
+export const waitForRecords = async (page, messages, count) => {
   await expect.poll(() => recordsIn(messages).length).toBeGreaterThanOrEqual(count)
   await flushConsole(page)
   return recordsIn(messages)

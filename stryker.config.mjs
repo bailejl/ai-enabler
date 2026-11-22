@@ -10,6 +10,8 @@ export default {
     '!src/**/testHelpers.js',
     '!src/flow/diagnostics/gate-selftest/**',
     '!src/main.jsx',
+    // Dev-only crash trigger; e2e/crash.spec.js covers it, like main.jsx
+    '!src/shell/DevCrashTrigger.jsx',
     '!src/App.jsx',
     'scripts/**/*.js',
     '!scripts/**/*.test.js',

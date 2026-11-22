@@ -1,6 +1,6 @@
 // Self-test fixture, run by gate.test.js through vitest.selftest.config.js. Never part of the suite.
 // Each test replaces a console spy the gate installed; the gate must fail it.
-import { describe, expect, it, vi } from 'vitest'
+import { describe, it, vi } from 'vitest'
 
 describe('replacing the gate console spies', () => {
   it('fails when console.error gets its own implementation', () => {
@@ -17,7 +17,9 @@ describe('replacing the gate console spies', () => {
     vi.spyOn(console, 'info').mockImplementation(() => {})
   })
 
-  it('passes when the test only reads the gate spy', () => {
-    expect(vi.mocked(console.error).mock.calls).toEqual([])
+  it('passes when the test restores its own console spy', () => {
+    vi.spyOn(console, 'error')
+      .mockImplementation(() => {})
+      .mockRestore()
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RATE_LIMIT, RATE_WINDOW_MS, admit } from './rateLimit.js'
+import { MAX_RECORDS_PER_WINDOW, RATE_WINDOW_MS, admit } from './rateLimit.js'
 
 const SECOND = 1000
 const EMPTY = Object.freeze({})
@@ -21,7 +21,7 @@ describe('admit', () => {
   it('emits the first five records of a code in a minute', () => {
     const { results } = run('FILE_NOT_JSON', FIRST_FIVE)
     expect(results.map((r) => r.emit)).toEqual([true, true, true, true, true])
-    expect(RATE_LIMIT).toBe(5)
+    expect(MAX_RECORDS_PER_WINDOW).toBe(5)
   })
 
   it('drops records over the limit and counts them into the next emitted record', () => {
@@ -66,7 +66,7 @@ describe('admit', () => {
     expect(result.suppressed).toBe(0)
   })
 
-  it('keeps each code dropped count separate', () => {
+  it('keeps each code suppressed count separate', () => {
     const first = run('FILE_NOT_JSON', [...FIRST_FIVE, 10 * SECOND])
     const second = run('STEP_ID_MISSING', FIRST_FIVE, first.state)
     const { results } = run('STEP_ID_MISSING', secondsToMs([20, 60]), second.state)
@@ -77,16 +77,16 @@ describe('admit', () => {
     expect(admit(second.state, 'FILE_NOT_JSON', 60 * SECOND).suppressed).toBe(1)
   })
 
-  it('forgets a code whose records have all aged out and that has nothing dropped', () => {
+  it('forgets a code whose records have all aged out and that has nothing suppressed', () => {
     const { state } = run('FILE_NOT_JSON', [0])
     const result = admit(state, 'STEP_ID_MISSING', 120 * SECOND)
     expect(Object.keys(result.state)).toEqual(['STEP_ID_MISSING'])
   })
 
-  it('keeps a code that has a dropped count until it is carried', () => {
+  it('keeps a code that has a suppressed count until it is carried', () => {
     const { state } = run('FILE_NOT_JSON', [...FIRST_FIVE, 10 * SECOND])
     const result = admit(state, 'STEP_ID_MISSING', 300 * SECOND)
-    expect(result.state.FILE_NOT_JSON.dropped).toBe(1)
+    expect(result.state.FILE_NOT_JSON.suppressed).toBe(1)
   })
 
   it('never changes the state it is given', () => {
