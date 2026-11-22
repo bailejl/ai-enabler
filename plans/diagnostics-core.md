@@ -720,23 +720,23 @@ Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance,
 
 #### Wave 2
 
-- [ ] Slice 2: Allow-listed record builder
-  - [ ] Step 2.1: Build a record from a problem, a context and a suppressed count
-  - [ ] Step 2.2: Error records for crash codes
-  - [ ] Step 2.3: Recognise and parse records
+- [x] Slice 2: Allow-listed record builder
+  - [x] Step 2.1: Build a record from a problem, a context and a suppressed count
+  - [x] Step 2.2: Error records for crash codes
+  - [x] Step 2.3: Recognise and parse records
 
 #### Wave 3
 
-- [ ] Slice 5: Console sink and import records
-  - [ ] Step 5.1: Sink that writes admitted records by severity
-  - [ ] Step 5.2: Report rejected-import problems
+- [x] Slice 5: Console sink and import records
+  - [x] Step 5.1: Sink that writes admitted records by severity
+  - [x] Step 5.2: Report rejected-import problems
 
 #### Wave 4
 
-- [ ] Slice 6: Unit test gate
-  - [ ] Step 6.1: Pure gate check
-  - [ ] Step 6.2: Find existing unit-test console noise
-  - [ ] Step 6.3: Wire the gate into every Vitest test
+- [x] Slice 6: Unit test gate
+  - [x] Step 6.1: Pure gate check
+  - [x] Step 6.2: Find existing unit-test console noise
+  - [x] Step 6.3: Wire the gate into every Vitest test
 
 #### Wave 5
 
