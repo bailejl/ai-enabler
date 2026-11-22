@@ -33,21 +33,13 @@ const readImport = async (file) => {
 // Runs import events through the pure reducer and performs what it asks for: speak, replace the
 // map, write each rejected problem to the console as a diagnostic record, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
 // keeps focus off the button: the status heading takes it, and Dismiss returns it to the button.
-const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
+const useImportFlow = ({ projectRef, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
   const previousState = useRef(importState)
   // The newest state, written only where a state is set. The reducer runs against this, not the
   // state a callback captured at render time, so a dispatch after an `await` sees every earlier one.
   const latestImportState = useRef(importState)
   const latestRequestId = useRef(0)
-  // The newest project, for the same reason: a read that finishes after a confirm must compare the
-  // file with the project that confirm put in place.
-  const latestProject = useRef(project)
-
-  useEffect(() => {
-    latestProject.current = project
-  }, [project])
-
   useEffect(() => {
     const hasChanged = previousState.current !== importState
     previousState.current = importState
@@ -62,10 +54,7 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       latestImportState.current = state
       setImportState(state)
       if (announcement) announce(announcement)
-      if (replacement) {
-        latestProject.current = replacement.project
-        applyReplacement(replacement)
-      }
+      if (replacement) applyReplacement(replacement)
     },
     [announce, applyReplacement],
   )
@@ -77,10 +66,13 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       const requestId = latestRequestId.current
       const result = await readImport(file)
       if (requestId === latestRequestId.current) {
-        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project: latestProject.current })
+        // The newest project, so a read that finishes after a confirm or an edit compares the file
+        // with the project now open.
+        const { project } = projectRef.current
+        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project })
       }
     },
-    [dispatchImport],
+    [dispatchImport, projectRef],
   )
   const confirmImport = useCallback(
     () => dispatchImport({ type: IMPORT_EVENT.confirm }),
@@ -134,7 +126,7 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     if (fitRequestCount > 0) fitView()
   }, [fitRequestCount, fitView])
   const importFlow = useImportFlow({
-    project: project.project,
+    projectRef: latestProject,
     applyReplacement,
     announce,
     returnFocusRef: importButtonRef,

@@ -143,7 +143,7 @@ test('deleting Build with the Idea to Plan connection removes both and moves foc
 }) => {
   await cardByTitle(page, 'Build').click()
   await selectEdge(page, 'idea', 'plan', MULTI_SELECT_KEY)
-  await page.keyboard.press('Backspace')
+  await page.keyboard.press('Delete')
 
   await expect(cardByTitle(page, 'Build')).toHaveCount(0)
   await expect(cards(page)).toHaveCount(5)

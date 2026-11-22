@@ -6,8 +6,9 @@ const findStepElement = (canvas, stepId) =>
 
 // Returns a function to call, in the handler that applies a delete, with the steps as they were
 // before it (`nodes`) and the deleted steps and connections. The deleted element held focus, so
-// focus goes to a remaining step, or to the canvas when none is left. It moves in an effect, so the
-// canvas has committed the edit and the step is looked up in what is now drawn.
+// focus goes to a remaining step, or to the canvas when none is left. It moves in an effect after
+// the edit commits. The target is always a step that survives the delete, so it is found whether or
+// not React Flow has redrawn yet.
 export const useFocusAfterDelete = ({ canvasRef }) => {
   const [request, setRequest] = useState(null)
   useEffect(() => {
