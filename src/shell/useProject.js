@@ -1,4 +1,4 @@
-import { addEdge, useEdgesState, useNodesState, useReactFlow } from '@xyflow/react'
+import { useReactFlow } from '@xyflow/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   IMPORT_CONFIRMING,
@@ -8,16 +8,18 @@ import {
   reduceImport,
 } from '../flow/importFlow.js'
 import { parseImport, unreadableImport } from '../flow/importFile.js'
-import { initialEdges, initialNodes } from '../flow/initialFlow.js'
-import { createStarterProject } from '../flow/project.js'
+import { syncCanvas } from '../flow/canvas.js'
+import { createStarterMemoryProject } from '../flow/project.js'
 import {
   projectFileName,
   serializeProjectFile,
+  toMemoryProject,
   toProjectFile,
   withContentHash,
 } from '../flow/projectFile.js'
 import { report } from './diagnostics.js'
 import { downloadTextFile } from './download.js'
+import { useCanvasEdits } from './useCanvasEdits.js'
 
 // A file the browser cannot read is reported like any other file that cannot be imported.
 const readImport = async (file) => {
@@ -96,52 +98,59 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
   return { importState, importFile, confirmImport, cancelImport, dismissImportError }
 }
 
-export const useProject = ({ announce, importButtonRef }) => {
-  const [project, setProject] = useState(createStarterProject)
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+const NO_CANVAS = { nodes: [], edges: [] }
+
+// The one in-memory project (`{ project, nodes, edges }`) and the canvas drawn from it. Export,
+// the metrics and the canvas all read it; the canvas edits and import's replacement write it.
+export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
+  const [project, setProject] = useState(createStarterMemoryProject)
+  // The newest project, written only where the project is set, so a handler never reads one it
+  // captured at render time.
+  const latestProject = useRef(project)
+  const commitProject = useCallback((next) => {
+    latestProject.current = next
+    setProject(next)
+  }, [])
+  const canvasEdits = useCanvasEdits({
+    initialProject: project,
+    projectRef: latestProject,
+    commitProject,
+    canvasElementRef,
+  })
+  const { setCanvas } = canvasEdits
   const { fitView } = useReactFlow()
   // Fitting must wait for React Flow to hold the replaced nodes, so a replacement only asks for it.
   const [fitRequestCount, setFitRequestCount] = useState(0)
-  const onConnect = useCallback(
-    (params) => setEdges((currentEdges) => addEdge(params, currentEdges)),
-    [setEdges],
-  )
   const applyReplacement = useCallback(
     (replacement) => {
-      setProject(replacement.project)
-      setNodes(replacement.nodes)
-      setEdges(replacement.edges)
+      const next = toMemoryProject(replacement)
+      commitProject(next)
+      setCanvas(syncCanvas(NO_CANVAS, next))
       setFitRequestCount((count) => count + 1)
     },
-    [setNodes, setEdges],
+    [commitProject, setCanvas],
   )
   useEffect(() => {
     if (fitRequestCount > 0) fitView()
   }, [fitRequestCount, fitView])
   const importFlow = useImportFlow({
-    project,
+    project: project.project,
     applyReplacement,
     announce,
     returnFocusRef: importButtonRef,
   })
   // Returns the downloaded file name so the caller can announce it.
   const exportProject = useCallback(async () => {
-    const projectFile = toProjectFile({ project, nodes, edges, now: new Date() })
-    const fileName = projectFileName(project.name)
+    const projectFile = toProjectFile({ ...latestProject.current, now: new Date() })
+    const fileName = projectFileName(latestProject.current.project.name)
     downloadTextFile(fileName, serializeProjectFile(await withContentHash(projectFile)))
     return fileName
-  }, [project, nodes, edges])
+  }, [])
   return {
-    project,
-    nodes,
-    setNodes,
-    onNodesChange,
-    edges,
-    setEdges,
-    onEdgesChange,
-    onConnect,
+    projectName: project.project.name,
+    steps: project.nodes.map((node) => node.data),
     exportProject,
+    ...canvasEdits,
     ...importFlow,
   }
 }

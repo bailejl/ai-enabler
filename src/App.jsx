@@ -20,7 +20,6 @@ import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
-import { useFocusAfterDelete } from './shell/useFocusAfterDelete.js'
 import { useProject } from './shell/useProject.js'
 import { useRoute } from './shell/useRoute.js'
 
@@ -37,20 +36,21 @@ function Shell({ routeName }) {
   const importButtonRef = useRef(null)
   const canvasRef = useRef(null)
   const {
-    project,
+    projectName,
+    steps,
     nodes,
     edges,
     onNodesChange,
     onEdgesChange,
     onConnect,
+    onBeforeDelete,
     exportProject,
     importState,
     importFile,
     confirmImport,
     cancelImport,
     dismissImportError,
-  } = useProject({ announce, importButtonRef })
-  const handleDelete = useFocusAfterDelete({ nodes, canvasRef })
+  } = useProject({ announce, importButtonRef, canvasElementRef: canvasRef })
   const handleExport = useCallback(
     async () => announce(`Exported ${await exportProject()}`),
     [announce, exportProject],
@@ -61,7 +61,7 @@ function Shell({ routeName }) {
   return (
     <div className="shell" style={themeProperties} data-route={routeName}>
       <Header
-        projectName={project.name}
+        projectName={projectName}
         onExport={handleExport}
         onImportFile={importFile}
         importButtonRef={importButtonRef}
@@ -79,7 +79,7 @@ function Shell({ routeName }) {
         />
       )}
       <HelpMenu />
-      <MetricsBar steps={nodes.map((node) => node.data)} />
+      <MetricsBar steps={steps} />
       <main ref={canvasRef} tabIndex={-1} aria-label="Value stream map" className="canvas">
         <h1 className="visually-hidden">ai-enabler value stream map</h1>
         <p role="status" className="canvas__empty">
@@ -92,7 +92,7 @@ function Shell({ routeName }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onDelete={handleDelete}
+          onBeforeDelete={onBeforeDelete}
           isValidConnection={isValidForEdges}
           deleteKeyCode={DELETE_KEYS}
           defaultEdgeOptions={defaultEdgeOptions}

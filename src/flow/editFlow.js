@@ -79,6 +79,7 @@ const HANDLERS = {
  * @returns {{ state: object, announcement: string | null }}
  */
 export const reduceEdit = (state, event) => {
-  const handler = HANDLERS[event.type]
-  return handler ? handler(state, event) : transition(state)
+  return Object.hasOwn(HANDLERS, event.type)
+    ? HANDLERS[event.type](state, event)
+    : transition(state)
 }

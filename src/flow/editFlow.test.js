@@ -203,6 +203,11 @@ describe('reduceEdit', () => {
     expect(reduceEdit(shown, { type: 'bogus' })).toEqual({ state: shown, announcement: null })
   })
 
+  it('ignores an event type that is an Object.prototype name', () => {
+    const shown = reduceEdit(INITIAL_EDIT_STATE, rejected(one)).state
+    expect(reduceEdit(shown, { type: 'constructor' })).toEqual({ state: shown, announcement: null })
+  })
+
   it('keeps the code, step id, connection id and field of each problem in the view', () => {
     const problems = [
       { ...problemOf('Bad.'), stepId: 's', edgeId: 'e', field: 'position', untrusted: { x: 1 } },
