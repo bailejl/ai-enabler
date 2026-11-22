@@ -308,7 +308,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 
 - **Original request:** An efficient way for AI to interact with AIE, running on GitHub Pages and/or localhost, supporting Claude, Claude Code and other AIs. Tools like Claude in Chrome are an option. AI must understand AIE so its users succeed.
 - **Why:** Skills, not embedded AI, carry the judgment, so the app and skills need a shared, stable contract.
-- **Scope:** (1) A versioned JSON schema for projects, maps, boxes, edges, versions, metrics and confidence. (2) Local-file autosave in Chrome and Edge (File System Access API), so Claude Code and Claude Desktop read and write the same file the app has open. Elsewhere, import/export plus "copy for AI". (3) Validation checks a skill can request at each stage gate (outcome set, data complete, future state consistent). (4) Claude in Chrome fallback, with stable `data-testid`s and a read-only `window.aie` API. (5) `AGENTS.md` and `llms.txt` describing the model and conventions. An optional local MCP server is deferred.
+- **Scope:** (1) A versioned JSON schema for projects, maps, boxes, edges, versions, metrics and confidence. (2) Local-file autosave in Chrome and Edge (File System Access API), so Claude Code and Claude Desktop read and write the same file the app has open. Elsewhere, import/export plus "copy for AI". (3) Validation checks a skill can request at each stage gate (outcome set, data complete, future state consistent). (4) Claude in Chrome fallback, with stable `data-testid`s and a read-only `window.aie` API. (5) `AGENTS.md` and `llms.txt` describing the model and conventions. The local MCP server is in (`mcp/`); local-file autosave (2) and the `window.aie` API (4) are follow-ups.
 - **Skills:** aie-guide, aie-review.
 - **Open questions:** How should the app pick up changes a skill writes to the open file? Proposed default: watch the file and show a "Reload changes" banner; never overwrite silently.
 - **Labels:** `tooling` `spec`
@@ -607,6 +607,7 @@ Help pages and skills are how people and AI learn AIE, so they must change with 
 - [ ] Skills that use the feature updated and released in `aie-skills`
 - [ ] JSON schema version bumped if the data changed, with a migration for older project files
 - [ ] `AGENTS.md` and `llms.txt` updated
+- [ ] A change that adds a save-file field also adds its command, MCP tool and `llms.txt` entry
 - [ ] Changelog entry written
 - [ ] Sample project (the worked example) still opens and its numbers still compute
 - [ ] CI check passes: every skill declares a schema version the app supports
