@@ -11,6 +11,7 @@ import '@xyflow/react/dist/style.css'
 import Header from './shell/Header.jsx'
 import Announcer from './shell/Announcer.jsx'
 import ConfirmDialog from './shell/ConfirmDialog.jsx'
+import DevCommandTrigger from './shell/DevCommandTrigger.jsx'
 import ImportStatus from './shell/ImportStatus.jsx'
 import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
@@ -44,6 +45,7 @@ function Shell({ routeName }) {
     onEdgesChange,
     onConnect,
     onBeforeDelete,
+    applyEdit,
     exportProject,
     importState,
     importFile,
@@ -78,6 +80,7 @@ function Shell({ routeName }) {
           onCancel={cancelImport}
         />
       )}
+      {import.meta.env.DEV && <DevCommandTrigger onCommands={applyEdit} />}
       <HelpMenu />
       <MetricsBar steps={steps} />
       <main ref={canvasRef} tabIndex={-1} aria-label="Value stream map" className="canvas">

@@ -75,6 +75,10 @@ export const deleteAllSteps = async (page) => {
   }
 }
 
+// Waits for a dev-only hook's listener, which attaches in an effect after the first paint.
+export const waitForDevHook = (page, readyAttribute) =>
+  page.locator(`html[${readyAttribute}]`).waitFor({ state: 'attached' })
+
 export const appShell = (page) => page.locator('.shell')
 const currentHash = (page) => page.evaluate(() => window.location.hash)
 // Polls, because the app rewrites a non-canonical hash in an effect after the first render.

@@ -76,6 +76,7 @@ export const useCanvasEdits = ({ initialProject, projectRef, commitProject, canv
     nodes: canvas.nodes,
     edges: canvas.edges,
     setCanvas,
+    applyEdit,
     onNodesChange,
     onEdgesChange,
     onConnect,
