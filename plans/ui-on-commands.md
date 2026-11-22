@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/ui-on-commands
-**Status**: approved
+**Status**: in-progress
 **Examination**: not-applicable (plugin recorder bug: it does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-on-commands.md` (AC1–AC15, gate passed 2026-11-22). Row 6 of `plans/mvp-order.md`.
@@ -574,13 +574,13 @@ Approved by the user on 2026-11-22, through the coordinator: one PR; the first-r
 
 #### Wave 2
 
-- [ ] Slice 3: Canvas edits through commands
+- [x] Slice 3: Canvas edits through commands
   - [x] Step 3.1: Pure canvas mapping and edit builders
   - [x] Step 3.2: Pure edit runner
-  - [ ] Step 3.3: The project drives the canvas
+  - [x] Step 3.3: The project drives the canvas
 
 #### Wave 3
 
-- [ ] Slice 4: Rejected edits announced, listed and logged
-  - [ ] Step 4.1: Dev-only command hook
-  - [ ] Step 4.2: Announce, list, log and restore focus
+- [x] Slice 4: Rejected edits announced, listed and logged
+  - [x] Step 4.1: Dev-only command hook
+  - [x] Step 4.2: Announce, list, log and restore focus
