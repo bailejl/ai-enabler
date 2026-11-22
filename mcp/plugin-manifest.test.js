@@ -44,6 +44,10 @@ describe('plugin manifest', () => {
     expect(plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
     expect(plugin.description).toBeTruthy()
   })
+
+  test('is at version 0.2.0', () => {
+    expect(plugin.version).toBe('0.2.0')
+  })
 })
 
 describe('.mcp.json', () => {
@@ -112,6 +116,12 @@ describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
     expect(diagnostics.FILE_NEWER_SCHEMA).toBeDefined()
   })
 
+  test('follows the returned guide under the skill rules, falls back, and stops safely', () => {
+    expect(skill.body).toContain(SHARED_SENTENCE)
+    expect(skill.body).toContain(FALLBACK_SENTENCE)
+    expect(skill.body).toContain(STOP_SENTENCE)
+  })
+
   test('says so and stops when llms.txt cannot be read', () => {
     expect(skill.body).toContain('llms.txt')
     expect(skill.body).toMatch(/cannot be read, say so to the user and stop/i)
@@ -143,12 +153,6 @@ describe('skill aie-review', () => {
     expect(body).toContain("Propose the guide's repair; never perform it.")
   })
 
-  test('follows the returned guide under the skill rules, falls back, and stops safely', () => {
-    expect(body).toContain(SHARED_SENTENCE)
-    expect(body).toContain(FALLBACK_SENTENCE)
-    expect(body).toContain(STOP_SENTENCE)
-  })
-
   describe('allow-list of tools', () => {
     const toolNames = TOOLS.map(({ name }) => name)
     const allowed = ['open_project', 'get_project', 'list_problems', 'get_repair_guide']
@@ -176,6 +180,12 @@ describe('skill aie-guide', () => {
   test('points at llms.txt by its site URL and checks schemaVersion', () => {
     expect(body).toContain('https://bailejl.github.io/ai-enabler/llms.txt')
     expect(body).toContain('schemaVersion')
+  })
+
+  test('work loop gets the repair guide for a problem code before repairing, and asks when told', () => {
+    expect(body).toContain(
+      'Before repairing a problem, call `get_repair_guide` with its `code` and follow the guide. When its "Ask the user first" section applies, ask the user before acting.',
+    )
   })
 
   test('after a save, tells the user the file path and to import it in AI Enabler', () => {
