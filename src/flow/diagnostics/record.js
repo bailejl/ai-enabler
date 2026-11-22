@@ -4,7 +4,10 @@
 
 import { problem } from './problem.js'
 
-/** The keys every record has, in order. Other keys (`field`, `suppressed`) appear only when set. */
+/**
+ * The keys every record has, in order. Other keys (`field`, `suppressed`) appear only when set,
+ * and a crash record from `toErrorRecord` also carries `error`.
+ */
 export const RECORD_KEYS = Object.freeze([
   'source',
   'code',
@@ -57,16 +60,30 @@ export const toRecord = (found, context, suppressed = 0) => ({
   ...pick(found, ['code', 'severity']),
   ...pick(context, CONTEXT_KEYS),
   ...(KNOWN_FIELDS.includes(found.field) && { field: found.field }),
-  ...(suppressed > 0 && { suppressed }),
+  ...(Number.isSafeInteger(suppressed) && suppressed > 0 && { suppressed }),
 })
 
 const NON_ERROR_NAME = 'NonError'
+const FALLBACK_ERROR_NAME = 'Error'
+
+// `name` is a plain writable property, so a thrown error can carry any text or object in it. Only
+// an identifier-shaped name is kept, and a getter that throws costs the name, not the record.
+const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,63}$/
+
+const safeErrorName = (error) => {
+  try {
+    const { name } = error
+    return typeof name === 'string' && IDENTIFIER.test(name) ? name : FALLBACK_ERROR_NAME
+  } catch {
+    return FALLBACK_ERROR_NAME
+  }
+}
 
 // Only a dev build keeps the message and stack. Anything that is not exactly 'dev' is treated as
 // production, so an unexpected build value never leaks detail.
 const errorDetail = (error, build) => {
   const isError = error instanceof Error
-  const name = isError ? error.name : NON_ERROR_NAME
+  const name = isError ? safeErrorName(error) : NON_ERROR_NAME
   if (build !== 'dev' || !isError) return { name }
   return { name, message: error.message, stack: error.stack }
 }

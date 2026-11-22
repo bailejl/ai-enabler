@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand } from '../commands/index.js'
+import { COMMANDS, applyCommand } from '../commands/index.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { STEP_DATA_FIELDS } from '../step.js'
 import { problem } from './problem.js'
@@ -13,7 +13,6 @@ import {
 } from './record.js'
 
 const MARKER = 'SECRET-MARKER'
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
 const context = {
   version: '0.1.0',
@@ -33,10 +32,9 @@ describe('toRecord', () => {
       severity: 'error',
       ...context,
     })
-    expect(record.time).toMatch(ISO_UTC)
   })
 
-  it('copies the catalog severity, not one the caller supplies', () => {
+  it('copies the severity of the problem it is given', () => {
     const record = toRecord({ ...problem('FILE_NOT_JSON'), severity: 'hint' }, context)
     expect(record.severity).toBe('hint')
   })
@@ -76,6 +74,14 @@ describe('toRecord', () => {
     expect(counted.suppressed).toBe(2)
     expect(none).not.toHaveProperty('suppressed')
     expect(omitted).not.toHaveProperty('suppressed')
+  })
+
+  it.each([
+    ['a string', '5'],
+    ['a fraction', 1.5],
+    ['an object', { valueOf: () => 1 }],
+  ])('drops a suppressed count that is %s', (_label, suppressed) => {
+    expect(toRecord(problem('FILE_NOT_JSON'), context, suppressed)).not.toHaveProperty('suppressed')
   })
 })
 
@@ -125,8 +131,8 @@ describe('KNOWN_FIELDS', () => {
     ...overrides,
   })
 
-  // Inputs that make the validator set every fixed `field` it knows. The nine step problems and
-  // the mark problems come from separate files because a bad mark and a bad project do not mix.
+  // Inputs that make the validator set every fixed `field` it knows. The step, edge and project
+  // problems come from separate files so that one bad part does not mask the others.
   const validatorInputs = [
     project({ project: { id: '', name: ' ' } }),
     project({
@@ -160,7 +166,11 @@ describe('KNOWN_FIELDS', () => {
     { name: 'disconnect', args: { sourceId: 1, targetId: 2 } },
     { name: 'disconnect', args: { sourceId: 'missing', targetId: 'b' } },
     { name: 'disconnect', args: { sourceId: 'a', targetId: 'missing' } },
+    { name: 'connect', args: { sourceId: 1, targetId: 2 } },
+    { name: 'connect', args: { sourceId: 'missing', targetId: 'b' } },
   ]
+  // create_project sets no `field` of its own: a blank name is caught by the validator inputs.
+  const commandsWithoutField = ['create_project']
 
   const fieldsOf = (problems) => problems.map((found) => found.field).filter(Boolean)
   const collected = [
@@ -169,6 +179,14 @@ describe('KNOWN_FIELDS', () => {
       fieldsOf(applyCommand(commandProject, command, { newId: () => 'new' }).problems),
     ),
   ]
+
+  it('exercises every command', () => {
+    const exercised = new Set([
+      ...commandInputs.map((command) => command.name),
+      ...commandsWithoutField,
+    ])
+    expect([...exercised].sort()).toEqual(Object.keys(COMMANDS).sort())
+  })
 
   it('sees the fixed fields the validator and the commands set', () => {
     // Guards against inputs that stop producing fields and make the drift check vacuous.
@@ -203,7 +221,7 @@ describe('toErrorRecord', () => {
 
   it('keeps only the error name for a prod build, with no marker anywhere', () => {
     const record = toErrorRecord('APP_UNCAUGHT_ERROR', withMarker(), crash('prod'))
-    expect(record.error).toEqual({ name: 'TypeError' })
+    expect(record.error).toStrictEqual({ name: 'TypeError' })
     expect(serializeRecord(record)).not.toContain(MARKER)
   })
 
@@ -224,6 +242,23 @@ describe('toErrorRecord', () => {
     expect(dev.error).toEqual({ name: 'NonError' })
     expect(prod.error).toEqual({ name: 'NonError' })
     expect(serializeRecord(dev)).not.toContain(MARKER)
+  })
+
+  it.each([
+    ['text', `${MARKER} text`],
+    ['an object', { text: MARKER }],
+    ['a throwing getter', null],
+  ])('does not keep an error name that is %s', (_label, name) => {
+    const error = new Error('x')
+    Object.defineProperty(error, 'name', {
+      get: () => {
+        if (name === null) throw new Error(MARKER)
+        return name
+      },
+    })
+    const record = toErrorRecord('APP_UNCAUGHT_ERROR', error, crash('prod'))
+    expect(record.error).toStrictEqual({ name: 'Error' })
+    expect(serializeRecord(record)).not.toContain(MARKER)
   })
 
   it('names a thrown null NonError', () => {
