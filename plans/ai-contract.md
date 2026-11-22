@@ -250,7 +250,7 @@ Feature: Auto-layout for readability
 #### Step 2.1: Layered left-to-right layout
 
 **Complexity**: standard
-**IMPLEMENT**: Pure `layoutSteps(nodes, edges)`: column = longest path from a source (with a visited guard for loops); rows ordered by file order; spacing from `STEP_CARD_WIDTH` (144, matching `--card-width: 9rem` in `src/index.css` at a 16px root) and `STEP_CARD_HEIGHT` (240, above the tallest card) defined in `layout.js`, with a comment tying the width to `--card-width`. A test reads `--card-width` from `src/index.css` and checks it matches.
+**IMPLEMENT**: Pure `layoutSteps(nodes, edges)`: column = longest path from a source (with a visited guard for loops); rows ordered by file order; spacing from `STEP_CARD_WIDTH` (144, matching `--card-width: 9rem` in `src/index.css` at a 16px root) and `STEP_ROW_HEIGHT` (240, above the tallest card) defined in `layout.js`, with a comment tying the width to `--card-width`. A test reads `--card-width` from `src/index.css` and checks it matches.
 **TEST**: `layout.test.js` covering every scenario, with overlap computed from the card constants.
 **REFACTOR**: Separate column assignment from row placement.
 **Files**: `src/flow/layout.js`, `src/flow/layout.test.js`
