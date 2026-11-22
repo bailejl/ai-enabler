@@ -19,5 +19,6 @@ export default {
     '!mcp/**/*.test.js',
     // The server is a thin stdio shell over the tested tools; it has no logic of its own
     '!mcp/server.js',
+    '!plugin/server/**',
   ],
 }

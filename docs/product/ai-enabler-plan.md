@@ -308,7 +308,7 @@ Each phase ships its own skills and help pages, so AI support arrives with the f
 
 - **Original request:** An efficient way for AI to interact with AIE, running on GitHub Pages and/or localhost, supporting Claude, Claude Code and other AIs. Tools like Claude in Chrome are an option. AI must understand AIE so its users succeed.
 - **Why:** Skills, not embedded AI, carry the judgment, so the app and skills need a shared, stable contract.
-- **Scope:** (1) A versioned JSON schema for projects, maps, boxes, edges, versions, metrics and confidence. (2) Local-file autosave in Chrome and Edge (File System Access API), so Claude Code and Claude Desktop read and write the same file the app has open. Elsewhere, import/export plus "copy for AI". (3) Validation checks a skill can request at each stage gate (outcome set, data complete, future state consistent). (4) Claude in Chrome fallback, with stable `data-testid`s and a read-only `window.aie` API. (5) `AGENTS.md` and `llms.txt` describing the model and conventions. An optional local MCP server is deferred.
+- **Scope:** (1) A versioned JSON schema for projects, maps, boxes, edges, versions, metrics and confidence. (2) Local-file autosave in Chrome and Edge (File System Access API), so Claude Code and Claude Desktop read and write the same file the app has open. Elsewhere, import/export plus "copy for AI". (3) Validation checks a skill can request at each stage gate (outcome set, data complete, future state consistent). (4) Claude in Chrome fallback, with stable `data-testid`s and a read-only `window.aie` API. (5) `AGENTS.md` and `llms.txt` describing the model and conventions. The local MCP server is in (`mcp/`); local-file autosave (2) is a follow-up, and the `window.aie` API (4) is replaced by D3 in the MVP order.
 - **Skills:** aie-guide, aie-review.
 - **Open questions:** How should the app pick up changes a skill writes to the open file? Proposed default: watch the file and show a "Reload changes" banner; never overwrite silently.
 - **Labels:** `tooling` `spec`
@@ -518,9 +518,9 @@ Nine skills ship with the features that need them, and each work item names its 
 
 **How users get them**
 
-1. **One plugin.** All skills live in an `aie-skills` repo, published as a Claude Code plugin and as zip files for claude.ai. One install gets everything, and updates arrive together.
+1. **One plugin.** All skills ship in the `aie` plugin from this repo's `plugin/` folder (marketplace manifest at `.claude-plugin/marketplace.json`), and as zip files for claude.ai. One install gets everything, and updates arrive together.
 2. **In context.** Every feature that needs a skill shows a "Works with: aie-…" chip in the app. It links to that feature's help page, which gives the one-line install and an example prompt.
-3. **Version-matched.** Each skill declares the schema version it supports. Skills read the project file's schema version first and warn when they are older than it.
+3. **Version-matched.** Each skill declares the schema version it supports. Skills check the schema version the MCP server reports when it opens a file; a schema major the skill does not support is refused, and the user is told to update the plugin.
 4. **Thin skills, strict schema.** When a skill and the app disagree on a number, the app's calculation wins and the skill says so.
 
 ## Data model
@@ -604,9 +604,10 @@ Help pages and skills are how people and AI learn AIE, so they must change with 
 **Definition of Done (every feature or change)**
 
 - [ ] Help page for the feature added or updated, including screenshots
-- [ ] Skills that use the feature updated and released in `aie-skills`
+- [ ] Skills that use the feature updated in `plugin/skills/`, with the plugin bundle rebuilt
 - [ ] JSON schema version bumped if the data changed, with a migration for older project files
 - [ ] `AGENTS.md` and `llms.txt` updated
+- [ ] A change that adds a save-file field also adds its command, MCP tool and `llms.txt` entry
 - [ ] Changelog entry written
 - [ ] Sample project (the worked example) still opens and its numbers still compute
 - [ ] CI check passes: every skill declares a schema version the app supports

@@ -29,6 +29,8 @@ export default mergeConfig(
           'mcp/**/*.test.js',
           // The server is a thin stdio shell over the tested tools; it has no logic of its own
           'mcp/server.js',
+          // Generated bundle of mcp/server.js and its dependencies
+          'plugin/server/**',
         ],
       },
     },

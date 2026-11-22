@@ -11,6 +11,7 @@ const workflow = parse(WORKFLOW_TEXT)
 const GUARD_COMMAND = 'node scripts/schema-fixture-guard-cli.js origin/main'
 const UNIT_TEST_COMMAND = 'npm test'
 const E2E_TEST_COMMAND = 'npm run test:e2e'
+const PLUGIN_CHECK_COMMAND = 'npm run check:plugin'
 
 const jobCommands = (jobName) => runCommands({ jobs: { [jobName]: workflow.jobs[jobName] } })
 
@@ -30,6 +31,10 @@ describe('CI workflow', () => {
     expect(guard).toBeGreaterThanOrEqual(0)
     expect(unitTests).toBeGreaterThanOrEqual(0)
     expect(guard).toBeLessThan(unitTests)
+  })
+
+  test('the unit job checks the committed plugin bundle is current', () => {
+    expect(jobCommands('unit')).toContain(PLUGIN_CHECK_COMMAND)
   })
 
   test('the e2e job runs the Playwright suite', () => {

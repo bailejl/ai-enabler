@@ -7,6 +7,9 @@ graphify-out/
 CLAUDE.md
 package-lock.json
 
+# Generated bundle: its hash is checked in CI, so Prettier must not reformat it
+plugin/server/
+
 # Reference artifact kept byte-for-byte
 docs/product/worked-example-vsm.html
 

@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-21
 **Branch**: feat/ai-contract
-**Status**: approved
+**Status**: in-progress
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ai-contract.md` (AC1–AC24). Requirements doc: [AI-Driven VSM Building: Requirements](https://claude.ai/artifact/2MCD4LvxsfsTacq9KL2yHo). Source issue: #24.
 
@@ -1083,15 +1083,15 @@ graph TD
 
 #### Wave 5
 
-- [ ] Slice 8: JSON Schema, llms.txt and AGENTS.md
-  - [ ] Step 8.1: JSON Schema for 0.1.0
-  - [ ] Step 8.2: llms.txt, AGENTS.md and the product plan
+- [x] Slice 8: JSON Schema, llms.txt and AGENTS.md
+  - [x] Step 8.1: JSON Schema for 0.1.0
+  - [x] Step 8.2: llms.txt, AGENTS.md and the product plan
 
 #### Wave 6
 
-- [ ] Slice 9: Plugin and skills
-  - [ ] Step 9.1: Bundle the server and check it in CI
-  - [ ] Step 9.2: Manifests and skills
+- [x] Slice 9: Plugin and skills
+  - [x] Step 9.1: Bundle the server and check it in CI
+  - [x] Step 9.2: Manifests and skills
 
 ## Plan Review Summary
 
