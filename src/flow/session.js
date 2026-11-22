@@ -34,8 +34,9 @@ export const checkCanSwitch = (session) =>
 /**
  * Opens a file's text as the session, through the app's import pipeline, so the file is upgraded
  * and must be valid. Unsaved changes in `session` block it before the text is parsed. A failure
- * returns the problems and the session it was given.
- * @returns {Promise<{ ok: true, session: object } | { ok: false, session: object, problems: object[] }>}
+ * returns the problems and the session it was given. `schemaVersion` is the version the file was
+ * written at, before any upgrade.
+ * @returns {Promise<{ ok: true, session: object, schemaVersion: string } | { ok: false, session: object, problems: object[] }>}
  */
 export const openInto = async (session, text, name) => {
   const blocked = checkCanSwitch(session)
@@ -43,7 +44,11 @@ export const openInto = async (session, text, name) => {
   const result = await parseImport(text)
   if (!result.ok) return { ok: false, session, problems: result.problems }
   const project = toMemoryProject(result.file)
-  return { ok: true, session: { name, project, baseline: project, changes: 0 } }
+  return {
+    ok: true,
+    session: { name, project, baseline: project, changes: 0 },
+    schemaVersion: result.fileVersion,
+  }
 }
 
 /**

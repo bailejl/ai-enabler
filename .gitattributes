@@ -1,1 +1,2 @@
 graphify-out/graph.json merge=graphify
+plugin/** text eol=lf

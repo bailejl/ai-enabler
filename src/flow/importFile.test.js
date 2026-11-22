@@ -52,7 +52,12 @@ const fixtureVersions = Object.keys(fixtures).map((path) => path.match(/([^/]+)\
 describe('parseImport', () => {
   it('accepts a valid file at the current version, flagging it edited since it has no hash, and returns it unchanged', async () => {
     const file = validFile()
-    expect(await parse(file)).toEqual({ ok: true, file, edited: true })
+    expect(await parse(file)).toEqual({
+      ok: true,
+      file,
+      fileVersion: file.schemaVersion,
+      edited: true,
+    })
   })
 
   describe('rejects files that are not project files', () => {
@@ -170,7 +175,12 @@ describe('parseImport', () => {
 
     it('accepts a file at the injected current version, flagging it edited since it has no hash', async () => {
       const file = validFile({ schemaVersion: '0.2.0' })
-      expect(await parse(file, settings)).toEqual({ ok: true, file, edited: true })
+      expect(await parse(file, settings)).toEqual({
+        ok: true,
+        file,
+        fileVersion: file.schemaVersion,
+        edited: true,
+      })
     })
 
     it('reports a version above the injected current as newer', async () => {
@@ -193,6 +203,12 @@ describe('parseImport', () => {
       const result = await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })
       expect(result.ok).toBe(true)
       expect(result.file).toMatchObject({ schemaVersion: '0.2.0', project: { name: 'Upgraded' } })
+    })
+
+    it('reports the version the file was written at, not the version it was upgraded to', async () => {
+      const registry = [{ from: '0.0.0', to: '0.2.0', upgrade: (file) => file }]
+      const result = await parse(validFile({ schemaVersion: '0.0.0' }), { ...settings, registry })
+      expect(result.fileVersion).toBe('0.0.0')
     })
 
     it('validates the upgraded file, not the original', async () => {
@@ -238,7 +254,12 @@ describe('parseImport', () => {
   describe('edit detection', () => {
     it('is not edited when the contentHash matches the file', async () => {
       const file = await withHash(validFile())
-      expect(await parse(file)).toEqual({ ok: true, file, edited: false })
+      expect(await parse(file)).toEqual({
+        ok: true,
+        file,
+        fileVersion: file.schemaVersion,
+        edited: false,
+      })
     })
 
     it('does not count the key order of the file', async () => {
@@ -322,7 +343,13 @@ describe('parseImport', () => {
 
     it('reports who changed a marked file whose hash matches', async () => {
       const file = await withHash(markedFile())
-      expect(await parse(file)).toEqual({ ok: true, file, edited: false, changedBy: mark })
+      expect(await parse(file)).toEqual({
+        ok: true,
+        file,
+        fileVersion: file.schemaVersion,
+        edited: false,
+        changedBy: mark,
+      })
     })
 
     it('reports only the tool and the time of the mark', async () => {

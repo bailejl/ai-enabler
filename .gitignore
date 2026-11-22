@@ -47,6 +47,8 @@ graphify-out/
 
 # dev-team hygiene — machine-specific MCP config (absolute-path pollution — issues #1376, #1416)
 .mcp.json
+# the plugin's server registration is a deliverable, not machine config
+!plugin/.mcp.json
 
 # dev-team workflow runtime artifacts (.claude/-scoped + .dev-team-reports/, #1406) v2 (regeneratable; not deliverables — issues #1101, #1377, #1406, #1412)
 .claude/memory/
