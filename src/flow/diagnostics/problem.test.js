@@ -131,9 +131,9 @@ describe('catalog', () => {
     expect(entriesWithUnknownSeverity(entries)).toEqual([])
   })
 
-  it('reports an entry whose severity is not error, warning or hint', () => {
-    const debugEntry = ['FILE_DEBUG', { code: 'FILE_DEBUG', severity: 'debug' }]
-    expect(entriesWithUnknownSeverity([...entries, debugEntry])).toEqual([debugEntry])
+  it.each(['debug', 'Error', ''])('reports an entry whose severity is %j', (severity) => {
+    const badEntry = ['FILE_BAD', { code: 'FILE_BAD', severity }]
+    expect(entriesWithUnknownSeverity([...entries, badEntry])).toEqual([badEntry])
   })
 
   it.each(APP_CODES)('%s is an active app-owned error since 0.1.0', (code) => {

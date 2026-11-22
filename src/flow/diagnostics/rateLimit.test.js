@@ -28,7 +28,7 @@ describe('admit', () => {
     const { state } = run('FILE_NOT_JSON', FIRST_FIVE)
     const { results } = run('FILE_NOT_JSON', secondsToMs([10, 20, 60]), state)
     expect(results.map((r) => r.emit)).toEqual([false, false, true])
-    expect(results[2].suppressed).toBe(2)
+    expect(results.map((r) => r.suppressed)).toEqual([0, 0, 2])
   })
 
   it('resets the suppressed count after it is carried by an emitted record', () => {
