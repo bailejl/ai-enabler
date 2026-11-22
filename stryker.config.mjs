@@ -8,6 +8,7 @@ export default {
     'src/**/*.{js,jsx}',
     '!src/**/*.test.{js,jsx}',
     '!src/**/testHelpers.js',
+    '!src/flow/diagnostics/gate-selftest/**',
     '!src/main.jsx',
     '!src/App.jsx',
     'scripts/**/*.js',

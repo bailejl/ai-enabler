@@ -1,5 +1,11 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { beforeAll, describe, expect, it } from 'vitest'
+import vitestConfig from '../../../vitest.config.js'
 import catalog from './catalog.json' with { type: 'json' }
 import { checkDiagnostics } from './gate.js'
 import { serializeRecord, toRecord } from './record.js'
@@ -17,8 +23,9 @@ const recordText = (code) => serializeRecord(toRecord({ code, severity: 'error' 
 const entry = (level, text) => ({ level, text })
 const recordEntry = (code, level = 'error') => entry(level, recordText(code))
 
-const readText = (relativePath) =>
-  readFileSync(new URL(`../../../${relativePath}`, import.meta.url), 'utf8')
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
+
+const readText = (relativePath) => readFileSync(join(REPO_ROOT, relativePath), 'utf8')
 
 describe('checkDiagnostics: coded records', () => {
   it('passes a test whose only records are expected', () => {
@@ -252,7 +259,7 @@ describe('checkDiagnostics: no global suppression (AC11)', () => {
     ).toThrow('extra')
   })
 
-  it.each(['src/flow/diagnostics/gate.js'])(
+  it.each(['src/flow/diagnostics/gate.js', 'src/testHelpers.js', 'vitest.setup.js'])(
     'keeps %s free of environment reads and the file system',
     (path) => {
       const text = readText(path)
@@ -262,4 +269,133 @@ describe('checkDiagnostics: no global suppression (AC11)', () => {
       expect(text).not.toMatch(/['"](node:)?fs(\/promises)?['"]/)
     },
   )
+})
+
+describe('the unit gate in the Vitest config (AC12)', () => {
+  it('runs vitest.setup.js before every test', () => {
+    expect(vitestConfig.test.setupFiles).toContain('./vitest.setup.js')
+  })
+})
+
+// Runs the fixtures that exercise vitest.setup.js once, through the selftest config, and reads
+// the JSON report. Several fixture tests fail on purpose; the outcome of each is asserted here.
+const runSelfTest = () => {
+  const outputDir = mkdtempSync(join(tmpdir(), 'gate-selftest-'))
+  const outputFile = join(outputDir, 'report.json')
+  const vitestBin = join(
+    dirname(createRequire(import.meta.url).resolve('vitest/package.json')),
+    'vitest.mjs',
+  )
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')),
+  )
+  spawnSync(
+    process.execPath,
+    [
+      vitestBin,
+      'run',
+      '--config',
+      'vitest.selftest.config.js',
+      '--reporter=json',
+      `--outputFile=${outputFile}`,
+    ],
+    { cwd: REPO_ROOT, env, encoding: 'utf8' },
+  )
+  const report = JSON.parse(readFileSync(outputFile, 'utf8'))
+  rmSync(outputDir, { recursive: true, force: true })
+  return Object.fromEntries(
+    report.testResults.flatMap((file) =>
+      file.assertionResults.map((test) => [
+        `${basename(file.name)} > ${test.title}`,
+        { status: test.status, message: test.failureMessages.join('\n') },
+      ]),
+    ),
+  )
+}
+
+describe('the unit gate wiring (vitest.setup.js)', () => {
+  const SELFTEST_TIMEOUT_MS = 60_000
+  let outcomes
+
+  beforeAll(() => {
+    outcomes = runSelfTest()
+  }, SELFTEST_TIMEOUT_MS)
+
+  it('passes a test that writes only the code it declared', () => {
+    expect(
+      outcomes['expected.fixture.js > passes when the declared code is written'],
+    ).toMatchObject({ status: 'passed' })
+  })
+
+  it('fails an uncoded console.error and shows its text', () => {
+    expect(outcomes['uncoded.fixture.js > fails on an uncoded console.error']).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('uncoded error: something broke'),
+    })
+  })
+
+  it('fails an uncoded console.warn and shows its text', () => {
+    expect(outcomes['uncoded.fixture.js > fails on an uncoded console.warn']).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('uncoded warn: something broke'),
+    })
+  })
+
+  it('fails an undeclared error record with its severity and fix line', () => {
+    expect(outcomes['unexpected.fixture.js > fails on an undeclared error record']).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining(
+        `unexpected STEP_ID_MISSING (error): ${catalog.STEP_ID_MISSING.fix}`,
+      ),
+    })
+  })
+
+  it('fails an undeclared hint record written to console.info', () => {
+    expect(outcomes['unexpected.fixture.js > fails on an undeclared hint record']).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('unexpected SELFTEST_HINT (hint)'),
+    })
+  })
+
+  it('fails a record whose code is not in the catalog, without throwing from the gate', () => {
+    expect(
+      outcomes['unexpected.fixture.js > fails on a record whose code is not in the catalog'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringMatching(/^Error: unknown code NOT_IN_CATALOG\n/),
+    })
+  })
+
+  it('fails a declared code that was never written', () => {
+    expect(
+      outcomes['expected.fixture.js > fails when the declared code is never written'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('expected FILE_NOT_JSON was not seen'),
+    })
+  })
+
+  it('resets the rate limit before every test', () => {
+    expect(
+      outcomes['isolation.fixture.js > passes because the rate limit was reset'],
+    ).toMatchObject({ status: 'passed' })
+  })
+
+  it('resets the declared codes before every test', () => {
+    expect(
+      outcomes['isolation.fixture.js > fails because the declared code was cleared'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('unexpected FILE_NOT_JSON (error)'),
+    })
+  })
+
+  it('still captures the console after a test restored every mock', () => {
+    expect(
+      outcomes['isolation.fixture.js > fails on an uncoded error after mocks were restored'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('uncoded error: after restore'),
+    })
+  })
 })

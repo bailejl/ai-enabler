@@ -6,6 +6,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ['src/**/*.test.{js,jsx}', 'scripts/**/*.test.js', 'mcp/**/*.test.js'],
+      // The diagnostics gate: fails a test on uncoded or unexpected console output
+      setupFiles: ['./vitest.setup.js'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json-summary'],
@@ -16,6 +18,10 @@ export default mergeConfig(
           'src/**/testHelpers.js',
           'src/main.jsx',
           'src/App.jsx',
+          // The gate's wiring and the fixtures that test it
+          'vitest.setup.js',
+          'vitest.selftest.config.js',
+          'src/flow/diagnostics/gate-selftest/**',
           'scripts/**/*.test.js',
           // CLI wrappers are thin stdin/exit shells covered by spawn tests
           'scripts/**/*-cli.js',
