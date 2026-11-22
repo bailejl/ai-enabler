@@ -163,6 +163,8 @@ describe('KNOWN_FIELDS', () => {
     { name: 'update_step', args: { stepId: 'missing', name: 'X' } },
     { name: 'set_step_metrics', args: { stepId: 7 } },
     { name: 'remove_step', args: { stepId: 'missing' } },
+    { name: 'move_step', args: { stepId: 'missing', x: 1, y: 2 } },
+    { name: 'move_step', args: { stepId: 'a', x: 'left', y: 2 } },
     { name: 'disconnect', args: { sourceId: 1, targetId: 2 } },
     { name: 'disconnect', args: { sourceId: 'missing', targetId: 'b' } },
     { name: 'disconnect', args: { sourceId: 'a', targetId: 'missing' } },

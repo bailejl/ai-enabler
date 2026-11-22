@@ -11,8 +11,9 @@ import { STEP_COMMANDS } from './steps.js'
 // that builds the summary (applyCommand calls it only once the candidate is valid, so it never
 // sees unchecked values) and the command's own problems, which are reported with the candidate's.
 // It never mutates its input and never validates: applyCommand validates the candidate. Names are
-// the MCP tool names. A command works on the open project unless `needsProject` is false, and
-// `replacesProject` marks one that starts a new project in place of the open one.
+// the MCP tool names, except for `uiOnly` commands: those serve the app alone and are not tools.
+// A command works on the open project unless `needsProject` is false, and `replacesProject` marks
+// one that starts a new project in place of the open one.
 export const COMMANDS = {
   create_project: {
     args: ['name'],

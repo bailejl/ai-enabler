@@ -276,6 +276,57 @@ describe('remove_step', () => {
   })
 })
 
+describe('move_step', () => {
+  const plan = node('plan', 'Plan', { pt: 5 })
+  const buildAt = { ...node('build', 'Build', { pt: 9 }), position: { x: 10, y: 20 } }
+  const edge = { id: 'e1', source: 'plan', target: 'build' }
+  const two = projectWith([plan, buildAt], [edge])
+
+  it('moves the one step and leaves every other part of the project as it was', () => {
+    const result = run(two, 'move_step', { stepId: 'build', x: 420, y: 80 })
+    expect(result.ok).toBe(true)
+    expect(result.project.nodes).toEqual([plan, { ...buildAt, position: { x: 420, y: 80 } }])
+    expect(result.project.nodes[0]).toBe(plan)
+    expect(result.project.edges).toEqual([edge])
+    expect(result.summary).toBe('Moved step "Build" (build)')
+  })
+
+  it('keeps fractional and negative coordinates as given', () => {
+    const result = run(two, 'move_step', { stepId: 'build', x: -3.25, y: 0.5 })
+    expect(result.project.nodes[1].position).toEqual({ x: -3.25, y: 0.5 })
+  })
+
+  it('does not mutate the project it was given', () => {
+    const frozen = structuredClone(two)
+    run(two, 'move_step', { stepId: 'build', x: 1, y: 2 })
+    expect(two).toEqual(frozen)
+  })
+
+  it.each([
+    ['ghost', 'STEP_NOT_FOUND'],
+    [undefined, 'STEP_TARGET_INVALID'],
+  ])('rejects the step id %j with %s and changes nothing', (stepId, code) => {
+    const result = run(two, 'move_step', { stepId, x: 1, y: 2 })
+    expect(onlyProblem(result).code).toBe(code)
+    expect(result.project).toBe(two)
+  })
+
+  it.each([
+    ['a string x', { x: 'left', y: 80 }],
+    ['a string y', { x: 1, y: '80' }],
+    ['a missing x', { y: 80 }],
+    ['a missing y', { x: 1 }],
+    ['an infinite x', { x: Infinity, y: 80 }],
+    ['a NaN y', { x: 1, y: Number.NaN }],
+  ])('rejects %s with STEP_POSITION_MISSING on the position field', (_label, coordinates) => {
+    const result = run(two, 'move_step', { stepId: 'build', ...coordinates })
+    const found = onlyProblem(result)
+    expect(found.code).toBe('STEP_POSITION_MISSING')
+    expect(found.field).toBe('position')
+    expect(result.project).toBe(two)
+  })
+})
+
 describe('a command on a missing step', () => {
   const two = projectWith([node('idea', 'Idea'), node('build', 'Build')])
 

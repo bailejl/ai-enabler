@@ -132,18 +132,21 @@ const listProblems = (session, { gate }) => {
 
 // Every tool: its arguments (the only ones accepted), which of them a schema marks required, whether
 // it needs an open project, and a `run(session, args, deps)` returning `{ session, result, applied? }`.
-// The command tools come from the command table, so a new command always gets its tool.
+// The command tools come from the command table, so a new command always gets its tool, except a
+// command flagged `uiOnly`: it serves the app alone and is not a tool.
 const DEFINITIONS = [
   // applyCommand checks for an open project itself, with the same problem.
-  ...Object.entries(COMMANDS).map(([name, { args }]) => ({
-    name,
-    args,
-    required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),
-    needsProject: false,
-    // applyCommand checks the arguments itself, so runTool does not check them again.
-    checksOwnArgs: true,
-    run: runCommand(name),
-  })),
+  ...Object.entries(COMMANDS)
+    .filter(([, { uiOnly }]) => !uiOnly)
+    .map(([name, { args }]) => ({
+      name,
+      args,
+      required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),
+      needsProject: false,
+      // applyCommand checks the arguments itself, so runTool does not check them again.
+      checksOwnArgs: true,
+      run: runCommand(name),
+    })),
   {
     name: 'open_project',
     args: ['name'],

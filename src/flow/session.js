@@ -54,7 +54,7 @@ export const openInto = async (session, text, name) => {
 /**
  * Applies one command to the session's project. A rejected command, including a create_project
  * that unsaved changes block, returns the same session, so it never makes the session unsaved.
- * Commands never move existing steps; layout runs on save.
+ * MCP commands never move existing steps; layout runs on save.
  * @param {{ newId: () => string }} deps
  * @returns {{ ok: boolean, session: object, problems: object[], summary: string, created?: string }}
  */

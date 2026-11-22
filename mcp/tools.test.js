@@ -129,7 +129,8 @@ describe('TOOLS', () => {
   })
 
   it('gives each command in the table its tool, with its arguments as the schema properties', () => {
-    for (const [name, { args }] of Object.entries(COMMANDS)) {
+    for (const [name, { args, uiOnly }] of Object.entries(COMMANDS)) {
+      if (uiOnly) continue
       const tool = TOOLS.find((candidate) => candidate.name === name)
       expect(tool, name).toBeDefined()
       expect(Object.keys(tool.inputSchema.properties), name).toEqual(args)
