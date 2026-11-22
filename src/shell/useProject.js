@@ -16,6 +16,7 @@ import {
   toProjectFile,
   withContentHash,
 } from '../flow/projectFile.js'
+import { report } from './diagnostics.js'
 import { downloadTextFile } from './download.js'
 
 // A file the browser cannot read is reported like any other file that cannot be imported.
@@ -28,28 +29,43 @@ const readImport = async (file) => {
 }
 
 // Runs import events through the pure reducer and performs what it asks for: speak, replace the
-// map, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
+// map, write each rejected problem to the console as a diagnostic record, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
 // keeps focus off the button: the status heading takes it, and Dismiss returns it to the button.
 const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
   const previousState = useRef(importState)
+  // The newest state, written only where a state is set. The reducer runs against this, not the
+  // state a callback captured at render time, so a dispatch after an `await` sees every earlier one.
+  const latestImportState = useRef(importState)
   const latestRequestId = useRef(0)
+  // The newest project, for the same reason: a read that finishes after a confirm must compare the
+  // file with the project that confirm put in place.
+  const latestProject = useRef(project)
+
+  useEffect(() => {
+    latestProject.current = project
+  }, [project])
 
   useEffect(() => {
     const hasChanged = previousState.current !== importState
     previousState.current = importState
     const keepsFocus = importState.type === IMPORT_CONFIRMING || importState.type === IMPORT_ERROR
     if (hasChanged && !keepsFocus) returnFocusRef.current?.focus()
+    if (hasChanged && importState.type === IMPORT_ERROR) importState.problems.forEach(report)
   }, [importState, returnFocusRef])
 
   const dispatchImport = useCallback(
     (event) => {
-      const { state, announcement, replacement } = reduceImport(importState, event)
+      const { state, announcement, replacement } = reduceImport(latestImportState.current, event)
+      latestImportState.current = state
       setImportState(state)
       if (announcement) announce(announcement)
-      if (replacement) applyReplacement(replacement)
+      if (replacement) {
+        latestProject.current = replacement.project
+        applyReplacement(replacement)
+      }
     },
-    [importState, announce, applyReplacement],
+    [announce, applyReplacement],
   )
 
   // When two reads overlap, only the one started last may change the state.
@@ -59,10 +75,10 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       const requestId = latestRequestId.current
       const result = await readImport(file)
       if (requestId === latestRequestId.current) {
-        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project })
+        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project: latestProject.current })
       }
     },
-    [dispatchImport, project],
+    [dispatchImport],
   )
   const confirmImport = useCallback(
     () => dispatchImport({ type: IMPORT_EVENT.confirm }),

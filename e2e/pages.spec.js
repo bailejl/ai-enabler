@@ -1,6 +1,9 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { PAGES_BASE } from '../scripts/pages-base.js'
-import { expectHash, expectStarterSteps } from './views.js'
+import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
+import { CRASH_KIND, DEV_CRASH_EVENT } from '../src/shell/devCrash.js'
+import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, waitForRecords, recordsIn } from './console.js'
+import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
 
@@ -44,4 +47,74 @@ test('a project deep link loads directly and after a refresh under the base', as
   await expectStarterSteps(page)
   expect(await currentPath(page)).toBe(PAGES_BASE)
   await expectHash(page, '#/projects/abc')
+})
+
+test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  const { messages } = capture
+  diagnostics.expect(['FILE_NOT_JSON'])
+  await page.goto(`${PAGES_BASE}#/`)
+  await expectStarterSteps(page)
+
+  await chooseFile(page, asUpload('this is not json'))
+
+  const records = await waitForRecords(page, messages, 1)
+  expect(records).toHaveLength(1)
+  const [{ type, record }] = records
+  expect(type).toBe('error')
+  expect(Object.keys(record)).toEqual(RECORD_KEYS)
+  expect(record).toMatchObject({
+    code: 'FILE_NOT_JSON',
+    version: PACKAGE_VERSION,
+    platform: 'browser',
+    build: 'prod',
+  })
+  expect(record.time).toMatch(ISO_UTC_TIMESTAMP)
+})
+
+// The text of every script the production build serves on the initial load.
+const loadAndReadScripts = async (page, request) => {
+  const scriptUrls = new Set()
+  page.on('request', (found) => {
+    if (found.resourceType() === 'script') scriptUrls.add(found.url())
+  })
+
+  await page.goto(`${PAGES_BASE}#/`)
+  await expectStarterSteps(page)
+
+  expect(scriptUrls.size).toBeGreaterThan(0)
+  return Promise.all([...scriptUrls].map(async (url) => (await request.get(url)).text()))
+}
+
+test('no served JavaScript asset contains the text devDependencies', async ({ page, request }) => {
+  const bodies = await loadAndReadScripts(page, request)
+  expect(bodies.filter((body) => body.includes('devDependencies'))).toEqual([])
+})
+
+test('no served JavaScript asset contains the dev crash event name', async ({ page, request }) => {
+  const bodies = await loadAndReadScripts(page, request)
+  expect(bodies.filter((body) => body.includes(DEV_CRASH_EVENT))).toEqual([])
+})
+
+test('the dev crash event does nothing in production', async ({ page, capture }) => {
+  const { messages } = capture
+  await page.goto(`${PAGES_BASE}#/`)
+  await expectStarterSteps(page)
+
+  await page.evaluate(
+    ([eventName, kinds]) => {
+      for (const detail of kinds) {
+        window.dispatchEvent(new CustomEvent(eventName, { detail }))
+      }
+    },
+    [DEV_CRASH_EVENT, Object.values(CRASH_KIND)],
+  )
+  // A timer round trip, so a crash forced from a timer or a rejection would have happened by now.
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)))
+
+  await expectStarterSteps(page)
+  expect(recordsIn(messages)).toEqual([])
 })

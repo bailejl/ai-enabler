@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { cards } from './canvas.js'
 import { STARTER_STEP_COUNT, expectHash, expectRoute, expectStarterSteps } from './views.js'
 

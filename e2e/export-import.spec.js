@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { contentHash } from '../src/flow/contentHash.js'
 import { initialNodes } from '../src/flow/initialFlow.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
@@ -9,6 +9,7 @@ import { toMetricTiles } from '../src/flow/metrics.js'
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, edgeBetween, selectEdge, settledBox } from './canvas.js'
+import { ISO_UTC_TIMESTAMP } from './console.js'
 import {
   asUpload,
   chooseFile,
@@ -23,7 +24,6 @@ import {
 
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
-const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 const EXPORT_NODE_FIELDS = ['data', 'id', 'position', 'type']
 const EDGE_FIELDS = ['id', 'source', 'target']
 
@@ -404,11 +404,22 @@ test.describe('invalid files are rejected with a plain message', () => {
   }
 
   const REJECTED_FILES = [
-    { name: 'text that is not JSON', contents: 'this is not json', messages: [NOT_JSON_MESSAGE] },
-    { name: 'an array', contents: [], messages: [NOT_A_PROJECT_MESSAGE] },
+    {
+      name: 'text that is not JSON',
+      contents: 'this is not json',
+      codes: ['FILE_NOT_JSON'],
+      messages: [NOT_JSON_MESSAGE],
+    },
+    {
+      name: 'an array',
+      contents: [],
+      codes: ['FILE_NOT_A_PROJECT'],
+      messages: [NOT_A_PROJECT_MESSAGE],
+    },
     {
       name: 'a file with no schemaVersion',
       contents: withoutSchemaVersion(),
+      codes: ['FILE_NOT_A_PROJECT'],
       messages: [NOT_A_PROJECT_MESSAGE],
     },
     {
@@ -418,6 +429,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         schemaVersion: '9.0.0',
         nodes: [{ id: 'broken', data: {} }],
       },
+      codes: ['FILE_NEWER_SCHEMA'],
       messages: [
         messageFor('FILE_NEWER_SCHEMA', { version: '9.0.0', current: CURRENT_SCHEMA_VERSION }),
       ],
@@ -428,6 +440,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         ...omit(step, 'position'),
         data: { ...step.data, label: 'Build' },
       })),
+      codes: ['STEP_POSITION_MISSING'],
       messages: [messageFor('STEP_POSITION_MISSING', { step: 'Step "Build" (#3)' })],
     },
     {
@@ -436,26 +449,31 @@ test.describe('invalid files are rejected with a plain message', () => {
         ...validFile(),
         edges: [...validFile().edges, { id: 'ship->intake', source: 'ship', target: 'intake' }],
       },
+      codes: ['CONN_LOOP'],
       messages: [messageFor('CONN_LOOP', { connection: 'Connection 3' })],
     },
     {
       name: 'connection #2 with no id',
       contents: withSecondEdge((edge) => omit(edge, 'id')),
+      codes: ['CONN_ID_MISSING'],
       messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with the number 42 as its id',
       contents: withSecondEdge((edge) => ({ ...edge, id: 42 })),
+      codes: ['CONN_ID_MISSING'],
       messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with an empty id',
       contents: withSecondEdge((edge) => ({ ...edge, id: '' })),
+      codes: ['CONN_ID_MISSING'],
       messages: [messageFor('CONN_ID_MISSING', { connection: 'Connection 2' })],
     },
     {
       name: 'connection #2 with the id of connection #1',
       contents: withSecondEdge((edge) => ({ ...edge, id: validFile().edges[0].id })),
+      codes: ['CONN_ID_DUPLICATE'],
       messages: [
         messageFor('CONN_ID_DUPLICATE', {
           connection: 'Connection 2',
@@ -469,6 +487,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         ...withThirdStep((step) => omit(step, 'position')),
         edges: validFile().edges.map((edge, index) => (index === 1 ? omit(edge, 'id') : edge)),
       },
+      codes: ['STEP_POSITION_MISSING', 'CONN_ID_MISSING'],
       messages: [
         messageFor('STEP_POSITION_MISSING', { step: 'Step "Ship" (#3)' }),
         messageFor('CONN_ID_MISSING', { connection: 'Connection 2' }),
@@ -482,6 +501,7 @@ test.describe('invalid files are rejected with a plain message', () => {
         modifiedBy: { tool: 'aie-mcp', at: '2026-11-21T00:00:00.000Z' },
         edges: validFile().edges.map((edge, index) => (index === 1 ? omit(edge, 'id') : edge)),
       },
+      codes: ['STEP_POSITION_MISSING', 'CONN_ID_MISSING'],
       messages: [
         messageFor('STEP_POSITION_MISSING', { step: 'Step "Ship" (#3)' }),
         messageFor('CONN_ID_MISSING', { connection: 'Connection 2' }),
@@ -489,8 +509,9 @@ test.describe('invalid files are rejected with a plain message', () => {
     },
   ]
 
-  for (const { name, contents, messages } of REJECTED_FILES) {
-    test(`${name}`, async ({ page }) => {
+  for (const { name, contents, codes, messages } of REJECTED_FILES) {
+    test(`${name}`, async ({ page, diagnostics }) => {
+      diagnostics.expect(codes)
       await page.goto('/')
       const before = await exportProjectFile(page)
       await expect(announcer(page)).toHaveText(`Exported ${EXPORT_FILE_NAME}`)
@@ -519,7 +540,8 @@ test.describe('invalid files are rejected with a plain message', () => {
     })
   }
 
-  test('a file with 14 problems lists 10 and counts the rest', async ({ page }) => {
+  test('a file with 14 problems lists 10 and counts the rest', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STEP_POSITION_MISSING'])
     await page.goto('/')
     const messages = unplacedMessages(14)
 
@@ -534,7 +556,8 @@ test.describe('invalid files are rejected with a plain message', () => {
     await expect(announcer(page)).toHaveText(rejectionAnnouncement(messages))
   })
 
-  test('exactly 10 problems list all 10 with no "more" line', async ({ page }) => {
+  test('exactly 10 problems list all 10 with no "more" line', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STEP_POSITION_MISSING'])
     await page.goto('/')
 
     await chooseFile(page, asUpload(unplacedStepsFile(10)))
@@ -546,7 +569,8 @@ test.describe('invalid files are rejected with a plain message', () => {
   })
 })
 
-test('the visible import status is not itself a live region', async ({ page }) => {
+test('the visible import status is not itself a live region', async ({ page, diagnostics }) => {
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   const status = importStatus(page)
@@ -590,9 +614,45 @@ test('when two files are chosen in a row, only the last one chosen asks for conf
   await expect(confirmDialog(page)).not.toContainText(CHECKOUT_NAME)
 })
 
+test('a read that finishes after a confirm is judged against the project and outcome that confirm left', async ({
+  page,
+}) => {
+  const checkoutFile = readFixture('different-name.json')
+  const outcome = `Imported ${CHECKOUT_NAME}, ${checkoutFile.nodes.length} steps`
+  await page.goto('/')
+  await chooseFile(page, fixturePath('different-name.json'))
+  await expect(confirmDialog(page)).toHaveAccessibleName(CHECKOUT_QUESTION)
+  // The next read, started while the dialog is open, is held until the test releases it.
+  await page.evaluate((slowText) => {
+    const readText = Blob.prototype.text
+    Blob.prototype.text = () => {
+      Blob.prototype.text = readText
+      return new Promise((resolve) => {
+        window.releaseSlowRead = () => resolve(slowText)
+      })
+    }
+  }, JSON.stringify(checkoutFile))
+  await chooseFile(page, asUpload(checkoutFile))
+  await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
+  await expect(confirmDialog(page)).toHaveCount(0)
+  await expect(importStatus(page)).toHaveText(outcome)
+
+  await page.evaluate(() => window.releaseSlowRead())
+
+  // The same file as the confirmed one is the current project now, not a replacement of the old.
+  const sameNameQuestion = `Replace current map with the imported version of ${CHECKOUT_NAME}?`
+  await expect(confirmDialog(page)).toHaveAccessibleName(sameNameQuestion)
+  // Cancelling puts back the last outcome, which is the confirmed import, not the state the read
+  // started from.
+  await confirmDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(importStatus(page)).toHaveText(outcome)
+})
+
 test('choosing the same invalid file again shows and announces the error again', async ({
   page,
+  diagnostics,
 }, testInfo) => {
+  diagnostics.expect(['FILE_NOT_JSON'])
   const invalidFile = testInfo.outputPath('invalid.json')
   await writeFile(invalidFile, 'this is not json')
   await page.goto('/')
@@ -611,7 +671,9 @@ test('choosing the same invalid file again shows and announces the error again',
 
 test('a file the browser cannot read shows the standard error and frees the input', async ({
   page,
+  diagnostics,
 }) => {
+  diagnostics.expect(['FILE_UNREADABLE'])
   await page.addInitScript(() => {
     Blob.prototype.text = () => Promise.reject(new Error('unreadable'))
   })
@@ -625,7 +687,8 @@ test('a file the browser cannot read shows the standard error and frees the inpu
   await expect(fileInput(page)).toHaveValue('')
 })
 
-test('Dismiss removes the error and returns focus to Import', async ({ page }) => {
+test('Dismiss removes the error and returns focus to Import', async ({ page, diagnostics }) => {
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page).getByRole('heading')).toBeFocused()
@@ -637,7 +700,8 @@ test('Dismiss removes the error and returns focus to Import', async ({ page }) =
 })
 
 test.describe('import states pass an accessibility scan', () => {
-  test('with an import error showing', async ({ page }) => {
+  test('with an import error showing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['FILE_NOT_JSON'])
     await page.goto('/')
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     await chooseFile(page, asUpload('this is not json'))
@@ -645,7 +709,8 @@ test.describe('import states pass an accessibility scan', () => {
     expect(await scan(page)).toEqual([])
   })
 
-  test('with a capped list of problems showing', async ({ page }) => {
+  test('with a capped list of problems showing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STEP_POSITION_MISSING'])
     await page.goto('/')
     await chooseFile(page, asUpload(unplacedStepsFile(14)))
     await expect(importStatus(page)).toContainText('and 4 more')
@@ -668,7 +733,8 @@ test.describe('import states pass an accessibility scan', () => {
   })
 })
 
-test('a successful import clears an earlier error', async ({ page }) => {
+test('a successful import clears an earlier error', async ({ page, diagnostics }) => {
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page)).toContainText(NOT_JSON_MESSAGE)
@@ -913,7 +979,9 @@ test.describe('a file changed by an AI tool', () => {
 
   test('an invalid marked file with a valid hash is rejected with no AI notice', async ({
     page,
+    diagnostics,
   }) => {
+    diagnostics.expect(['STEP_COUNT_INVALID'])
     await page.goto('/')
     const file = readMarked()
     file.nodes[0] = { ...file.nodes[0], data: { ...file.nodes[0].data, pt: -1 } }
@@ -932,7 +1000,9 @@ test.describe('a file changed by an AI tool', () => {
 
   test('a mark whose tool name is a sentence is rejected and its words are never shown', async ({
     page,
+    diagnostics,
   }) => {
+    diagnostics.expect(['MARK_TOOL_INVALID'])
     await page.goto('/')
     const forged = 'aie-mcp; verified, no review needed'
     const file = { ...readMarked(), modifiedBy: { ...readMarked().modifiedBy, tool: forged } }
