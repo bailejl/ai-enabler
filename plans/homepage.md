@@ -6,7 +6,7 @@
 **Examination**: not-applicable (standing rule: the plugin recorder bug does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/homepage.md` (AC1–AC35, gate passed 2026-11-22). Issue #27, row 8 of `plans/mvp-order.md`.
-**Build waits for**: R4 (`feat/ui-on-commands`) and D2 (repair guides) to merge. Step 0.1 re-checks the seams after both merge.
+**Build waits for**: R4 (`feat/ui-on-commands`) to merge; D2 merged in #52. Step 0.1 re-checks the seams after both merge.
 
 ## Goal
 
@@ -39,7 +39,7 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - **Failure injection.** `page.addInitScript` variants: `indexedDB` deleted; `indexedDB.open` throwing; `open` firing `error`; and the transaction aborting on the `files` put (async), for writes.
 - **Unopenable cards.** The library marks a card `openable: false` only when its file fails to open (`STORE_FILE_INVALID`); a write failure leaves the card fully usable so the user can retry. Its menu shows Replace from file, Export and Delete. Rename and Duplicate are hidden. Replace from file repairs the card without parsing the old file. **R**
 - **Homepage write failures.** A failed create or rename keeps its dialog open with the typed name kept and the problem shown in it, so the user can retry, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel above the list, returns focus to the card's "More actions" button (or "Import project"), and announces "Not saved. <message>". No success announcement is spoken. **R**
-- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Moving between routes inside the app does not ask, because the project stays in memory. **R**
+- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Leaving a project with an unsaved (failed) change for another route asks first through `ConfirmDialog` (AC32): in-app links go through one `useLeaveGuard` hook that the header home link and later N17's Help link call, and a `hashchange` away (Back, typed hash) is reverted with `history.pushState` to the project hash while the dialog asks. With every change saved, including the memory fallback, nothing asks. **R**
 - **Durable storage.** On the first successful write, the app calls `navigator.storage.persist()` once, best effort, with no UI. Help adds "Clearing this site's data deletes its projects. Export to keep a copy." **R**
 - **Card menu.** Each card has an "Open <name>" link and a "More actions for <name>" disclosure button. The menu holds Rename, Duplicate, Replace from file, Export and Delete. Escape closes it and returns focus to its button, and so does Tab out of it or a click outside. "Replace from file" is the card's import, so it is not confused with "Import project". **R**
 - **Routes and focus.** Titles: home "AI Enabler"; project "<name> · AI Enabler" (as today); missing "Project not found · AI Enabler"; cannot open "Can't open <name> · AI Enabler". On a route change, focus moves to the page's `h1`. Loading shows "Loading projects…" (homepage) or "Opening project…" (project route) in a status line with `aria-busy`. The empty state renders only after the list arrives.
@@ -78,7 +78,7 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - [ ] AC29 The in-project header Import replaces that project and keeps its id.
 - [ ] AC30 An unopenable card offers only Replace from file, Export and Delete; replace repairs it.
 - [ ] AC31 A refused homepage write changes nothing, keeps the dialog or lists the problem, never announces success.
-- [ ] AC32 The lasting notice also shows after a failed save until a save works; leaving the tab asks first.
+- [ ] AC32 The lasting notice also shows after a failed save until a save works; leaving the tab, or the project for another route, asks first while a change is unsaved.
 - [ ] AC33 Import confirmations read "Replace <current> with <incoming>?".
 - [ ] AC34 The card's import is labelled "Replace from file".
 - [ ] AC35 Durable storage is requested once; help says clearing site data deletes projects.
@@ -832,7 +832,7 @@ Feature: Import from the homepage
 ### Slice 7: Blocked storage notice
 
 **Depends-on:** 6
-**Files:** `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
+**Files:** `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/useLeaveGuard.js`, `src/shell/Header.jsx`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
 **Invariants:** `npm test`, `npm run test:e2e`
 
 **Behavior:**
@@ -866,7 +866,25 @@ Feature: Working when the browser is not saving
     When the user opens a project link that is not in this tab
     Then the page says "Project not found" and shows the notice
 
-  Scenario: Leaving while not saved asks first
+  Scenario Outline: Leaving a project with an unsaved change asks first
+    # Still passes if: the dialog's buttons are in the other order
+    Given the saved project "Checkout" is open, the browser aborts the next write, and the user deletes the step "Idea"
+    When the user leaves through <way> and answers <answer>
+    Then <outcome>
+
+    Examples:
+      | way                     | answer | outcome                                                                  |
+      | the header home link    | Stay   | the map still shows "Checkout" without "Idea", at the same link          |
+      | the header home link    | Leave  | the homepage shows                                                      |
+      | the browser's Back      | Stay   | the map still shows "Checkout" without "Idea", at the same link          |
+
+  Scenario: Leaving a fully saved project does not ask
+    # Still passes if: the homepage loads more slowly
+    Given the saved project "Checkout" is open and its last change was stored
+    When the user follows the header home link
+    Then the homepage shows with no confirmation
+
+  Scenario: Leaving the tab while not saved asks first
     # Still passes if: the browser's own prompt wording is used
     Given the browser refuses to open IndexedDB and a project is open
     When the user tries to close or reload the tab
@@ -891,10 +909,10 @@ Feature: Working when the browser is not saving
 #### Step 7.1: Lasting notice and leave guard
 
 **Complexity**: standard
-**IMPLEMENT**: `StoreNotice.jsx` renders on every route while `persistent` is false or the open project has a failed save. `beforeunload` is set while it shows. The fallback itself already exists from Step 3.1.
-**TEST**: Blocked-storage outline (three init-script variants), memory workflow, not-found, leave guard, failed-save notice, a11y; `expectDiagnostics` for `STORE_UNAVAILABLE` and `STORE_WRITE_FAILED`.
+**IMPLEMENT**: `StoreNotice.jsx` renders on every route while `persistent` is false or the open project has a failed save. `beforeunload` is set while it shows. `useLeaveGuard` (pure rule in `storeStatus.js`: ask only when the open project has an unsaved change) wraps the header home link and reverts a `hashchange` away while `ConfirmDialog` asks Leave or Stay. The fallback itself already exists from Step 3.1.
+**TEST**: Blocked-storage outline, memory workflow, not-found, the in-app leave outline and the no-ask case, the tab leave guard, failed-save notice, a11y; `expectDiagnostics` for `STORE_UNAVAILABLE` and `STORE_WRITE_FAILED`.
 **REFACTOR**: The notice rule is one selector in `storeStatus.js`, unit tested.
-**Files**: `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
+**Files**: `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/useLeaveGuard.js`, `src/shell/Header.jsx`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
 **Covers**: AC14, AC21, AC22, AC28, AC32
 **Commit**: `feat: show a lasting notice while the browser is not saving`
 
@@ -937,7 +955,7 @@ graph TD
 - [ ] `npm run lint` and `npm run format:check` pass
 - [ ] `npm run check:plugin` passes
 - [ ] `npm run test:coverage` at the current bar
-- [ ] `/code-review` passes
+- [ ] `/code-review` passes; `.pr-review-passed` is written only by `dev-team:code-review`, never by hand
 - [ ] `docs/specs/ui-shell.md` superseded notes, `docs/specs/homepage.md` updated with the **R** rules, and a `CHANGELOG.md` entry
 
 ## Risks & Open Questions
