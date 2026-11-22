@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { GUIDES_FOLDER } from '../src/flow/diagnostics/readGuides.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
 
@@ -22,6 +23,7 @@ const TOOL_NAMES = [
   'discard_changes',
   'get_project',
   'list_problems',
+  'get_repair_guide',
 ]
 
 // The text of a saved project file with one step, as the app would export it.
@@ -175,6 +177,19 @@ describe('the stdio server', () => {
     expect(imported.changedBy.tool).toBe('aie-mcp')
     expect(imported.file.nodes.map(({ data }) => data.label)).toEqual(['Plan', 'Build', 'Ship'])
     expect(imported.file.edges).toHaveLength(2)
+  })
+
+  it('serves a repair guide equal to its file, with no project open', async () => {
+    const { call } = await startServer()
+
+    const result = await call('get_repair_guide', { code: 'CONN_LOOP' })
+
+    expect(result.isError).toBe(false)
+    expect(result.content).toMatchObject({ ok: true, code: 'CONN_LOOP', problems: [] })
+    expect(result.content.guide.length).toBeGreaterThan(0)
+    expect(result.content.guide).toBe(
+      await readFile(new URL('CONN_LOOP.md', GUIDES_FOLDER), 'utf8'),
+    )
   })
 
   it('refuses a path-like file name', async () => {
