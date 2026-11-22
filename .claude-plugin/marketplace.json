@@ -1,0 +1,12 @@
+{
+  "name": "ai-enabler",
+  "description": "Claude Code plugins for AI Enabler.",
+  "owner": { "name": "ai-enabler" },
+  "plugins": [
+    {
+      "name": "aie",
+      "source": "./plugin",
+      "description": "Build and review AI Enabler value stream maps with an AI assistant: an MCP server plus the aie-guide and aie-review skills."
+    }
+  ]
+}

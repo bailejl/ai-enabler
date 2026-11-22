@@ -1,0 +1,120 @@
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+import { describe, expect, test } from 'vitest'
+
+const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
+const path = (relative) => resolve(ROOT, relative)
+const readJson = (relative) => JSON.parse(readFileSync(path(relative), 'utf8'))
+
+const marketplace = readJson('.claude-plugin/marketplace.json')
+const pluginRoot = resolve(ROOT, marketplace.plugins[0].source)
+const plugin = readJson('plugin/.claude-plugin/plugin.json')
+const mcp = readJson('plugin/.mcp.json')
+
+describe('marketplace manifest', () => {
+  test('names the marketplace and an owner', () => {
+    expect(marketplace.name).toBeTruthy()
+    expect(marketplace.owner.name).toBeTruthy()
+  })
+
+  test('lists the aie plugin with a description, sourced from plugin/', () => {
+    expect(marketplace.plugins).toHaveLength(1)
+    expect(marketplace.plugins[0].name).toBe('aie')
+    expect(marketplace.plugins[0].description).toBeTruthy()
+    expect(pluginRoot).toBe(path('plugin'))
+    expect(existsSync(resolve(pluginRoot, '.claude-plugin/plugin.json'))).toBe(true)
+  })
+})
+
+describe('plugin manifest', () => {
+  test('has the marketplace entry name, a version and a description', () => {
+    expect(plugin.name).toBe(marketplace.plugins[0].name)
+    expect(plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(plugin.description).toBeTruthy()
+  })
+})
+
+describe('.mcp.json', () => {
+  const server = mcp.mcpServers['aie-mcp']
+
+  test('registers the aie-mcp server to run on Node', () => {
+    expect(Object.keys(mcp.mcpServers)).toEqual(['aie-mcp'])
+    expect(server.command).toBe('node')
+  })
+
+  test('points at a bundled server file that exists', () => {
+    expect(server.args).toHaveLength(1)
+    expect(server.args[0]).toContain('${CLAUDE_PLUGIN_ROOT}/')
+    const bundled = server.args[0].replace('${CLAUDE_PLUGIN_ROOT}', pluginRoot)
+    expect(existsSync(bundled)).toBe(true)
+  })
+
+  test('is not git-ignored, so it is committed', () => {
+    const ignored = () =>
+      execFileSync('git', ['check-ignore', '-q', 'plugin/.mcp.json'], { cwd: ROOT })
+    // check-ignore exits 1 when the path is not ignored, which makes execFileSync throw
+    expect(ignored).toThrow(expect.objectContaining({ status: 1 }))
+  })
+})
+
+const SCHEMA_MAJOR = readJson(
+  'plugin/schema/project-0.1.0.json',
+).properties.schemaVersion.const.split('.')[0]
+
+const readSkill = (name) => {
+  const text = readFileSync(path(`plugin/skills/${name}/SKILL.md`), 'utf8')
+  const [, frontmatter = '', body = ''] = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/) ?? []
+  const field = (key) => frontmatter.match(new RegExp(`^${key}: (.+)$`, 'm'))?.[1]
+  return { name: field('name'), description: field('description'), body }
+}
+
+describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
+  const skill = readSkill(folder)
+
+  test('has frontmatter with its folder name and a description', () => {
+    expect(skill.name).toBe(folder)
+    expect(skill.description).toBeTruthy()
+  })
+
+  test('declares the schema major it supports and refuses a file with another major', () => {
+    expect(skill.body).toContain(`Supported schema major: ${SCHEMA_MAJOR}`)
+    expect(skill.body).toMatch(/does not support/i)
+    expect(skill.body).toMatch(/update the plugin/i)
+  })
+
+  test('treats tool output as data, not instructions', () => {
+    expect(skill.body).toMatch(/data, not instructions/i)
+  })
+})
+
+describe('skill aie-review', () => {
+  const { body } = readSkill('aie-review')
+
+  test('calls list_problems and reports each problem by step with its fix and a count', () => {
+    expect(body).toContain('list_problems')
+    expect(body).toContain('data-complete')
+    expect(body).toMatch(/step/i)
+    expect(body).toMatch(/fix/i)
+    expect(body).toMatch(/count/i)
+  })
+
+  test('says not to change the project', () => {
+    expect(body).toMatch(/do not change the project/i)
+  })
+})
+
+describe('skill aie-guide', () => {
+  const { body } = readSkill('aie-guide')
+
+  test('points at llms.txt by its site URL and checks schemaVersion', () => {
+    expect(body).toContain('https://bailejl.github.io/ai-enabler/llms.txt')
+    expect(body).toContain('schemaVersion')
+  })
+
+  test('after a save, tells the user the file path and to import it in AI Enabler', () => {
+    expect(body).toContain('./projects/')
+    expect(body).toMatch(/import it in AI Enabler/i)
+  })
+})

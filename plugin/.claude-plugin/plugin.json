@@ -1,0 +1,5 @@
+{
+  "name": "aie",
+  "version": "0.1.0",
+  "description": "Build and review AI Enabler value stream maps with an AI assistant: an MCP server plus the aie-guide and aie-review skills."
+}
