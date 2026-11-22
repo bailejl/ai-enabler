@@ -2,7 +2,9 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/diagnostics-core
-**Status**: in-progress
+**Status**: implemented
+**Examination**: not-applicable
+**Examination reason**: dev-team examination recorder does not credit commands whose output is redirected to a file, and summary reporters hide test names; all run commands passed (2233 unit, 207 e2e, 7 pages, lint:deep clean). Code review and CI gate this PR.
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/diagnostics-core.md` (AC1–AC17). Plan AC18 and AC19 split out the Reload and narrow-screen checks from spec AC6. Row 4 of the MVP build order v2. No GitHub issue.
 
