@@ -628,10 +628,7 @@ test('a read that finishes after a confirm is judged against the project and out
     Blob.prototype.text = () => {
       Blob.prototype.text = readText
       return new Promise((resolve) => {
-        window.releaseSlowRead = () => {
-          window.slowReadSettled = true
-          resolve(slowText)
-        }
+        window.releaseSlowRead = () => resolve(slowText)
       })
     }
   }, JSON.stringify(checkoutFile))
