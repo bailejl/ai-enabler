@@ -1,13 +1,18 @@
 // Pure checks on repair guides. They take the catalog codes, the guide map `{ CODE: text }` and
-// the guide text as inputs, and return the problems found as plain sentences that name the guide,
-// so a test on fixtures proves each check and a thin gate runs them on the real files.
+// the guide text as inputs, and return the problems found as plain sentences. The checks on one
+// guide's text take its code first and start each sentence with it, so a failure names the guide.
+// A test on fixtures proves each check and a thin gate runs them on the real files.
 
 /** The repair-section line for a code no tool repairs; a line after it tells the user what to do. */
 export const NO_TOOL_MARKER = 'No tool repairs this.'
 
+const MEANING_HEADING = '## What it means'
 const REPAIR_HEADING = '## Repair with the tools'
 const ASK_HEADING = '## Ask the user first'
-const SECTION_HEADINGS = ['## What it means', REPAIR_HEADING, ASK_HEADING]
+const SECTION_HEADINGS = [MEANING_HEADING, REPAIR_HEADING, ASK_HEADING]
+
+// What the "Ask the user first" section holds when there is nothing to ask.
+const NOTHING_TO_ASK = 'None.'
 
 // Substrings, matched in lower case, that send the agent to the project file. Paraphrases are not
 // caught; review does that.
@@ -26,8 +31,8 @@ const USER_ADDRESS = 'Tell the user'
 
 const NUMBERED_STEP = '1. '
 
-/** The tools that remove or drop work, so a guide that calls one must ask the user first. */
-export const DESTRUCTIVE_TOOLS = ['remove_step', 'disconnect', 'discard_changes']
+/** The tools that remove or drop work, so a guide that calls one must not answer None. when asking. */
+export const DESTRUCTIVE_TOOLS = Object.freeze(['remove_step', 'disconnect', 'discard_changes'])
 
 // A backticked span is checked by its whole content, and only when it has one of these shapes:
 // snake_case is a tool, camelCase a property, kebab-case a gate and UPPER_SNAKE a catalog code.
@@ -47,7 +52,7 @@ const isHeading = (line) => /^#{1,6} /.test(line)
 
 // Where each wanted heading sits (every line index, so a repeat is visible) and the lines under its
 // first occurrence, up to the next heading.
-const sections = (text) => {
+const findSections = (text) => {
   const lines = linesOf(text)
   return SECTION_HEADINGS.map((heading) => {
     const lineIndexes = lines.flatMap((line, index) => (line === heading ? [index] : []))
@@ -57,12 +62,16 @@ const sections = (text) => {
   })
 }
 
+const sectionNamed = (found, wantedHeading) =>
+  found.find(({ heading }) => heading === wantedHeading)
+
 /** The catalog codes that have no guide. */
-export const missingGuides = (codes, guides) => codes.filter((code) => !Object.hasOwn(guides, code))
+export const missingGuides = (catalogCodes, guides) =>
+  catalogCodes.filter((code) => !Object.hasOwn(guides, code))
 
 /** The guide codes that are not catalog codes. */
-export const orphanGuides = (codes, guides) =>
-  Object.keys(guides).filter((code) => !codes.includes(code))
+export const orphanGuides = (catalogCodes, guides) =>
+  Object.keys(guides).filter((code) => !catalogCodes.includes(code))
 
 const titleProblems = (code, title, text) => {
   const expected = `# ${code}: ${title}`
@@ -85,7 +94,7 @@ const orderProblems = (code, found) => {
 }
 
 const repairProblems = (code, found) => {
-  const repair = found.find(({ heading }) => heading === REPAIR_HEADING)
+  const repair = sectionNamed(found, REPAIR_HEADING)
   if (repair.lineIndexes.length !== 1) return []
   const hasStepOrMarker = repair.body.some(
     (line) => line.startsWith(NUMBERED_STEP) || line === NO_TOOL_MARKER,
@@ -100,10 +109,10 @@ const repairProblems = (code, found) => {
 /**
  * What is wrong with a guide's shape: line 1 is exactly `# <code>: <title>`; the three section
  * headings appear once each, in order, each with text under it; and the repair section has a
- * numbered first step or the no-tool marker.
+ * numbered step (a line starting `1. `) or the no-tool marker line.
  */
 export const shapeProblems = (code, title, text) => {
-  const found = sections(text)
+  const found = findSections(text)
   return [
     ...titleProblems(code, title, text),
     ...sectionProblems(code, found),
@@ -113,59 +122,68 @@ export const shapeProblems = (code, title, text) => {
 }
 
 /** The lines that send the agent to the project file, except lines that speak to the user. */
-export const fileAccessProblems = (text) =>
+export const fileAccessProblems = (code, text) =>
   linesOf(text).flatMap((line, index) => {
     const isForbidden = FILE_ACCESS_PHRASES.some((phrase) => line.toLowerCase().includes(phrase))
     return isForbidden && !line.startsWith(USER_ADDRESS)
-      ? [`line ${index + 1} sends the agent to the file: "${line}"`]
+      ? [`${code}: line ${index + 1} sends the agent to the file: "${line}"`]
       : []
   })
 
 /**
  * What is wrong with a guide that must say no tool repairs its code: the repair section has the
- * no-tool marker line, and a later line in that section starts "Tell the user" (what to tell them).
+ * no-tool marker line, no numbered step, and a line after the marker that starts "Tell the user"
+ * (what to tell them).
  */
 export const noToolProblems = (code, text) => {
-  const { body } = sections(text).find(({ heading }) => heading === REPAIR_HEADING)
+  const { body } = sectionNamed(findSections(text), REPAIR_HEADING)
   const markerIndex = body.indexOf(NO_TOOL_MARKER)
   const hasUserLine =
     markerIndex !== -1 && body.slice(markerIndex + 1).some((line) => line.startsWith(USER_ADDRESS))
-  return hasUserLine
-    ? []
-    : [
-        `${code}: "${REPAIR_HEADING}" must have "${NO_TOOL_MARKER}" and then a line starting "${USER_ADDRESS}"`,
-      ]
+  const hasNumberedStep = markerIndex !== -1 && body.some((line) => line.startsWith(NUMBERED_STEP))
+  return [
+    ...(hasUserLine
+      ? []
+      : [
+          `${code}: "${REPAIR_HEADING}" must have "${NO_TOOL_MARKER}" and then a line starting "${USER_ADDRESS}"`,
+        ]),
+    ...(hasNumberedStep
+      ? [`${code}: "${REPAIR_HEADING}" must have no line starting "${NUMBERED_STEP}"`]
+      : []),
+  ]
 }
 
 const BACKTICKED_SPAN = /`([^`\n]+)`/g
 
 /**
- * The backticked names in the text that the server does not have. `names` holds the real `tools`,
- * `properties` (argument, detail and project-file field names), `gates` and `codes` (catalog keys).
+ * The backticked names in a guide's text that the server does not have. `names` holds the real
+ * `tools`, `properties` (argument, detail and project-file field names), `gates` and `codes`
+ * (catalog keys).
  */
-export const unknownNames = (text, names) =>
+export const unknownNames = (code, text, names) =>
   [...text.matchAll(BACKTICKED_SPAN)].flatMap(([, span]) => {
     const nameClass = NAME_CLASSES.find(({ shape }) => shape.test(span))
     return nameClass && !names[nameClass.list].includes(span)
-      ? [`\`${span}\` is not a ${nameClass.kind} the server has`]
+      ? [`${code}: \`${span}\` is not a ${nameClass.kind} the server has`]
       : []
   })
 
-const isOnlyNone = (lines) => {
+const isOnlyNothingToAsk = (lines) => {
   const written = lines.map((line) => line.trim()).filter((line) => line !== '')
-  return written.length === 1 && written[0] === 'None.'
+  return written.length === 1 && written[0] === NOTHING_TO_ASK
 }
 
 /**
- * The destructive tools a repair calls when "Ask the user first" is only `None.`: removing or
- * dropping work needs a question for the user.
+ * The destructive tools a guide's repair calls when "Ask the user first" is only `None.`:
+ * removing or dropping work needs a question for the user.
  */
-export const unaskedDestructive = (text) => {
-  const found = sections(text)
-  const repair = found.find(({ heading }) => heading === REPAIR_HEADING).body.join('\n')
-  const ask = found.find(({ heading }) => heading === ASK_HEADING).body
-  if (!isOnlyNone(ask)) return []
+export const unaskedDestructive = (code, text) => {
+  const found = findSections(text)
+  const repair = sectionNamed(found, REPAIR_HEADING).body.join('\n')
+  const ask = sectionNamed(found, ASK_HEADING).body
+  if (!isOnlyNothingToAsk(ask)) return []
   return DESTRUCTIVE_TOOLS.filter((tool) => new RegExp(`\\b${tool}\\b`).test(repair)).map(
-    (tool) => `the repair calls \`${tool}\` but "${ASK_HEADING}" is only None.`,
+    (tool) =>
+      `${code}: the repair calls \`${tool}\` but "${ASK_HEADING}" is only ${NOTHING_TO_ASK}`,
   )
 }

@@ -14,11 +14,14 @@ const fileIn = (dir, fileName) =>
  * browser app never does.
  */
 export const readGuides = (dir) => {
-  const codes = readdirSync(dir)
+  const guideCodes = readdirSync(dir)
     .filter((fileName) => fileName.endsWith(GUIDE_EXTENSION))
     .map((fileName) => basename(fileName, GUIDE_EXTENSION))
     .toSorted()
   return Object.fromEntries(
-    codes.map((code) => [code, readFileSync(fileIn(dir, `${code}${GUIDE_EXTENSION}`), 'utf8')]),
+    guideCodes.map((code) => [
+      code,
+      readFileSync(fileIn(dir, `${code}${GUIDE_EXTENSION}`), 'utf8'),
+    ]),
   )
 }

@@ -2,7 +2,7 @@
 
 ## What it means
 
-A step in the file has no numeric `x` and `y` position. Commands never set positions, and the server lays steps out again on every save, so this comes from a saved file that was changed outside AI Enabler.
+A step in the file has no numeric `x` and `y` position. Commands give a new step the origin position and take no position argument, and the server lays steps out again on every save, so this comes from a saved file that was changed outside AI Enabler.
 
 ## Repair with the tools
 

@@ -1,22 +1,33 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { readGuides } from './readGuides.js'
 
-const folders = []
+// The real file system, except that a test can make one readdirSync call list names in a set order.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, readdirSync: vi.fn(actual.readdirSync) }
+})
 
+// A folder that holds `files` ({ name: text }) and is removed when the test ends.
 const makeFolder = (files) => {
   const folder = mkdtempSync(join(tmpdir(), 'guides-'))
-  folders.push(folder)
+  onTestFinished(() => rmSync(folder, { recursive: true, force: true }))
   Object.entries(files).forEach(([name, text]) => writeFileSync(join(folder, name), text))
   return folder
 }
 
-afterEach(() => {
-  folders.splice(0).forEach((folder) => rmSync(folder, { recursive: true, force: true }))
-})
+// Every module a source text imports: `from 'x'`, a bare `import 'x'`, `import('x')` and
+// `require('x')`, with either quote style.
+const importedModules = (source) => [
+  ...new Set(
+    [...source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])([^'"]+)\1/g)].map(
+      (match) => match[2],
+    ),
+  ),
+]
 
 describe('readGuides', () => {
   it('returns the text of each .md file under its code', () => {
@@ -31,17 +42,17 @@ describe('readGuides', () => {
     expect(Object.keys(readGuides(folder))).toEqual(['CONN_LOOP'])
   })
 
-  it('lists the codes in the same sorted order on every read, whatever order the files were written in', () => {
+  it('returns the codes sorted, whatever order the folder lists its files in', () => {
     const folder = makeFolder({
       'STEP_B.md': 'b',
       'CONN_A.md': 'a',
       'FILE_C.md': 'c',
       'CONN_B.md': 'd',
     })
-    const sorted = ['CONN_A', 'CONN_B', 'FILE_C', 'STEP_B']
+    // Some file systems list names sorted already, so force an unsorted listing.
+    vi.mocked(readdirSync).mockReturnValueOnce(['STEP_B.md', 'CONN_A.md', 'FILE_C.md', 'CONN_B.md'])
 
-    expect(Object.keys(readGuides(folder))).toEqual(sorted)
-    expect(Object.keys(readGuides(folder))).toEqual(sorted)
+    expect(Object.keys(readGuides(folder))).toEqual(['CONN_A', 'CONN_B', 'FILE_C', 'STEP_B'])
   })
 
   it('reads a folder given as a URL', () => {
@@ -52,8 +63,25 @@ describe('readGuides', () => {
 
   it('imports only node:fs and node:path', () => {
     const source = readFileSync(new URL('./readGuides.js', import.meta.url), 'utf8')
-    const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map((match) => match[1])
 
-    expect(specifiers.toSorted()).toEqual(['node:fs', 'node:path'])
+    expect(importedModules(source).toSorted()).toEqual(['node:fs', 'node:path'])
+  })
+
+  it('sees an import in any form', () => {
+    const source = [
+      "import { a } from 'node:fs'",
+      'import { b } from "node:path"',
+      "import 'side-effect'",
+      "const c = await import('dynamic')",
+      "const d = require('legacy')",
+    ].join('\n')
+
+    expect(importedModules(source).toSorted()).toEqual([
+      'dynamic',
+      'legacy',
+      'node:fs',
+      'node:path',
+      'side-effect',
+    ])
   })
 })

@@ -2,7 +2,7 @@
 
 ## What it means
 
-A step in the file has a `type` other than `step`, the only type this version supports. Commands never set a type, so this comes from a saved file that was changed outside AI Enabler.
+A step in the file has a `type` other than `step`, the only type this version supports. Commands only ever set that type, so this comes from a saved file that was changed outside AI Enabler.
 
 ## Repair with the tools
 

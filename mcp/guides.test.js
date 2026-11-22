@@ -13,7 +13,7 @@ import { TOOLS } from './tools.js'
 // The real guides, read the way the server reads them. This test lives in mcp/ because it needs
 // the real tool list and src/ does not import from mcp/.
 const GUIDES = readGuides(new URL('../src/flow/diagnostics/guides/', import.meta.url))
-const CODES = Object.keys(GUIDES)
+const GUIDE_CODES = Object.keys(GUIDES)
 
 const TOOL_NAMES = TOOLS.map(({ name }) => name)
 
@@ -40,17 +40,21 @@ describe('the repair guides name only real things', () => {
     expect(NAMES.codes).toContain('CONN_LOOP')
   })
 
-  it.each(CODES)('%s names only tools, fields, gates and codes the server has', (code) => {
-    expect(unknownNames(GUIDES[code], NAMES)).toEqual([])
+  it.each(GUIDE_CODES)('%s names only tools, fields, gates and codes the server has', (code) => {
+    expect(unknownNames(code, GUIDES[code], NAMES)).toEqual([])
   })
 })
 
 describe('the repair guides ask before removing', () => {
+  it('is exactly the tools that remove or drop work', () => {
+    expect(DESTRUCTIVE_TOOLS).toEqual(['remove_step', 'disconnect', 'discard_changes'])
+  })
+
   it.each(DESTRUCTIVE_TOOLS)('%s is a real tool', (tool) => {
     expect(TOOL_NAMES).toContain(tool)
   })
 
-  it.each(CODES)('%s asks the user first when its repair removes or drops work', (code) => {
-    expect(unaskedDestructive(GUIDES[code])).toEqual([])
+  it.each(GUIDE_CODES)('%s asks the user first when its repair removes or drops work', (code) => {
+    expect(unaskedDestructive(code, GUIDES[code])).toEqual([])
   })
 })
