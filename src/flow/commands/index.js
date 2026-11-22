@@ -11,8 +11,9 @@ import { STEP_COMMANDS } from './steps.js'
 // that builds the summary (applyCommand calls it only once the candidate is valid, so it never
 // sees unchecked values) and the command's own problems, which are reported with the candidate's.
 // It never mutates its input and never validates: applyCommand validates the candidate. Names are
-// the MCP tool names. A command works on the open project unless `needsProject` is false, and
-// `replacesProject` marks one that starts a new project in place of the open one.
+// the MCP tool names, except for `uiOnly` commands: those serve the app alone and are not tools.
+// A command works on the open project unless `needsProject` is false, and `replacesProject` marks
+// one that starts a new project in place of the open one.
 export const COMMANDS = {
   create_project: {
     args: ['name'],
@@ -29,9 +30,13 @@ export const COMMANDS = {
 
 const COMMAND_NAMES = Object.keys(COMMANDS)
 
-const unknownCommand = (name) =>
+/**
+ * The CMD_UNKNOWN problem for `name`. The message lists `offeredNames` as the commands on offer:
+ * every command by default, or the ones a caller allows.
+ */
+export const unknownCommand = (name, offeredNames = COMMAND_NAMES) =>
   problem('CMD_UNKNOWN', {
-    params: { command: nameLabel(name), commands: COMMAND_NAMES.join(', ') },
+    params: { command: nameLabel(name), commands: offeredNames.join(', ') },
     untrusted: { command: name },
   })
 
@@ -70,6 +75,14 @@ export const replacesProject = (command) =>
   Object.hasOwn(COMMANDS, command.name) &&
   COMMANDS[command.name].replacesProject === true
 
+// The commands a canvas edit may hold: all but the ones that replace the project (the app replaces
+// a project through import, not an edit).
+export const EDIT_COMMAND_NAMES = COMMAND_NAMES.filter((name) => !replacesProject({ name }))
+
+// Whether a `[name, command]` entry of COMMANDS is an MCP tool: the ones flagged `uiOnly` serve the
+// app alone.
+export const isToolEntry = ([, command]) => !command.uiOnly
+
 /**
  * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
  * @param {string} name The command name; shown cut short and never as part of the problems.
@@ -87,14 +100,21 @@ export const rejectCommand = (name, problems) => ({
  * `project` object it was given, so nothing changes.
  * @param {object|null} project
  * @param {{ name: string, args?: object }} command
- * @param {{ newId: () => string }} context newId is injected so ids are deterministic in tests.
+ * @param {{ newId: () => string, commandNames?: string[] }} context newId is injected so ids are
+ *   deterministic in tests. `commandNames` limits the commands a caller allows: any other name is
+ *   rejected as unknown, and the problem lists these names.
  * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, created?: string }}
  */
 export const applyCommand = (project, command, context) => {
   const { name, args = {} } = command ?? {}
   const reject = (problems) => ({ ...rejectCommand(name, problems), project })
-  if (typeof name !== 'string' || !Object.hasOwn(COMMANDS, name)) {
-    return reject([unknownCommand(name)])
+  const allowed = context?.commandNames
+  if (
+    typeof name !== 'string' ||
+    !Object.hasOwn(COMMANDS, name) ||
+    (allowed && !allowed.includes(name))
+  ) {
+    return reject([unknownCommand(name, allowed)])
   }
   const entry = COMMANDS[name]
   if (entry.needsProject !== false && !isObject(project)) {
@@ -113,5 +133,36 @@ export const applyCommand = (project, command, context) => {
     problems: [],
     summary: change.summary(),
     ...(change.created === undefined ? {} : { created: change.created }),
+  }
+}
+
+/**
+ * Applies a list of commands as one edit: all of them, or none. The first rejected command stops
+ * the edit; the result is then that command's rejection with the original `project` (later
+ * commands would run against a state that will not exist, so their problems would mislead). An
+ * empty list is accepted and changes nothing.
+ * @param {object|null} project
+ * @param {{ name: string, args?: object }[]} commands
+ * @param {{ newId: () => string, commandNames?: string[] }} context See applyCommand.
+ * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, changed: boolean }}
+ *   `summary` joins the summaries of the applied commands with "; ", or is the rejected command's.
+ */
+export const applyCommands = (project, commands, context) => {
+  const outcome = commands.reduce(
+    (state, command) => {
+      if (state.rejected) return state
+      const result = applyCommand(state.project, command, context)
+      if (!result.ok) return { ...state, rejected: result }
+      return { project: result.project, summaries: [...state.summaries, result.summary] }
+    },
+    { project, summaries: [], rejected: null },
+  )
+  if (outcome.rejected) return { ...outcome.rejected, project, changed: false }
+  return {
+    ok: true,
+    project: outcome.project,
+    problems: [],
+    summary: outcome.summaries.join('; '),
+    changed: commands.length > 0,
   }
 }

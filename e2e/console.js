@@ -34,3 +34,9 @@ export const waitForRecords = async (page, messages, count) => {
   await flushConsole(page)
   return recordsIn(messages)
 }
+
+// Asserts that none of `words` appears in the text of `records`, naming the word that does.
+export const expectNoneOf = (records, words) => {
+  const text = JSON.stringify(records)
+  for (const word of words) expect(text, word).not.toContain(word)
+}

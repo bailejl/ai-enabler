@@ -13,6 +13,7 @@
 - Prettier: 2-space, single quotes, no semicolons, trailing commas, 100-char width.
 - Linter: oxlint (fast, day-to-day); ESLint flat config as the deep pass.
 - React: function components and hooks only. Keep value stream logic in plain functions under `src/flow/` so it is unit tested without rendering.
+- React UI edits go through `src/flow/commands`; app-only commands are flagged `uiOnly` and are not MCP tools.
 - Unit tests: Vitest, colocated as `src/**/*.test.{js,jsx}`, `scripts/**/*.test.js` and `mcp/**/*.test.js`. E2E: Playwright in `e2e/` (starts the dev server itself).
 - Prototyping: `/prototype` (`.claude/skills/prototype`) skips tests and review on `proto/*` branches only. Both push guards, `proto-push-guard` (git pre-push) and `claude-push-guard` (Claude Code PreToolUse), keep proto branches local. See Prototype path.
 - `scripts/` holds Node tooling: a pure module plus a thin `*-cli.js` wrapper, colocated `scripts/**/*.test.js`. CLIs are excluded from coverage and mutation. No imports from `src/`.

@@ -22,6 +22,7 @@
   --edge-width: 2px;
   --dialog-padding: 1rem;
   --status-padding: 0.5rem 1rem;
+  --problems-list-max-height: 5rem;
 }
 
 html,
@@ -39,10 +40,11 @@ body,
 .shell {
   display: grid;
   grid-template-columns: var(--menu-width) minmax(0, 1fr);
-  grid-template-rows: var(--header-height) auto auto minmax(0, 1fr);
+  grid-template-rows: var(--header-height) auto auto auto minmax(0, 1fr);
   grid-template-areas:
     'header header'
     'status status'
+    'edits edits'
     'menu metrics'
     'menu canvas';
   height: 100%;
@@ -151,6 +153,14 @@ body,
 
 .import-status {
   grid-area: status;
+}
+
+.edit-status {
+  grid-area: edits;
+}
+
+.import-status,
+.problems-panel {
   display: flex;
   align-items: center;
   gap: var(--header-gap);
@@ -159,37 +169,45 @@ body,
   color: var(--tile-text);
 }
 
-.import-status--error {
+.problems-panel {
   background: var(--status-needs-attention-background);
 }
 
 .import-status__text,
-.import-status__heading,
-.import-status__more {
+.problems-panel__heading,
+.problems-panel__more {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.import-status__body {
+.problems-panel__body {
   flex: 1;
   min-width: 0;
 }
 
-.import-status__heading {
+.problems-panel__heading {
   font-size: inherit;
 }
 
 /* Focus moves here by script after a rejection, which :focus-visible may not match. */
-.import-status__heading:focus {
+.problems-panel__heading:focus {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
 
-.import-status__list {
+.problems-panel__list {
   margin: 0;
   padding-left: 1.25rem;
   overflow-wrap: anywhere;
+  /* Its own scroll, so two shown panels leave the canvas controls on screen. */
+  max-height: var(--problems-list-max-height);
+  overflow-y: auto;
+}
+
+/* The "Fix:" label is text, so the line reads the same without colour. */
+.problems-panel__fix {
+  display: block;
 }
 
 .menu {
@@ -280,10 +298,14 @@ body,
 @media (max-width: 639px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--header-height) auto auto auto minmax(var(--canvas-min-height), 1fr);
+    grid-template-rows: var(--header-height) auto auto auto auto minmax(
+        var(--canvas-min-height),
+        1fr
+      );
     grid-template-areas:
       'header'
       'status'
+      'edits'
       'menu'
       'metrics'
       'canvas';

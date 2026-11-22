@@ -51,6 +51,9 @@ export const settledBox = async (locator) => {
   return locator.boundingBox()
 }
 
+// How the pointer travels in a drag: a few moves, so React Flow sees a drag rather than a jump.
+const POINTER_MOVE_STEPS = 5
+
 const centerOf = ({ x, y, width, height }) => ({ x: x + width / 2, y: y + height / 2 })
 
 // A point on the pane below the lowest card, midway to the pane's bottom edge.
@@ -69,10 +72,66 @@ export const dragHandleOverEmptyCanvas = async (page, handle) => {
   const target = await emptyPointBelowCards(page)
   await page.mouse.move(x, y)
   await page.mouse.down()
-  await page.mouse.move(target.x, target.y, { steps: 5 })
+  await page.mouse.move(target.x, target.y, { steps: POINTER_MOVE_STEPS })
 }
 
 export const dragHandleToEmptyCanvas = async (page, handle) => {
   await dragHandleOverEmptyCanvas(page, handle)
   await page.mouse.up()
 }
+
+// The viewport's scale: how many screen pixels one unit of a step's position takes.
+export const viewportZoom = (page) =>
+  page.evaluate(() => {
+    const { a } = new DOMMatrixReadOnly(
+      getComputedStyle(document.querySelector('.react-flow__viewport')).transform,
+    )
+    return a
+  })
+
+// React Flow starts a drag at the first pointer move, so that move's distance is not carried.
+const DRAG_START_PX = 3
+
+// Presses on a point, makes the move that starts the drag, then moves by `offset` pixels in steps
+// and drops, so the step ends up `offset` pixels from where it started.
+const dragFrom = async (page, point, offset) => {
+  const start = { x: point.x + DRAG_START_PX, y: point.y + DRAG_START_PX }
+  await page.mouse.move(point.x, point.y)
+  await page.mouse.down()
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.move(start.x + offset.x, start.y + offset.y, { steps: POINTER_MOVE_STEPS })
+  await page.mouse.up()
+}
+
+// Drags a step's card by `offset` screen pixels and drops it.
+export const dragStep = async (page, title, offset) =>
+  dragFrom(page, centerOf(await settledBox(cardByTitle(page, title))), offset)
+
+// How far the selection box starts outside the first card and ends past the last one.
+const BOX_SELECT_SIDE_MARGIN_PX = 4
+const BOX_SELECT_VERTICAL_MARGIN_PX = 20
+
+// Selects the steps `from` to `to` (left to right, one row) with a box drawn from the empty pane
+// above the first card to below the last, and waits for both ends to show as selected.
+export const boxSelect = async (page, from, to) => {
+  const first = await settledBox(cardByTitle(page, from))
+  const last = await settledBox(cardByTitle(page, to))
+  await page.keyboard.down('Shift')
+  await page.mouse.move(
+    first.x - BOX_SELECT_SIDE_MARGIN_PX,
+    first.y - BOX_SELECT_VERTICAL_MARGIN_PX,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    last.x + last.width + BOX_SELECT_SIDE_MARGIN_PX,
+    last.y + last.height + BOX_SELECT_VERTICAL_MARGIN_PX,
+    { steps: POINTER_MOVE_STEPS },
+  )
+  await page.mouse.up()
+  await page.keyboard.up('Shift')
+  await expect(cardByTitle(page, from)).toHaveClass(/selected/)
+  await expect(cardByTitle(page, to)).toHaveClass(/selected/)
+}
+
+// Presses an arrow key; React Flow moves the selected step that has focus.
+export const pressArrow = (page, key) => page.keyboard.press(key)

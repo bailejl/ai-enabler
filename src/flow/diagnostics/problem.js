@@ -15,7 +15,7 @@ const fillTemplate = (template, params) =>
 
 // The only keys a caller may put on a problem besides `params`. code, severity, message and fix
 // always come from the catalog.
-const DETAIL_KEYS = Object.freeze(['stepId', 'edgeId', 'field', 'untrusted'])
+export const DETAIL_KEYS = Object.freeze(['stepId', 'edgeId', 'field', 'untrusted'])
 
 /**
  * Builds a problem from the catalog. `details.params` fills the message template; the rest of

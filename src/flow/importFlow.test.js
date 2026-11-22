@@ -5,7 +5,6 @@ import {
   IMPORT_EVENT,
   INITIAL_IMPORT_STATE,
   describeImportStatus,
-  fromProjectFile,
   reduceImport,
 } from './importFlow.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
@@ -110,7 +109,8 @@ describe('reduceImport outcomes', () => {
 
     expect(replacement).toEqual({
       project: { id: 'open-id', name: 'Untitled Project' },
-      ...fromProjectFile(sameNameFile),
+      nodes: sameNameFile.nodes,
+      edges: sameNameFile.edges,
     })
     expect(announcement).toBe('Imported Untitled Project, 2 steps')
     expect(state).toEqual({ type: 'idle', status: 'Imported Untitled Project, 2 steps' })
@@ -249,7 +249,8 @@ describe('reduceImport with an edited file', () => {
     const { replacement } = reduceAll([parsed(file, true), { type: IMPORT_EVENT.confirm }])
     expect(replacement).toEqual({
       project: { id: 'open-id', name: 'Untitled Project' },
-      ...fromProjectFile(file),
+      nodes: file.nodes,
+      edges: file.edges,
     })
   })
 
@@ -327,7 +328,8 @@ describe('reduceImport with a file changed by an AI tool', () => {
     ])
     expect(replacement).toEqual({
       project: { id: 'open-id', name: 'Untitled Project' },
-      ...fromProjectFile(file),
+      nodes: file.nodes,
+      edges: file.edges,
     })
   })
 
@@ -365,8 +367,8 @@ describe('reduceImport with a file changed by an AI tool', () => {
   })
 })
 
-describe('fromProjectFile', () => {
-  it('keeps only allowlisted node and edge fields', () => {
+describe('the replacement of a confirmed import', () => {
+  it('is an in-memory project with only the allowlisted node and edge fields', () => {
     const file = projectFile({ id: 'p', name: 'P' }, [
       {
         id: 'a',
@@ -381,41 +383,20 @@ describe('fromProjectFile', () => {
     ])
     file.edges = [{ id: 'e', source: 'a', target: 'a', animated: true, style: { stroke: 'red' } }]
 
-    expect(fromProjectFile(file)).toEqual({
+    const { replacement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
+
+    expect(replacement).toEqual({
+      project: { id: 'p', name: 'P' },
       nodes: [
         {
           id: 'a',
           type: 'step',
           position: { x: 1, y: 2 },
           data: { label: 'Plan', pt: 5, lt: 9, ca: 80, queue: 2, batch: 3 },
-          ariaLabel: 'Plan',
         },
       ],
       edges: [{ id: 'e', source: 'a', target: 'a' }],
     })
-  })
-
-  it('names an imported step with a blank label by its 1-based position', () => {
-    const file = projectFile({ id: 'p', name: 'P' }, [
-      { id: 'a', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
-      { id: 'b', position: { x: 1, y: 0 }, data: { label: '  ' } },
-    ])
-    expect(fromProjectFile(file).nodes.map((node) => node.ariaLabel)).toEqual(['Plan', 'Step #2'])
-  })
-
-  it('defaults an absent node type to step and leaves absent optional fields out', () => {
-    const file = projectFile({ id: 'p', name: 'P' }, [
-      { id: 'a', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
-    ])
-    expect(fromProjectFile(file).nodes).toEqual([
-      {
-        id: 'a',
-        type: 'step',
-        position: { x: 0, y: 0 },
-        data: { label: 'Plan' },
-        ariaLabel: 'Plan',
-      },
-    ])
   })
 })
 
@@ -424,44 +405,17 @@ describe('describeImportStatus', () => {
     expect(describeImportStatus(INITIAL_IMPORT_STATE)).toBeNull()
   })
 
-  const describeRejected = (count) =>
-    describeImportStatus(reduceAll([failedWith(manyProblems(count))]).state)
+  const itemOf = (message) => ({ code: 'TEST_PROBLEM', message, fix: 'Fix it.' })
 
-  it('leads one problem with the singular count and lists its message', () => {
-    expect(describeImportStatus(reduceAll([failed(NOT_JSON)]).state)).toEqual({
-      text: 'Import rejected: 1 problem',
+  it('leads the problems with the count and lists their message and fix in order', () => {
+    expect(describeImportStatus(reduceAll([failedWith(manyProblems(2))]).state)).toEqual({
       isError: true,
-      items: [NOT_JSON],
-      more: null,
+      view: {
+        heading: 'Import rejected: 2 problems',
+        items: [itemOf('Problem 1.'), itemOf('Problem 2.')],
+        more: null,
+      },
     })
-  })
-
-  it('leads several problems with the plural count and lists them in order', () => {
-    expect(describeRejected(2)).toEqual({
-      text: 'Import rejected: 2 problems',
-      isError: true,
-      items: ['Problem 1.', 'Problem 2.'],
-      more: null,
-    })
-  })
-
-  it('lists exactly 10 problems with no "more" line', () => {
-    const status = describeRejected(10)
-    expect(status.items).toHaveLength(10)
-    expect(status.more).toBeNull()
-  })
-
-  it('lists the first 10 of 11 problems and says "and 1 more"', () => {
-    const status = describeRejected(11)
-    expect(status.items).toHaveLength(10)
-    expect(status.more).toBe('and 1 more')
-  })
-
-  it('lists the first 10 of 14 problems and says "and 4 more"', () => {
-    const status = describeRejected(14)
-    expect(status.text).toBe('Import rejected: 14 problems')
-    expect(status.items).toEqual(manyProblems(10).map(({ message }) => message))
-    expect(status.more).toBe('and 4 more')
   })
 
   it('announces the full count but only the first of many problems', () => {
