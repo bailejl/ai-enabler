@@ -10,15 +10,14 @@ import {
   orphanGuides,
   shapeProblems,
 } from './guideChecks.js'
-import { readGuides } from './readGuides.js'
+import { GUIDES_FOLDER, readGuides } from './readGuides.js'
 import { CATALOG_CODES } from './problem.js'
 
 // The real guides, read the way the server reads them.
-const GUIDES = readGuides(new URL('./guides/', import.meta.url))
+const GUIDES = readGuides(GUIDES_FOLDER)
 const GUIDE_CODES = Object.keys(GUIDES)
 
-// These codes have no tool repair, so their guides say so and tell the user what to do. The three
-// APP_ codes join this list when their guides land.
+// These codes have no tool repair, so their guides say so and tell the user what to do.
 const NO_TOOL_CODES = [
   'FILE_NOT_JSON',
   'FILE_NOT_A_PROJECT',

@@ -3,7 +3,10 @@ import { basename, join } from 'node:path'
 
 const GUIDE_EXTENSION = '.md'
 
-// A URL folder needs its trailing slash, as `new URL('../guides/', import.meta.url)` has.
+/** The folder that holds one repair guide per catalog code. */
+export const GUIDES_FOLDER = new URL('./guides/', import.meta.url)
+
+// A URL folder needs its trailing slash, as `GUIDES_FOLDER` has.
 const fileIn = (dir, fileName) =>
   dir instanceof URL ? new URL(fileName, dir) : join(dir, fileName)
 

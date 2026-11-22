@@ -612,17 +612,6 @@ describe('get_repair_guide', () => {
       expect(found.fix).toBe('Call get_repair_guide with the code of a problem from a tool result.')
     })
 
-    it('keeps the value out of fix, field, stepId and edgeId', async () => {
-      const { call } = makeHost({}, GUIDES)
-      const [found] = (await call('get_repair_guide', args)).content.problems
-      const value = args.code
-      // A missing or empty value is contained in every text, so only a non-empty string can be checked.
-      if (typeof value !== 'string' || value === '') return
-      for (const key of ['fix', 'field', 'stepId', 'edgeId']) {
-        expect(found[key] ?? '', key).not.toContain(value)
-      }
-    })
-
     it('keeps the value as sent in untrusted, and no untrusted when none was sent', async () => {
       const { call } = makeHost({}, GUIDES)
       const [found] = (await call('get_repair_guide', args)).content.problems
@@ -630,6 +619,22 @@ describe('get_repair_guide', () => {
       expect(found.untrusted).toEqual(untrusted)
     })
   })
+
+  // A missing or empty value is contained in every text, so only a non-empty string can be looked for.
+  const NOT_A_CODE_TEXTS = NOT_A_CODE.filter(
+    ([, args]) => typeof args.code === 'string' && args.code !== '',
+  )
+
+  it.each(NOT_A_CODE_TEXTS)(
+    'keeps a code that is %s out of fix, field, stepId and edgeId',
+    async (_label, args) => {
+      const { call } = makeHost({}, GUIDES)
+      const [found] = (await call('get_repair_guide', args)).content.problems
+      for (const key of ['fix', 'field', 'stepId', 'edgeId']) {
+        expect(found[key] ?? '', key).not.toContain(args.code)
+      }
+    },
+  )
 
   it('refuses an extra argument with only CMD_ARGUMENT_UNKNOWN, before the code is checked', async () => {
     const { call } = makeHost({}, GUIDES)

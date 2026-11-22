@@ -13,7 +13,7 @@ Supported schema major: 0 (`schemaVersion` 0.x). Never read a project file direc
 
 1. Open the project with `open_project` and check its `schemaVersion` as above, or start one with `create_project`.
 2. Make one small change at a time: one tool call, then read its result.
-3. Before repairing a problem, call `get_repair_guide` with its `code` and follow the guide. When its "Ask the user first" section applies, ask the user before acting.
+3. If the result has problems, repair them before the next change. A rejected call changed nothing. Before repairing a problem, call `get_repair_guide` with its `code` and follow the guide. When its "Ask the user first" section applies, ask the user before acting.
 4. Run `list_problems` when the user wants a check. For a review that reports without editing, use the aie-review skill.
 5. Nothing reaches disk until `save_project`. Use `discard_changes` to undo unsaved work.
 

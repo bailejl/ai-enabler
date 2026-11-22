@@ -7,10 +7,10 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { CATALOG_CODES } from '../src/flow/diagnostics/problem.js'
+import { GUIDES_FOLDER } from '../src/flow/diagnostics/readGuides.js'
 import { TOOLS } from './tools.js'
 
 const BUNDLE = fileURLToPath(new URL('../plugin/server/aie-mcp.js', import.meta.url))
-const GUIDES_FOLDER = new URL('../src/flow/diagnostics/guides/', import.meta.url)
 
 // Each test spawns a Node child over stdio, so it gets more than vitest's 5s default.
 const SPAWN_TIMEOUT_MS = 20_000

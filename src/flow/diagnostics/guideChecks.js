@@ -8,7 +8,9 @@ export const NO_TOOL_MARKER = 'No tool repairs this.'
 
 const MEANING_HEADING = '## What it means'
 const REPAIR_HEADING = '## Repair with the tools'
-const ASK_HEADING = '## Ask the user first'
+/** The title of the section that says what to ask the user; the skills name it too. */
+export const ASK_TITLE = 'Ask the user first'
+const ASK_HEADING = `## ${ASK_TITLE}`
 const SECTION_HEADINGS = [MEANING_HEADING, REPAIR_HEADING, ASK_HEADING]
 
 // What the "Ask the user first" section holds when there is nothing to ask.
@@ -31,7 +33,7 @@ const USER_ADDRESS = 'Tell the user'
 
 const NUMBERED_STEP = '1. '
 
-/** The tools that remove or drop work, so a guide that calls one must not answer None. when asking. */
+/** The tools that remove or drop work. A guide that calls one must not answer "None." under "Ask the user first". */
 export const DESTRUCTIVE_TOOLS = Object.freeze(['remove_step', 'disconnect', 'discard_changes'])
 
 // A backticked span is checked by its whole content, and only when it has one of these shapes:
@@ -160,7 +162,7 @@ const BACKTICKED_SPAN = /`([^`\n]+)`/g
  * `tools`, `properties` (argument, detail and project-file field names), `gates` and `codes`
  * (catalog keys).
  */
-export const unknownNames = (code, text, names) =>
+export const unknownNameProblems = (code, text, names) =>
   [...text.matchAll(BACKTICKED_SPAN)].flatMap(([, span]) => {
     const nameClass = NAME_CLASSES.find(({ shape }) => shape.test(span))
     return nameClass && !names[nameClass.list].includes(span)
@@ -177,7 +179,7 @@ const isOnlyNothingToAsk = (lines) => {
  * The destructive tools a guide's repair calls when "Ask the user first" is only `None.`:
  * removing or dropping work needs a question for the user.
  */
-export const unaskedDestructive = (code, text) => {
+export const unaskedDestructiveProblems = (code, text) => {
   const found = findSections(text)
   const repair = sectionNamed(found, REPAIR_HEADING).body.join('\n')
   const ask = sectionNamed(found, ASK_HEADING).body

@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { GUIDES_FOLDER } from '../src/flow/diagnostics/readGuides.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
 
 const SERVER = fileURLToPath(new URL('./server.js', import.meta.url))
-const GUIDES_FOLDER = new URL('../src/flow/diagnostics/guides/', import.meta.url)
 
 const TOOL_NAMES = [
   'create_project',

@@ -2,17 +2,16 @@ import { describe, expect, it } from 'vitest'
 import schema from '../public/schema/project-0.1.0.json' with { type: 'json' }
 import {
   DESTRUCTIVE_TOOLS,
-  unaskedDestructive,
-  unknownNames,
+  unaskedDestructiveProblems,
+  unknownNameProblems,
 } from '../src/flow/diagnostics/guideChecks.js'
 import { CATALOG_CODES, DETAIL_KEYS } from '../src/flow/diagnostics/problem.js'
-import { readGuides } from '../src/flow/diagnostics/readGuides.js'
 import { GATES } from '../src/flow/gates/index.js'
+import { GUIDES } from './guideSource.js'
 import { TOOLS } from './tools.js'
 
-// The real guides, read the way the server reads them. This test lives in mcp/ because it needs
-// the real tool list and src/ does not import from mcp/.
-const GUIDES = readGuides(new URL('../src/flow/diagnostics/guides/', import.meta.url))
+// The real guides, from the module the server uses. This test lives in mcp/ because it needs the
+// real tool list and src/ does not import from mcp/.
 const GUIDE_CODES = Object.keys(GUIDES)
 
 const TOOL_NAMES = TOOLS.map(({ name }) => name)
@@ -40,8 +39,12 @@ describe('the repair guides name only real things', () => {
     expect(NAMES.codes).toContain('CONN_LOOP')
   })
 
+  it('has a guide to check for every catalog code', () => {
+    expect(GUIDE_CODES).toEqual(CATALOG_CODES.toSorted())
+  })
+
   it.each(GUIDE_CODES)('%s names only tools, fields, gates and codes the server has', (code) => {
-    expect(unknownNames(code, GUIDES[code], NAMES)).toEqual([])
+    expect(unknownNameProblems(code, GUIDES[code], NAMES)).toEqual([])
   })
 })
 
@@ -55,6 +58,6 @@ describe('the repair guides ask before removing', () => {
   })
 
   it.each(GUIDE_CODES)('%s asks the user first when its repair removes or drops work', (code) => {
-    expect(unaskedDestructive(code, GUIDES[code])).toEqual([])
+    expect(unaskedDestructiveProblems(code, GUIDES[code])).toEqual([])
   })
 })

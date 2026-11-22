@@ -5,8 +5,8 @@ import {
   noToolProblems,
   orphanGuides,
   shapeProblems,
-  unaskedDestructive,
-  unknownNames,
+  unaskedDestructiveProblems,
+  unknownNameProblems,
 } from './guideChecks.js'
 
 const CODE = 'CONN_LOOP'
@@ -270,14 +270,14 @@ describe('noToolProblems', () => {
   })
 })
 
-describe('unknownNames', () => {
+describe('unknownNameProblems', () => {
   const NAMES = {
     tools: ['get_project', 'set_step_metrics'],
     properties: ['stepId', 'edgeId'],
     gates: ['data-complete'],
     codes: ['CONN_LOOP'],
   }
-  const check = (text) => unknownNames(CODE, text, NAMES)
+  const check = (text) => unknownNameProblems(CODE, text, NAMES)
 
   it('passes spans that name a real tool, property, gate and code', () => {
     const text = 'Call `get_project` with `stepId` for gate `data-complete` after `CONN_LOOP`.'
@@ -314,7 +314,7 @@ describe('unknownNames', () => {
   })
 
   it('checks a snake_case span against the tools only, even when a property list has it', () => {
-    const problems = unknownNames(CODE, 'Call `set_step_metrics`.', {
+    const problems = unknownNameProblems(CODE, 'Call `set_step_metrics`.', {
       ...NAMES,
       tools: [],
       properties: ['set_step_metrics'],
@@ -325,7 +325,7 @@ describe('unknownNames', () => {
   })
 
   it('checks a camelCase span against the properties only, even when a tool list has it', () => {
-    const problems = unknownNames(CODE, 'Pass `stepId`.', {
+    const problems = unknownNameProblems(CODE, 'Pass `stepId`.', {
       ...NAMES,
       tools: ['stepId'],
       properties: [],
@@ -344,16 +344,18 @@ describe('unknownNames', () => {
   })
 
   it('treats a code made of letters, digits and underscores as a code', () => {
-    expect(unknownNames(CODE, '`APP_FAIL_2`', { ...NAMES, codes: ['APP_FAIL_2'] })).toEqual([])
-    expect(unknownNames(CODE, '`APP_FAIL_2`', NAMES)).toHaveLength(1)
+    expect(unknownNameProblems(CODE, '`APP_FAIL_2`', { ...NAMES, codes: ['APP_FAIL_2'] })).toEqual(
+      [],
+    )
+    expect(unknownNameProblems(CODE, '`APP_FAIL_2`', NAMES)).toHaveLength(1)
   })
 })
 
-describe('unaskedDestructive', () => {
+describe('unaskedDestructiveProblems', () => {
   it.each(['remove_step', 'disconnect', 'discard_changes'])(
     'fails a repair that calls `%s` when "Ask the user first" is only None.',
     (tool) => {
-      const problems = unaskedDestructive(
+      const problems = unaskedDestructiveProblems(
         CODE,
         guide({ repair: `1. Call \`${tool}\`.`, ask: 'None.' }),
       )
@@ -366,44 +368,47 @@ describe('unaskedDestructive', () => {
 
   it('fails when None. has blank lines or spaces around it', () => {
     expect(
-      unaskedDestructive(CODE, guide({ repair: '1. Call `disconnect`.', ask: '  None.  ' })),
+      unaskedDestructiveProblems(
+        CODE,
+        guide({ repair: '1. Call `disconnect`.', ask: '  None.  ' }),
+      ),
     ).toHaveLength(1)
   })
 
   it('passes a destructive repair with a question for the user', () => {
     const text = guide({ repair: '1. Call `disconnect`.', ask: 'Which connection to remove?' })
 
-    expect(unaskedDestructive(CODE, text)).toEqual([])
+    expect(unaskedDestructiveProblems(CODE, text)).toEqual([])
   })
 
   it('passes a destructive repair when None. is followed by more text', () => {
     const text = guide({ repair: '1. Call `disconnect`.', ask: 'None.\n\nWhich one?' })
 
-    expect(unaskedDestructive(CODE, text)).toEqual([])
+    expect(unaskedDestructiveProblems(CODE, text)).toEqual([])
   })
 
   it('passes a repair that removes nothing, with None.', () => {
     expect(
-      unaskedDestructive(CODE, guide({ repair: '1. Call `get_project`.', ask: 'None.' })),
+      unaskedDestructiveProblems(CODE, guide({ repair: '1. Call `get_project`.', ask: 'None.' })),
     ).toEqual([])
   })
 
   it('passes when the destructive name is only in another section', () => {
     expect(
-      unaskedDestructive(CODE, guide({ meaning: 'A `disconnect` call.', ask: 'None.' })),
+      unaskedDestructiveProblems(CODE, guide({ meaning: 'A `disconnect` call.', ask: 'None.' })),
     ).toEqual([])
   })
 
   it('does not match a longer word that contains the name', () => {
     expect(
-      unaskedDestructive(CODE, guide({ repair: '1. It disconnected.', ask: 'None.' })),
+      unaskedDestructiveProblems(CODE, guide({ repair: '1. It disconnected.', ask: 'None.' })),
     ).toEqual([])
   })
 
   it('names each destructive tool the repair calls', () => {
     const repair = '1. Call `disconnect`.\n2. Then `remove_step`.'
 
-    expect(unaskedDestructive(CODE, guide({ repair, ask: 'None.' })).join('\n')).toMatch(
+    expect(unaskedDestructiveProblems(CODE, guide({ repair, ask: 'None.' })).join('\n')).toMatch(
       /disconnect[\s\S]*remove_step|remove_step[\s\S]*disconnect/,
     )
   })
