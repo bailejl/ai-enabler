@@ -1090,7 +1090,7 @@ graph TD
 #### Wave 6
 
 - [ ] Slice 9: Plugin and skills
-  - [ ] Step 9.1: Bundle the server and check it in CI
+  - [x] Step 9.1: Bundle the server and check it in CI
   - [ ] Step 9.2: Manifests and skills
 
 ## Plan Review Summary
