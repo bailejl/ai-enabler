@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
+import { APP_RENDER_FAILED } from './crashCodes.js'
 import { tokens, toCssCustomProperties } from './tokens.js'
 
-const CRASH_CODE = 'APP_RENDER_FAILED'
 const EXPLANATION =
   "The app hit an error and can't continue. Reload to start again; your unsaved map will be lost. If this keeps happening, report the code below."
 
@@ -54,7 +54,7 @@ function CrashScreen() {
         </h1>
         <p>{EXPLANATION}</p>
         <p>
-          Error code: <code>{CRASH_CODE}</code>
+          Error code: <code>{APP_RENDER_FAILED}</code>
         </p>
         <button type="button" style={styles.button} onClick={() => window.location.reload()}>
           Reload

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js'
-import { DEV_CRASH_EVENT } from '../src/shell/devCrash.js'
+import { DEV_CRASH_EVENT, DEV_CRASH_READY_ATTRIBUTE } from '../src/shell/devCrash.js'
 import { scan } from './axe.js'
 import { recordsAfter, recordsIn } from './console.js'
 import {
@@ -12,11 +12,14 @@ import {
 
 // Runs in the "chromium" project, against the dev server, where the dev crash event exists.
 
-const forceCrash = (page, kind) =>
-  page.evaluate(
+// Waits for the listener, which attaches in an effect after the first paint.
+const forceCrash = async (page, kind) => {
+  await page.locator(`html[${DEV_CRASH_READY_ATTRIBUTE}]`).waitFor({ state: 'attached' })
+  await page.evaluate(
     ([eventName, detail]) => window.dispatchEvent(new CustomEvent(eventName, { detail })),
     [DEV_CRASH_EVENT, kind],
   )
+}
 
 const errorAndWarningMessages = (messages) =>
   messages.filter(({ type }) => type === 'error' || type === 'warning')

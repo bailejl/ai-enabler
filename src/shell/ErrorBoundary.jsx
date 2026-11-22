@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import CrashScreen from './CrashScreen.jsx'
+import { APP_RENDER_FAILED } from './crashCodes.js'
 import { reportError } from './diagnostics.js'
 
 // The one class component: React has no hook for catching a render error. It holds state and
@@ -12,7 +13,7 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error) {
-    reportError('APP_RENDER_FAILED', error)
+    reportError(APP_RENDER_FAILED, error)
   }
 
   render() {

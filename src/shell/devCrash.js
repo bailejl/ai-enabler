@@ -3,6 +3,9 @@
 
 export const DEV_CRASH_EVENT = 'aie-dev-crash'
 
+// Set on <html> while the listener is attached.
+export const DEV_CRASH_READY_ATTRIBUTE = 'data-dev-crash-ready'
+
 const CRASH_KINDS = Object.freeze(['render', 'error', 'rejection'])
 
 /** The crash kind named by an event's `detail`: `render`, `error` or `rejection`, else `null`. */

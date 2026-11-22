@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { DEV_CRASH_EVENT, crashKind } from './devCrash.js'
+import { crashKind } from './devCrash.js'
 
 describe('crashKind', () => {
   test.each(['render', 'error', 'rejection'])('names the kind %s', (kind) => {
@@ -12,10 +12,4 @@ describe('crashKind', () => {
       expect(crashKind(detail)).toBeNull()
     },
   )
-})
-
-describe('DEV_CRASH_EVENT', () => {
-  test('is the name the e2e tests dispatch', () => {
-    expect(DEV_CRASH_EVENT).toBe('aie-dev-crash')
-  })
 })

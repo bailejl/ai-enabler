@@ -18,16 +18,16 @@ const PACKAGE_JSON_IMPORT_PATTERN = {
   message: 'Read the app version from src/shell/version.js, not from package.json.',
 }
 
+const TEST_FILES = ['src/**/*.test.{js,jsx}']
+
 // The only src files that may call console: the sink, the test helpers, tests and the gate
 // self-test fixtures.
 const CONSOLE_ALLOWED_FILES = [
   'src/shell/diagnostics.js',
   'src/testHelpers.js',
-  'src/**/*.test.{js,jsx}',
+  ...TEST_FILES,
   'src/flow/diagnostics/gate-selftest/*.fixture.js',
 ]
-
-const TEST_FILES = ['src/**/*.test.{js,jsx}']
 
 export default [
   js.configs.recommended,
@@ -83,8 +83,9 @@ export default [
     },
   },
   {
-    // the app never depends on the MCP server, only the diagnostics sink writes to the console, and
-    // only version.js knows where the app version comes from
+    // the app never depends on the MCP server, only the diagnostics sink, the test helpers and the
+    // gate self-test fixtures write to the console, and only version.js knows where the app version
+    // comes from
     files: ['src/**/*.{js,jsx}'],
     ignores: TEST_FILES,
     rules: {

@@ -3,8 +3,7 @@
 // while reporting is dropped, and an event raised while a report is running is not reported again,
 // so a throwing `reportError` cannot loop.
 
-const UNCAUGHT_ERROR = 'APP_UNCAUGHT_ERROR'
-const UNHANDLED_REJECTION = 'APP_UNHANDLED_REJECTION'
+import { APP_UNCAUGHT_ERROR, APP_UNHANDLED_REJECTION } from './crashCodes.js'
 
 /**
  * Listens on `target` (a window) for `error` and `unhandledrejection` events and reports each with
@@ -28,10 +27,10 @@ export const installGlobalHandlers = (target, reportError) => {
 
   target.addEventListener(
     'error',
-    handle(UNCAUGHT_ERROR, (event) => event.error),
+    handle(APP_UNCAUGHT_ERROR, (event) => event.error),
   )
   target.addEventListener(
     'unhandledrejection',
-    handle(UNHANDLED_REJECTION, (event) => event.reason),
+    handle(APP_UNHANDLED_REJECTION, (event) => event.reason),
   )
 }
