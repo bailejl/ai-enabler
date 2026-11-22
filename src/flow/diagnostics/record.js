@@ -84,3 +84,17 @@ export const toErrorRecord = (code, error, context, suppressed = 0) => ({
 
 /** The record as one line of JSON text. */
 export const serializeRecord = (record) => JSON.stringify(record)
+
+/**
+ * The record in a line of console text, or null when the text is not JSON, is not a JSON object,
+ * or has no `source` of "aie".
+ */
+export const parseRecord = (text) => {
+  try {
+    const parsed = JSON.parse(text)
+    const isObject = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+    return isObject && parsed.source === SOURCE ? parsed : null
+  } catch {
+    return null
+  }
+}

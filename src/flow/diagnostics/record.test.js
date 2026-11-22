@@ -3,7 +3,14 @@ import { applyCommand } from '../commands/index.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { STEP_DATA_FIELDS } from '../step.js'
 import { problem } from './problem.js'
-import { KNOWN_FIELDS, RECORD_KEYS, serializeRecord, toErrorRecord, toRecord } from './record.js'
+import {
+  KNOWN_FIELDS,
+  RECORD_KEYS,
+  parseRecord,
+  serializeRecord,
+  toErrorRecord,
+  toRecord,
+} from './record.js'
 
 const MARKER = 'SECRET-MARKER'
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -78,6 +85,34 @@ describe('serializeRecord', () => {
     const line = serializeRecord(record)
     expect(line).not.toMatch(/[\r\n]/)
     expect(JSON.parse(line)).toEqual(record)
+  })
+})
+
+describe('parseRecord', () => {
+  it('parses a serialised record back to the same record', () => {
+    const record = toRecord(
+      problem('FILE_PROJECT_NAME_EMPTY', { field: 'project.name' }),
+      context,
+      2,
+    )
+    expect(parseRecord(serializeRecord(record))).toEqual(record)
+  })
+
+  it('parses a serialised error record back to the same record', () => {
+    const record = toErrorRecord('APP_UNCAUGHT_ERROR', new Error('x'), context)
+    expect(parseRecord(serializeRecord(record))).toEqual(record)
+  })
+
+  it.each([
+    ['text that is not JSON', 'Warning: something broke'],
+    ['an empty line', ''],
+    ['a JSON array', '[{"source":"aie"}]'],
+    ['JSON null', 'null'],
+    ['a JSON string', '"aie"'],
+    ['foreign JSON', '{"source":"other","code":"X"}'],
+    ['JSON with no source', '{"code":"FILE_NOT_JSON"}'],
+  ])('returns null for %s', (_label, text) => {
+    expect(parseRecord(text)).toBeNull()
   })
 })
 
