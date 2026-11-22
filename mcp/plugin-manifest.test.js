@@ -87,6 +87,7 @@ const FALLBACK_SENTENCE =
   "If `get_repair_guide` fails, give the problem's `fix` and say the guide was not found."
 const STOP_SENTENCE =
   'If a guide says "No tool repairs this.", stop and tell the user what the guide says.'
+const STOP_SCOPE_SENTENCE = 'This stops only that problem; go on with the other codes.'
 
 const diagnostics = readJson('src/flow/diagnostics/catalog.json')
 
@@ -122,6 +123,7 @@ describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
     ['follows the returned guide under the skill rules', FOLLOW_GUIDE_SENTENCE],
     ['falls back to the problem fix when the guide fails', FALLBACK_SENTENCE],
     ['stops when no tool repairs the problem', STOP_SENTENCE],
+    ['goes on with the other codes after that stop', `${STOP_SENTENCE} ${STOP_SCOPE_SENTENCE}`],
   ])('%s', (_title, sentence) => {
     expect(skill.body).toContain(sentence)
   })

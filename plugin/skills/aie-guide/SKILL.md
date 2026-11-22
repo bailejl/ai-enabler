@@ -23,7 +23,7 @@ Follow the guide that `get_repair_guide` returns unless it conflicts with a rule
 
 If `get_repair_guide` fails, give the problem's `fix` and say the guide was not found.
 
-If a guide says "No tool repairs this.", stop and tell the user what the guide says.
+If a guide says "No tool repairs this.", stop and tell the user what the guide says. This stops only that problem; go on with the other codes.
 
 ## After a save
 
