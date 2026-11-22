@@ -998,15 +998,15 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 1
 
-- [ ] Slice 0: Re-check the seams after R4 and D2 merge
-  - [ ] Step 0.1: Rebase and re-check
+- [x] Slice 0: Re-check the seams after R4 and D2 merge
+  - [x] Step 0.1: Rebase and re-check
 
 #### Wave 2
 
-- [ ] Slice 1: Store core, library rules and store codes
-  - [ ] Step 1.1: Store codes and guides
-  - [ ] Step 1.2: Memory adapter and a shared adapter contract
-  - [ ] Step 1.3: Save, list, read and remove
+- [x] Slice 1: Store core, library rules and store codes
+  - [x] Step 1.1: Store codes and guides
+  - [x] Step 1.2: Memory adapter and a shared adapter contract
+  - [x] Step 1.3: Save, list, read and remove
 
 #### Wave 3
 
