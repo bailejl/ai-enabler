@@ -22,10 +22,10 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 **Design decisions** (correct them at this gate):
 
 - **Layers.** `src/flow/projectStore.js` is persistence only: save, list, read, remove, write ordering, and error mapping, over an injected adapter (`listIndex`, `getFile`, `put(entry, text)`, `remove(id)`). `src/flow/projectLibrary.js` holds the library rules on top of it: create, rename, duplicate, import as new (id choice), import onto, export. `src/flow/homeFlow.js` is a pure reducer for the homepage: dialogs, the pending action, focus target and announcements. React stays thin: `useHomepage` wires the reducer to the library, and `HomePage.jsx` and `ProjectCard.jsx` only render.
-- **Adapter choice and readiness.** `openStoreAdapter()` in `src/shell/storeAdapter.js` resolves once to `{ adapter, persistent, problems }`: the IndexedDB adapter, or the memory adapter with `STORE_UNAVAILABLE` when `indexedDB` is missing, `open` throws, or `open` fires `error` or `blocked`. `StoreProvider` exposes `{ status: 'opening' | 'ready', library, persistent }`. Nothing reads the store before `ready`. This lands in Slice 3. Slice 7 adds only the notice and its tests.
+- **Adapter choice and readiness.** `openStoreAdapter()` in `src/shell/storeAdapter.js` resolves once to `{ adapter, persistent, problems }`: the IndexedDB adapter, or the memory adapter with `STORE_UNAVAILABLE` when `indexedDB` is missing, `open` throws, or `open` fires `error` or `blocked`. `StoreProvider` exposes `{ status: 'opening' | 'ready', library, persistent }` and stays readiness plus context. The storage-problems state and the "notice shows" rule live in a pure `src/flow/storeStatus.js` reducer, and the one-time persist request runs in `openStoreAdapter()`. Nothing reads the store before `ready`. This lands in Slice 3. Slice 7 adds only the notice and its tests.
 - **Layout constants.** `src/flow/storeLayout.js` names the database, version and the `index` and `files` stores. The adapter and `e2e/store.js` both import it.
 - **Atomic writes.** The adapter writes both stores in one `readwrite` transaction and resolves on `oncomplete`. It rejects on `onerror` and `onabort`, so a half write leaves nothing.
-- **Ordering.** Every store call runs on one queue per project id. Serializing and hashing happen inside the queue. `list()` waits for every pending write, so the homepage never shows stale names or dates. A failed link maps its error and never blocks the next one.
+- **Ordering.** Every store call runs on one queue per project id. Serializing and hashing happen inside the queue. `list()` waits for every pending write, so the homepage never shows stale names or dates. A failed link maps its error and never blocks the next one. The queue may later coalesce to the newest pending project per id without changing its interface; AC13's test asserts that the newest write is the one stored.
 - **Error mapping.** In the store: `put` or `remove` throwing maps to `STORE_WRITE_FAILED`; `listIndex` or `getFile` throwing maps to `STORE_UNAVAILABLE`; a missing id maps to `STORE_PROJECT_NOT_FOUND`. Names and ids go only in `untrusted`. In the library: a stored file that fails the import pipeline maps to `STORE_FILE_INVALID`, followed by the pipeline's problems. Removing an unknown id is `STORE_PROJECT_NOT_FOUND`.
 - **One reporter.** `StoreProvider` reports every problem in a failed store result once through D1's `report`, at the call site of the operation. Effects never report, so React StrictMode cannot double count.
 - **Store status channel.** Store problems have their own state in `StoreProvider` (`storeProblems`), rendered through R4's `ProblemsPanel` with the heading "Not saved: N problems", in a region labelled "Storage problems". Only a successful write of the same project clears it. R4's edit-rejection panel is left alone.
@@ -35,11 +35,11 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - **Confirm wording.** One reducer wording for header and card imports, with the target named: "Replace <current name> with <incoming name>?", and "Replace <name> with the imported version of <name>?" when the names match. This replaces "Replace current map with …" (ui-shell AC33–34). **R**
 - **Sorting.** Only the store sorts. Last modified: `modifiedAt` descending, then id ascending. Name: `localeCompare(other, 'en', { sensitivity: 'base' })`, then id ascending.
 - **Dates.** A card shows `<time datetime="<ISO>">` with `Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone })` text, for example "22 Nov 2026, 10:00". The zone is the browser's. Tests inject `UTC`.
-- **E2e waiting and seeding.** `e2e/store.js` seeds and reads IndexedDB with `page.evaluate`, using `storeLayout.js`. `waitForStored(page, id, predicate)` polls the stored text until the predicate holds, so reload tests never race a write. No production test seam.
+- **E2e waiting and seeding.** `e2e/store.js` seeds and reads IndexedDB with `page.evaluate`, using `storeLayout.js`. `waitForStored(page, id, predicate)` polls the stored text until the predicate holds, so reload tests never race a write. The adapter contract runs in the page against the Vite dev server by dynamic import of `/src/flow/storeContract.js` and `/src/shell/indexedDbAdapter.js`. No production test seam.
 - **Failure injection.** `page.addInitScript` variants: `indexedDB` deleted; `indexedDB.open` throwing; `open` firing `error`; and the transaction aborting on the `files` put (async), for writes.
-- **Unopenable cards.** The library marks a card `openable: false` after a failed open or a failed action. Its menu shows Replace from file, Export and Delete. Rename and Duplicate are hidden. Replace from file repairs the card without parsing the old file. **R**
-- **Homepage write failures.** A failed create or rename keeps its dialog open with the problem shown in it, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel, and announces "Not saved. <message>". No success announcement is spoken. **R**
-- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving. **R**
+- **Unopenable cards.** The library marks a card `openable: false` only when its file fails to open (`STORE_FILE_INVALID`); a write failure leaves the card fully usable so the user can retry. Its menu shows Replace from file, Export and Delete. Rename and Duplicate are hidden. Replace from file repairs the card without parsing the old file. **R**
+- **Homepage write failures.** A failed create or rename keeps its dialog open with the typed name kept and the problem shown in it, so the user can retry, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel above the list, returns focus to the card's "More actions" button (or "Import project"), and announces "Not saved. <message>". No success announcement is spoken. **R**
+- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Moving between routes inside the app does not ask, because the project stays in memory. **R**
 - **Durable storage.** On the first successful write, the app calls `navigator.storage.persist()` once, best effort, with no UI. Help adds "Clearing this site's data deletes its projects. Export to keep a copy." **R**
 - **Card menu.** Each card has an "Open <name>" link and a "More actions for <name>" disclosure button. The menu holds Rename, Duplicate, Replace from file, Export and Delete. Escape closes it and returns focus to its button, and so does Tab out of it or a click outside. "Replace from file" is the card's import, so it is not confused with "Import project". **R**
 - **Routes and focus.** Titles: home "AI Enabler"; project "<name> · AI Enabler" (as today); missing "Project not found · AI Enabler"; cannot open "Can't open <name> · AI Enabler". On a route change, focus moves to the page's `h1`. Loading shows "Loading projects…" (homepage) or "Opening project…" (project route) in a status line with `aria-busy`. The empty state renders only after the list arrives.
@@ -293,7 +293,7 @@ Feature: Rename a project
 ### Slice 3: Open and save from the browser store
 
 **Depends-on:** 1
-**Files:** `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/flow/project.js`, `src/flow/project.test.js`, `src/flow/projectFile.test.js`, `src/flow/metrics.test.js`, `src/flow/stepView.test.js`, `src/flow/schema/shape.test.js`, `src/flow/schema/jsonSchema.test.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/version.test.js`, `src/testHelpers.js`, `src/shell/indexedDbAdapter.js`, `src/shell/storeAdapter.js`, `src/shell/StoreProvider.jsx`, `src/shell/useStoredProject.js`, `src/shell/useImportFlow.js`, `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/ProjectMissing.jsx`, `src/shell/StoreProblems.jsx`, `src/shell/HelpMenu.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.js`, `e2e/views.js`, `e2e/fixtures/starter.ai-enabler.json`, `e2e/store.spec.js`, `e2e/shell.spec.js`, `e2e/routes.spec.js`, `e2e/cards.spec.js`, `e2e/connections.spec.js`, `e2e/crash.spec.js`, `e2e/example.spec.js`, `e2e/diagnostics.spec.js`, `e2e/export-import.spec.js`, `e2e/gate.spec.js`, `e2e/pages.spec.js`, `e2e/metrics.spec.js`, `e2e/a11y.spec.js`, `e2e/gate-wiring.selftest.js`, `docs/specs/ui-shell.md`
+**Files:** `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/flow/project.js`, `src/flow/project.test.js`, `src/flow/projectFile.test.js`, `src/flow/metrics.test.js`, `src/flow/stepView.test.js`, `src/flow/schema/shape.test.js`, `src/flow/schema/jsonSchema.test.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/version.test.js`, `src/testHelpers.js`, `src/shell/indexedDbAdapter.js`, `src/shell/storeAdapter.js`, `src/shell/StoreProvider.jsx`, `src/shell/useStoredProject.js`, `src/shell/useImportFlow.js`, `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/ProjectMissing.jsx`, `src/shell/StoreProblems.jsx`, `src/shell/HelpMenu.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.js`, `e2e/views.js`, `e2e/fixtures/starter.ai-enabler.json`, `e2e/store.spec.js`, `e2e/shell.spec.js`, `e2e/routes.spec.js`, `e2e/cards.spec.js`, `e2e/connections.spec.js`, `e2e/crash.spec.js`, `e2e/example.spec.js`, `e2e/diagnostics.spec.js`, `e2e/export-import.spec.js`, `e2e/gate.spec.js`, `e2e/pages.spec.js`, `e2e/metrics.spec.js`, `e2e/a11y.spec.js`, `e2e/gate-wiring.selftest.js`, `docs/specs/ui-shell.md`
 **Invariants:** `npm test`, `npm run test:e2e`
 
 **Behavior:**
@@ -430,9 +430,9 @@ Feature: Projects open from and save to the browser
 
 **Complexity**: complex
 **IMPLEMENT**: `onAccepted(memoryProject)` from `useCanvasEdits` and `useProject` calls `library.save`. A failed save keeps the in-memory project, sets `storeProblems`, and announces "Not saved. <message>". `StoreProblems.jsx` renders the panel. The next successful save of that project clears it. Replace the "stores nothing" test with the reload outline.
-**TEST**: The edit outline, rejected-edit and failed-save scenarios (async abort by init script), each waiting with `waitForStored`; `expectDiagnostics` for `STORE_WRITE_FAILED`.
+**TEST**: `storeStatus` unit tests (set on failure, cleared only by a successful write of the same project); the edit outline, rejected-edit and failed-save scenarios (async abort by init script), each waiting with `waitForStored`; `expectDiagnostics` for `STORE_WRITE_FAILED`.
 **REFACTOR**: One place builds the save call.
-**Files**: `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/StoreProblems.jsx`, `src/shell/StoreProvider.jsx`, `e2e/shell.spec.js`, `e2e/store.spec.js`
+**Files**: `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/StoreProblems.jsx`, `src/shell/StoreProvider.jsx`, `e2e/shell.spec.js`, `e2e/store.spec.js`
 **Covers**: AC11, AC13, AC14, AC22, AC25
 **Commit**: `feat: save the open project after every accepted change`
 
@@ -571,6 +571,8 @@ Feature: Card actions
     Given a saved project "Checkout"
     When the user opens "More actions for Checkout" with the keyboard and presses Escape
     Then the menu closes and focus is on "More actions for Checkout"
+    When the user opens it again and presses Tab past its last item
+    Then the menu closes
 
   Scenario: Renaming from a card
     # Still passes if: the dialog's title is reworded
@@ -755,6 +757,12 @@ Feature: Import from the homepage
     When the user chooses "Replace from file" on its card with a valid file "Fixed" and confirms
     Then the card reads "Fixed" and its link opens the map
 
+  Scenario: A replace the browser refuses changes nothing
+    # Still passes if: the announcement text is reworded
+    Given a saved project "Checkout" and a browser that aborts writes
+    When the user chooses "Replace from file" with a valid file "Payments" and confirms
+    Then the card still reads "Checkout", STORE_WRITE_FAILED is listed and reported once, and focus is on "More actions for Checkout"
+
   Scenario: Importing on the homepage adds a project with the file's id
     # Still passes if: the status line can be dismissed by Escape
     Given no saved project has id "abc"
@@ -808,7 +816,7 @@ Feature: Import from the homepage
 #### Step 6.2: Import a new project on the homepage
 
 **Complexity**: standard
-**IMPLEMENT**: `library.importNew(file)` checks the id and writes in one queued operation (a store-wide queue for id choice), keeping the file's `project.id` unless taken. `HomeStatus.jsx` shows the dismissible outcome line (also announced) with notices. Focus moves to the new card.
+**IMPLEMENT**: `library.importNew(file)` checks the id and writes in one queued operation (a store-wide queue for id choice), keeping the file's `project.id` unless taken. `HomeStatus.jsx` shows the outcome line as `role="status"` with a Dismiss button; it stays until dismissed or the next action with notices. Focus moves to the new card.
 **TEST**: Library unit tests (free id, taken id, two concurrent imports, write fails); homepage-import scenarios.
 **REFACTOR**: One id-choice function, named for what it decides.
 **Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/HomeStatus.jsx`, `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `e2e/homepage.spec.js`
@@ -818,7 +826,7 @@ Feature: Import from the homepage
 ### Slice 7: Blocked storage notice
 
 **Depends-on:** 6
-**Files:** `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
+**Files:** `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
 **Invariants:** `npm test`, `npm run test:e2e`
 
 **Behavior:**
@@ -838,6 +846,7 @@ Feature: Working when the browser is not saving
       | missing                            |
       | throwing on open                   |
       | failing to open with an error event |
+      | blocked by another tab             |
 
   Scenario: Projects still work until the tab closes
     # Still passes if: the exported file name uses a different slug rule
@@ -878,8 +887,8 @@ Feature: Working when the browser is not saving
 **Complexity**: standard
 **IMPLEMENT**: `StoreNotice.jsx` renders on every route while `persistent` is false or the open project has a failed save. `beforeunload` is set while it shows. The fallback itself already exists from Step 3.1.
 **TEST**: Blocked-storage outline (three init-script variants), memory workflow, not-found, leave guard, failed-save notice, a11y; `expectDiagnostics` for `STORE_UNAVAILABLE` and `STORE_WRITE_FAILED`.
-**REFACTOR**: One selector decides whether the notice shows.
-**Files**: `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
+**REFACTOR**: The notice rule is one selector in `storeStatus.js`, unit tested.
+**Files**: `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
 **Covers**: AC14, AC21, AC22, AC28
 **Commit**: `feat: show a lasting notice while the browser is not saving`
 
@@ -956,7 +965,8 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 - **Resolved blocker**: Slice 1 - read, list and remove failures unmapped; mapping disagreed with Step 7.1 (acceptance). One mapping in the store, open-time failures in `openStoreAdapter`.
 - **Resolved blocker**: Slice 3 - not-found and cannot-open pages had no accessibility check (acceptance). Added.
 - Warnings applied: per-id queue covers reads, list waits for writes, hashing inside the queue; `projectLibrary.js` split from `projectStore.js`; pure `homeFlow.js` behind a thin `HomePage.jsx`; shared `useImportFlow.js`; `key={id}` shell; one reporter; `storeLayout.js` shared with e2e; atomic write resolves on `oncomplete`, with an async-abort test; duplicate and import-new go through `save`; store owns sorting; confirm wording decided; Step 3.2 split so the e2e migration runs before the route change; missing starter consumers declared; save-wait helper for reload tests; connect and move reload cases; AI notice and status line; rename prefill and cancel; markup id; three blocked-storage variants; falsifiers that contradicted their own Then replaced; menu keyboard rules; route titles and focus; loading states; long-name wrap; fallback PR split named; Step 0 re-check.
-- Not applied: a "Saved" indicator (UX warning). Recorded above.
+- Second pass: Acceptance, Design and UX approve with no blockers. Applied: openable flag only on open failures; retry keeps the typed name; failure focus and panel placement; in-app navigation does not prompt; status line role and lifetime; blocked-open row; failed replace scenario; Tab-out menu check; pure `storeStatus.js` so `StoreProvider` stays small; contract runs on the Vite dev server; queue may coalesce later.
+- Not applied: a "Saved" indicator (UX warning); click-outside menu scenario and name-length limit (acceptance warnings: the spec sets no name limit, and click-outside follows the same close path as Tab-out); weaker falsifiers in Slice 1 kept, since each still names a change the scenario does not detect.
 
 ## Build Progress
 
