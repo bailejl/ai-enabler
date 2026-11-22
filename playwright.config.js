@@ -1,8 +1,17 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from '@playwright/test'
+import { e2ePorts } from './scripts/e2e-ports.js'
+import { PAGES_BASE } from './scripts/pages-base.js'
 
-// PORT keeps parallel git worktrees from reusing each other's dev server.
-const port = Number(process.env.PORT) || 3000
-const baseURL = `http://localhost:${port}`
+// Ports derive from this checkout's path, so parallel git worktrees never share a server.
+const { devPort, previewPort, reuseDevServer } = e2ePorts({
+  env: process.env,
+  root: fileURLToPath(new URL('.', import.meta.url)),
+})
+const devURL = `http://localhost:${devPort}`
+// The production build is previewed on its own port, under the GitHub Pages base path.
+const previewURL = `http://localhost:${previewPort}`
+const PAGES_SPEC = 'pages.spec.js'
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,18 +20,35 @@ export default defineConfig({
   use: {
     headless: true,
     reducedMotion: 'reduce',
-    baseURL,
+    baseURL: devURL,
   },
-  webServer: {
-    command: 'npm run dev',
-    url: baseURL,
-    env: { PORT: String(port) },
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: devURL,
+      env: { PORT: String(devPort) },
+      reuseExistingServer: reuseDevServer,
+    },
+    {
+      command: 'npm run build && npm run preview',
+      url: `${previewURL}${PAGES_BASE}`,
+      env: { PORT: String(previewPort) },
+      // Never reuse: a running preview may serve a stale build.
+      reuseExistingServer: false,
+      // The command runs a full production build before serving.
+      timeout: 120000,
+    },
+  ],
   projects: [
     {
       name: 'chromium',
+      testIgnore: PAGES_SPEC,
       use: { browserName: 'chromium' },
+    },
+    {
+      name: 'pages',
+      testMatch: PAGES_SPEC,
+      use: { browserName: 'chromium', baseURL: previewURL },
     },
   ],
 })

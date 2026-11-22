@@ -22,6 +22,7 @@ import { tokens, toCssCustomProperties } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
 import { useFocusAfterDelete } from './shell/useFocusAfterDelete.js'
 import { useProject } from './shell/useProject.js'
+import { useRoute } from './shell/useRoute.js'
 
 // Module-level so React Flow sees one stable object across renders.
 const nodeTypes = { [STEP_TYPE]: StepCard }
@@ -31,7 +32,7 @@ const themeProperties = toCssCustomProperties(tokens)
 const EMPTY_MAP_MESSAGE =
   'No steps on this map. Import a project, or reload to restore the starter map.'
 
-function Shell() {
+function Shell({ routeName }) {
   const { message, announce } = useAnnouncer()
   const importButtonRef = useRef(null)
   const canvasRef = useRef(null)
@@ -58,7 +59,7 @@ function Shell() {
   const isValidForEdges = useCallback((connection) => isValidConnection(edges)(connection), [edges])
 
   return (
-    <div className="shell" style={themeProperties}>
+    <div className="shell" style={themeProperties} data-route={routeName}>
       <Header
         projectName={project.name}
         onExport={handleExport}
@@ -107,9 +108,10 @@ function Shell() {
 }
 
 export default function App() {
+  const route = useRoute()
   return (
     <ReactFlowProvider>
-      <Shell />
+      <Shell routeName={route.name} />
     </ReactFlowProvider>
   )
 }

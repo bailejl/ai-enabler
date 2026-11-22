@@ -74,3 +74,11 @@ export const deleteAllSteps = async (page) => {
     await expect(cards(page)).toHaveCount(remaining - 1)
   }
 }
+
+export const appShell = (page) => page.locator('.shell')
+const currentHash = (page) => page.evaluate(() => window.location.hash)
+// Polls, because the app rewrites a non-canonical hash in an effect after the first render.
+export const expectHash = (page, hash) => expect.poll(() => currentHash(page)).toBe(hash)
+export const expectStarterSteps = (page) => expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+export const expectRoute = (page, name) =>
+  expect(appShell(page)).toHaveAttribute('data-route', name)

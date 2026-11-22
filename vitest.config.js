@@ -2,7 +2,7 @@ import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.js'
 
 export default mergeConfig(
-  viteConfig,
+  viteConfig({ command: 'serve', mode: 'test' }),
   defineConfig({
     test: {
       include: ['src/**/*.test.{js,jsx}', 'scripts/**/*.test.js', 'mcp/**/*.test.js'],

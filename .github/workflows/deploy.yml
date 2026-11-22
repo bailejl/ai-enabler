@@ -1,0 +1,95 @@
+name: Deploy
+
+# Publishes main to GitHub Pages, only after CI passes on a push to main, or by hand from main.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a deploy halfway through. GitHub keeps one pending run per group, so a newer
+# run replaces an older pending one. Only the current tip of main deploys: if the tip's own CI
+# fails, the site keeps the last deploy. Only runs that pass the check condition join the
+# pages group; any other run (failed CI, a pull request, a manual run off main) takes a group
+# of its own, so it cannot displace a pending deploy.
+concurrency:
+  group: ${{ ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && 'pages' || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  # A green run for an older commit must not overwrite a newer deploy.
+  check:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      current: ${{ steps.tip.outputs.current }}
+    steps:
+      # No checkout here, so the step names the repository URL instead of an origin remote.
+      - id: tip
+        name: Check the commit is still the tip of main
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          if [ "$EVENT" != "workflow_run" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tip="$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1)"
+          test -n "$tip"
+          if [ "$tip" = "$HEAD_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping $HEAD_SHA: main is now at $tip, which deploys once its own CI run passes."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Installs and builds with read-only permissions.
+  build:
+    needs: check
+    if: needs.check.outputs.current == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  # Only this job can write Pages, and it runs no project code.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  refuse:
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Refuse a deploy from a branch other than main
+        shell: bash
+        run: |
+          echo "::error::Deploys run from main only"
+          exit 1
