@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-syntax -- React error boundaries must be class components; the eslint config exempts only this file */
 import { Component } from 'react'
 import CrashScreen from './CrashScreen.jsx'
 import { reportError } from './diagnostics.js'

@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- the fixture writes to the console on purpose */
 // Self-test fixture, run by gate.test.js through vitest.selftest.config.js. Never part of the suite.
 // The tests run in order: "passes because the rate limit was reset" needs the test before it to
 // use up the limit, and "fails on an uncoded error after mocks were restored" needs the test

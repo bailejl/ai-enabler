@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- the fixture writes to the console on purpose */
 // Self-test fixture, run by gate.test.js through vitest.selftest.config.js. Never part of the suite.
 // Each test replaces a console spy the gate installed; the gate must fail it.
 import { describe, expect, it, vi } from 'vitest'
