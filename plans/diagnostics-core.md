@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/diagnostics-core
-**Status**: draft
+**Status**: approved
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/diagnostics-core.md` (AC1–AC17). Row 4 of the MVP build order v2. No GitHub issue.
 

@@ -56,7 +56,7 @@ A card lists what an item touches and what must land first. It is not a spec: `/
 - **UI surfaces:** a Privacy help page (`#/help/privacy`) with the note, the opt-out control, and why counting is off when GPC or Do Not Track is set. The control is keyboard operable and announced. Spec: `docs/specs/goatcounter.md` (parked), revised as below.
 - **Save file:** none. The opt-out is a `localStorage` preference, not exported and not in `llms.txt`.
 - **Commands, MCP, `llms.txt`:** none. No counting in the MCP server or skills.
-- **Catalog and guides:** one code, `USAGE_SEND_FAILED`, severity debug: a coded D1 record, rate-limited, never shown in the UI. Its guide says no action is needed (ad blockers block it). This replaces the spec's "no catalog code" inference.
+- **Catalog and guides:** one code, `USAGE_SEND_FAILED`, severity hint: a coded D1 record, rate-limited, never shown in the UI. Its guide says no action is needed (ad blockers block it). This replaces the spec's "no catalog code" inference.
 - **Usage and routes:** route templates `/`, `/projects/:id`, `/help`, `/help/:page`. Events for features that exist now: `project-created`, `project-imported`, `project-exported`, `skill-install-clicked`. The rest of the issue's list is reserved for later items. Production origin only; nothing from dev, preview, e2e or forks.
 - **Shared files:** new `src/shell/usage.js` (pure) and a sender, `useRoute.js`, the help frame, call sites in `useProject.js` and E1's store, `catalog.json`. Merge first: E1, N17 frame, D1.
 - **Needs:** 8, 10, 4. **Parallel with:** —.
