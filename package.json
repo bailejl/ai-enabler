@@ -22,6 +22,7 @@
     "check:plugin": "node scripts/plugin-bundle-check-cli.js",
     "test:gate": "vitest run --reporter=dot",
     "test:e2e:gate": "playwright test --reporter=dot",
+    "test:gate:guides": "vitest run --reporter=verbose src/flow/diagnostics mcp/guides.test.js",
     "test:gate:deploy": "vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js",
     "test:gate:routes": "vitest run --reporter=verbose src/shell/routes.test.js",
     "test:e2e:gate:routes": "playwright test --reporter=list --project=chromium e2e/routes.spec.js",
