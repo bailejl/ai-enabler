@@ -106,6 +106,3 @@ export const applyCommand = (project, command, context) => {
     ...(change.created === undefined ? {} : { created: change.created }),
   }
 }
-
-export const createProject = (args, context) =>
-  applyCommand(null, { name: 'create_project', args }, context)

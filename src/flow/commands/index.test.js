@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand, createProject, rejectCommand, replacesProject } from './index.js'
+import { applyCommand, COMMANDS, rejectCommand, replacesProject } from './index.js'
 import { MAX_ECHOED_TEXT } from '../text.js'
 import { makeRun, onlyProblem } from './testHelpers.js'
 
@@ -12,9 +12,9 @@ const existing = Object.freeze({
   edges: [],
 })
 
-describe('createProject', () => {
+describe('create_project', () => {
   it('succeeds with a named project, no steps and no connections', () => {
-    const result = createProject({ name: 'Checkout' }, { newId })
+    const result = run(null, 'create_project', { name: 'Checkout' })
     expect(result.ok).toBe(true)
     expect(result.project).toEqual({
       project: { id: 'project-1', name: 'Checkout' },
@@ -29,17 +29,17 @@ describe('createProject', () => {
   it.each(['', '  ', undefined, null, 7])(
     'fails with the empty-name problem for the name %j',
     (name) => {
-      const problem = onlyProblem(createProject({ name }, { newId }))
+      const problem = onlyProblem(run(null, 'create_project', { name }))
       expect(problem.code).toBe('FILE_PROJECT_NAME_EMPTY')
     },
   )
 
   it('returns no project when creation fails', () => {
-    expect(createProject({ name: '  ' }, { newId }).project).toBeNull()
+    expect(run(null, 'create_project', { name: '  ' }).project).toBeNull()
   })
 
   it('fails when the generated id is empty', () => {
-    const problem = onlyProblem(createProject({ name: 'Checkout' }, { newId: () => '' }))
+    const problem = onlyProblem(makeRun(() => '')(null, 'create_project', { name: 'Checkout' }))
     expect(problem.code).toBe('FILE_PROJECT_ID_MISSING')
   })
 })
@@ -50,7 +50,7 @@ describe('applyCommand argument checks', () => {
     const problem = onlyProblem(result)
     expect(problem.code).toBe('CMD_UNKNOWN')
     expect(problem.message).toBe(
-      'Unknown command drop_database. The commands are: create_project, add_step, update_step, set_step_metrics, remove_step, connect, disconnect.',
+      `Unknown command drop_database. The commands are: ${Object.keys(COMMANDS).join(', ')}.`,
     )
     expect(problem.untrusted).toEqual({ command: 'drop_database' })
     expect(result.project).toBe(existing)

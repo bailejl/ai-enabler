@@ -1,7 +1,7 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
 import { problem } from '../diagnostics/problem.js'
-import { hasText, STEP_TYPE, stepPositionName } from '../step.js'
-import { shorten } from '../text.js'
+import { STEP_TYPE, stepPositionName } from '../step.js'
+import { hasText, shorten } from '../text.js'
 import { isObject } from './primitives.js'
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''

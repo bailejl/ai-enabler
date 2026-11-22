@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { contentHash } from './contentHash.js'
 import { parseImport } from './importFile.js'
 import { fromProjectFile } from './importFlow.js'
-import { projectFileName, toProjectFile, withContentHash } from './projectFile.js'
+import {
+  projectFileName,
+  serializeProjectFile,
+  toMemoryProject,
+  toProjectFile,
+  withContentHash,
+} from './projectFile.js'
 import { validateProjectFile } from './schema/validate.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 import { createStarterProject } from './project.js'
@@ -197,5 +203,36 @@ describe('projectFileName', () => {
     ['Café', 'caf.ai-enabler.json'],
   ])('names the file for %j as %s', (name, fileName) => {
     expect(projectFileName(name)).toBe(fileName)
+  })
+})
+
+describe('serializeProjectFile', () => {
+  it('writes indented JSON with a final newline that parses back to the file', () => {
+    const file = { schemaVersion: '0.1.0', nodes: [] }
+    const text = serializeProjectFile(file)
+    expect(text).toBe('{\n  "schemaVersion": "0.1.0",\n  "nodes": []\n}\n')
+    expect(JSON.parse(text)).toEqual(file)
+  })
+})
+
+describe('toMemoryProject', () => {
+  it('keeps only the known project, step and connection fields', () => {
+    const memory = toMemoryProject({
+      project: { id: 'p1', name: 'Delivery', extra: 1 },
+      nodes: [runtimeNode],
+      edges: [{ id: 'e1', source: 'a', target: 'b', label: 'x', selected: true }],
+    })
+    expect(memory).toEqual({
+      project: { id: 'p1', name: 'Delivery' },
+      nodes: [
+        {
+          id: 'build',
+          type: 'step',
+          position: { x: 200, y: 100 },
+          data: { label: 'Build', pt: 480, lt: 1200, ca: 90, queue: 4, batch: 3 },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'a', target: 'b' }],
+    })
   })
 })

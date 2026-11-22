@@ -10,7 +10,7 @@ export const GATE_STEP_FIELDS = STEP_DATA_FIELDS.filter(
 // 0 is data. Only a field with no value at all is still to fill in.
 const isMissing = (value) => value === undefined || value === null
 
-const stepProblem = (node, index) => {
+const stepProblems = (node, index) => {
   const missing = GATE_STEP_FIELDS.filter((field) => isMissing(node.data[field]))
   if (missing.length === 0) return []
   return [
@@ -29,4 +29,4 @@ const stepProblem = (node, index) => {
  * @returns {object[]} problems
  */
 export const dataComplete = (project) =>
-  project.nodes.length === 0 ? [problem('GATE_PROJECT_EMPTY')] : project.nodes.flatMap(stepProblem)
+  project.nodes.length === 0 ? [problem('GATE_PROJECT_EMPTY')] : project.nodes.flatMap(stepProblems)

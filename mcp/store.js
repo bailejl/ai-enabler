@@ -18,21 +18,20 @@ const fail = (code, name) => ({
   problems: [problem(code, typeof name === 'string' ? { untrusted: { name } } : {})],
 })
 
+// Accepts only a plain `.json` name.
+const checkName = (name) =>
+  typeof name === 'string' && NAME_PATTERN.test(name) ? null : fail('FILE_NAME_NOT_ALLOWED', name)
+
 /**
- * The one check every read and write goes through. Accepts only a plain `.json` name, then
- * confirms the projects folder really is `<startDir>/projects` (not a link elsewhere) and that
- * the target, when it exists, is a regular file with no other hard link (not a symlink, a pipe, a
- * directory or a second name for a file elsewhere). `create` makes the folder first (used by
- * save). Throws on an I/O error or an unexpected folder, which the caller turns into its own
+ * The check every read and write goes through after checkName: confirms the projects folder really
+ * is `<startDir>/projects` (not a link elsewhere) and that the target, when it exists, is a regular
+ * file with no other hard link (not a symlink, a pipe, a directory or a second name for a file
+ * elsewhere). Throws on an I/O error or an unexpected folder, which the caller turns into its own
  * problem.
  * @returns {Promise<{ ok: true, target: string, stats?: object } | { ok: false, problems: object[] }>}
  *   stats is the lstat of the target, absent when it does not exist.
  */
-const resolveName = async ({ startDir, folder }, name, create) => {
-  if (typeof name !== 'string' || !NAME_PATTERN.test(name)) {
-    return fail('FILE_NAME_NOT_ALLOWED', name)
-  }
-  if (create) await fsp.mkdir(folder, { recursive: true })
+const resolveTarget = async ({ startDir, folder }, name) => {
   const realFolder = await fsp.realpath(folder)
   if (realFolder !== path.join(await fsp.realpath(startDir), FOLDER_NAME)) {
     // Stryker disable next-line StringLiteral: the message is never shown; callers map any throw
@@ -54,8 +53,8 @@ const resolveName = async ({ startDir, folder }, name, create) => {
  *   regular file or has another hard link), FILE_TOO_LARGE above 5 MB, or FILE_NOT_FOUND for a
  *   missing, unreadable or unusable file or folder.
  * - `write(name, text, { mustBeNew })`: creates the folder if needed and writes the file through
- *   a temp file, so a failure leaves the old file as it was; `{ ok: true }`, or
- *   FILE_NAME_NOT_ALLOWED, or FILE_SAVE_FAILED for any I/O failure (the caller keeps the project
+ *   a temp file that is flushed to disk first, so a failure leaves the old file as it was;
+ *   `{ ok: true }`, or FILE_NAME_NOT_ALLOWED, FILE_TOO_LARGE for text above 5 MB, or FILE_SAVE_FAILED for any I/O failure (the caller keeps the project
  *   in memory). With `mustBeNew` an existing file is never touched and the problem is
  *   FILE_NAME_TAKEN.
  */
@@ -65,7 +64,9 @@ export const createStore = (startDir) => {
 
   const read = async (name) => {
     try {
-      const resolved = await resolveName(paths, name, false)
+      const bad = checkName(name)
+      if (bad) return bad
+      const resolved = await resolveTarget(paths, name)
       if (!resolved.ok) return resolved
       // Stryker disable next-line OptionalChaining: for a missing file the TypeError it would raise
       // is caught below and ends in the same FILE_NOT_FOUND
@@ -91,13 +92,25 @@ export const createStore = (startDir) => {
   const write = async (name, text, { mustBeNew = false } = {}) => {
     let temp
     try {
-      const resolved = await resolveName(paths, name, true)
+      const bad = checkName(name)
+      if (bad) return bad
+      if (Buffer.byteLength(text) > MAX_FILE_BYTES) return fail('FILE_TOO_LARGE', name)
+      await fsp.mkdir(paths.folder, { recursive: true })
+      const resolved = await resolveTarget(paths, name)
       if (!resolved.ok) return resolved
       const { target, stats } = resolved
       // A rename would replace a read-only file, so check that the file could be written first.
       if (stats && !mustBeNew) await fsp.access(target, constants.W_OK)
       temp = path.join(path.dirname(target), `.${randomUUID()}.tmp`)
-      await fsp.writeFile(temp, text, { flag: 'wx' })
+      // Flushed to disk before it is renamed or linked into place, so a crash cannot leave the
+      // target pointing at a file whose contents never reached the disk.
+      const handle = await fsp.open(temp, 'wx')
+      try {
+        await handle.writeFile(text)
+        await handle.sync()
+      } finally {
+        await handle.close()
+      }
       if (mustBeNew) {
         await fsp.link(temp, target)
       } else {

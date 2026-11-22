@@ -27,7 +27,7 @@ const invalidEndpointProblems = (nodes, endpoints) =>
   endpoints
     .filter(([, id]) => typeof id !== 'string')
     .map(([argument]) =>
-      problem('CONN_TARGET_INVALID', {
+      problem('CONN_ENDPOINT_ID_INVALID', {
         params: { argument, steps: validStepsText(nodes) },
         field: argument,
         untrusted: { steps: validStepsList(nodes) },

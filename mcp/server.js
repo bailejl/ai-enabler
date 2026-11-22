@@ -3,9 +3,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { createStore } from './store.js'
-import { TOOLS, createToolHost, toCallResult } from './tools.js'
+import { SERVER_NAME, TOOLS, createToolHost, toCallResult } from './tools.js'
 
-const SERVER_INFO = { name: 'aie-mcp', version: '0.1.0' }
+const SERVER_INFO = { name: SERVER_NAME, version: '0.1.0' }
 
 // A closed stderr pipe reports its error later, as an event; it must not take the server down.
 process.stderr.on('error', () => {})

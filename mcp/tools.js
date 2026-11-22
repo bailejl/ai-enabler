@@ -1,6 +1,6 @@
 import { COMMANDS, checkArgs, rejectCommand } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
-import { allProblems, runGate } from '../src/flow/gates/index.js'
+import { GATES, allProblems, runGate } from '../src/flow/gates/index.js'
 import {
   EMPTY_SESSION,
   applyToSession,
@@ -9,15 +9,18 @@ import {
   openInto,
   toSaveFile,
 } from '../src/flow/session.js'
+import { serializeProjectFile } from '../src/flow/projectFile.js'
 import { formatCount, nameLabel, quoted } from '../src/flow/text.js'
+import { escapeControls } from './log.js'
 
 // A result lists this many problems; `total` counts them all.
 const MAX_PROBLEMS = 20
 
-// The tool name written into the `modifiedBy` mark of every file this server saves.
-const SAVE_TOOL = 'aie-mcp'
+/** The server's name: what it announces to clients and writes into the `modifiedBy` mark of every file it saves. */
+export const SERVER_NAME = 'aie-mcp'
 
-const JSON_INDENT = 2
+// A whole number of zero or more: the rule for pt, lt, queue and batch.
+const COUNT_SCHEMA = { type: 'integer', minimum: 0 }
 
 // The JSON Schema for each argument, published as a hint only: the host checks every call itself.
 const ARGUMENT_SCHEMAS = {
@@ -26,11 +29,11 @@ const ARGUMENT_SCHEMAS = {
   sourceId: { type: 'string' },
   targetId: { type: 'string' },
   gate: { type: 'string' },
-  pt: { type: 'number' },
-  lt: { type: 'number' },
-  ca: { type: 'number' },
-  queue: { type: 'integer' },
-  batch: { type: 'integer' },
+  pt: COUNT_SCHEMA,
+  lt: COUNT_SCHEMA,
+  ca: { type: 'number', minimum: 0, maximum: 100 },
+  queue: COUNT_SCHEMA,
+  batch: COUNT_SCHEMA,
 }
 
 // A command's arguments of these names are marked required in its schema; the metrics are not.
@@ -88,9 +91,9 @@ const openProject = async (session, { name }, { store }) => {
 // other name must be a new file.
 const saveProject = async (session, args, { store, now }) => {
   const name = args.name ?? session.name
-  if (name === null) return reject(session, 'save_project', [problem('CMD_NAME_REQUIRED')])
-  const built = await toSaveFile(session, { now: now(), tool: SAVE_TOOL })
-  const text = JSON.stringify(built.file, null, JSON_INDENT)
+  if (name === null) return reject(session, 'save_project', [problem('FILE_NAME_REQUIRED')])
+  const built = await toSaveFile(session, { now: now(), tool: SERVER_NAME })
+  const text = serializeProjectFile(built.file)
   const written = await store.write(name, text, { mustBeNew: name !== session.name })
   if (!written.ok) return reject(session, 'save_project', written.problems)
   return succeed(markSaved(session, built, name), `Saved ${quoted(name)}`)
@@ -110,11 +113,13 @@ const getProject = (session) => {
 }
 
 const listProblems = (session, { gate }) => {
-  const problems =
-    gate === undefined ? allProblems(session.project) : runGate(session.project, gate).problems
-  if (problems.some(({ code }) => code === 'GATE_UNKNOWN')) {
-    return reject(session, 'list_problems', problems)
+  if (gate !== undefined && !Object.hasOwn(GATES, gate)) {
+    return reject(session, 'list_problems', runGate(session.project, gate).problems)
   }
+  const problems =
+    // Stryker disable next-line ConditionalExpression: with one gate registered and a project the
+    // commands keep valid, all checks and that gate list the same problems; no test can tell them apart
+    gate === undefined ? allProblems(session.project) : runGate(session.project, gate).problems
   const scope = gate === undefined ? 'All checks' : `Gate ${quoted(gate)}`
   return succeed(session, `${scope}: ${formatCount(problems.length, 'problem')}`, { problems })
 }
@@ -129,6 +134,8 @@ const DEFINITIONS = [
     args,
     required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),
     needsProject: false,
+    // applyCommand checks the arguments itself, so runTool does not check them again.
+    checksOwnArgs: true,
     run: runCommand(name),
   })),
   {
@@ -169,8 +176,10 @@ const unknownTool = (name) =>
 const runTool = (session, name, args, deps) => {
   const definition = DEFINITIONS.find((candidate) => candidate.name === name)
   if (!definition) return reject(session, name, [unknownTool(name)])
-  const badArgs = checkArgs(name, definition, args)
-  if (badArgs.length > 0) return reject(session, name, badArgs)
+  if (!definition.checksOwnArgs) {
+    const badArgs = checkArgs(name, definition, args)
+    if (badArgs.length > 0) return reject(session, name, badArgs)
+  }
   if (definition.needsProject && session.project === null) {
     return reject(session, name, [problem('CMD_NO_PROJECT')])
   }
@@ -198,14 +207,6 @@ export const toCallResult = ({ isError, content }) => ({
   isError,
 })
 
-// A line of stderr is one line: control characters (a newline in a step name) are written out.
-const SHORT_ESCAPES = { '\n': '\\n', '\r': '\\r', '\t': '\\t' }
-const escapeControls = (text) =>
-  text.replace(
-    /[\p{Cc}\u2028\u2029]/gu,
-    (char) => SHORT_ESCAPES[char] ?? `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
-  )
-
 /**
  * The tool host: holds the editing session between calls and runs one tool at a time.
  * `callTool(name, args)` always resolves to `{ isError, content: { ok, problems, total, summary,
@@ -217,7 +218,7 @@ export const createToolHost = ({ store, now, newId, log }) => {
   // The one mutable holder: the session value, replaced (never edited) after each call. Calls are
   // chained, so a call that awaits the store never sees a session another call has since replaced.
   let session = EMPTY_SESSION
-  let queue = Promise.resolve()
+  let callChain = Promise.resolve()
 
   // The call has been applied by now; a log that throws must not fail it.
   const writeLog = (line) => {
@@ -228,16 +229,22 @@ export const createToolHost = ({ store, now, newId, log }) => {
     }
   }
 
+  // Any unexpected throw (a store that fails in a way it should not) becomes a problem in the
+  // result and leaves the session as it was, so one failed call never ends the calls after it.
   const execute = async (name, args) => {
-    const outcome = await runTool(session, name, args, { store, now, newId })
-    session = outcome.session
-    if (outcome.applied) writeLog(`${name}: ${escapeControls(outcome.result.summary)}`)
-    return toToolResult(outcome.result)
+    try {
+      const outcome = await runTool(session, name, args, { store, now, newId })
+      session = outcome.session
+      if (outcome.applied) writeLog(`${name}: ${escapeControls(outcome.result.summary)}`)
+      return toToolResult(outcome.result)
+    } catch {
+      return toToolResult(reject(session, name, [problem('CMD_INTERNAL_ERROR')]).result)
+    }
   }
 
   const callTool = (name, args = {}) => {
-    const call = queue.then(() => execute(name, args))
-    queue = call.catch(() => {})
+    const call = callChain.then(() => execute(name, args))
+    callChain = call
     return call
   }
 

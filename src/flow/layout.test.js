@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { layoutSteps, STEP_CARD_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
+import { layoutSteps, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
 
 const step = (id) => ({ id, type: 'step', position: { x: 0, y: 0 }, data: { label: id } })
 const edge = (source, target) => ({ id: `${source}->${target}`, source, target })
@@ -10,8 +10,8 @@ const at = (laidOut, id) => laidOut.find((n) => n.id === id).position
 const overlaps = (a, b) =>
   a.x < b.x + STEP_CARD_WIDTH &&
   b.x < a.x + STEP_CARD_WIDTH &&
-  a.y < b.y + STEP_CARD_HEIGHT &&
-  b.y < a.y + STEP_CARD_HEIGHT
+  a.y < b.y + STEP_ROW_HEIGHT &&
+  b.y < a.y + STEP_ROW_HEIGHT
 
 describe('layoutSteps', () => {
   it('lays steps in a line out left to right', () => {

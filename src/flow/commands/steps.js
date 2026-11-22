@@ -1,6 +1,6 @@
 import { problem } from '../diagnostics/problem.js'
-import { findStep, hasText, STEP_DATA_FIELDS, STEP_TYPE, stepDisplayName } from '../step.js'
-import { formatCount, quoted, shorten } from '../text.js'
+import { findStep, STEP_DATA_FIELDS, STEP_TYPE, stepDisplayName } from '../step.js'
+import { formatCount, hasText, quoted, shorten } from '../text.js'
 import { stepRef, validStepsList, validStepsText } from './stepNames.js'
 
 // A new step starts at the origin. Commands never accept positions; layout places steps on save.

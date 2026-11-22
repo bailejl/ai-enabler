@@ -1,12 +1,15 @@
 // Matches `--card-width: 9rem` in src/index.css at a 16px root.
 export const STEP_CARD_WIDTH = 144
 // A chosen row pitch, taller than a card with every metric filled in.
-export const STEP_CARD_HEIGHT = 240
+export const STEP_ROW_HEIGHT = 240
 export const COLUMN_GAP = 56
 export const ROW_GAP = 24
 
 const COLUMN_PITCH = STEP_CARD_WIDTH + COLUMN_GAP
-const ROW_PITCH = STEP_CARD_HEIGHT + ROW_GAP
+const ROW_PITCH = STEP_ROW_HEIGHT + ROW_GAP
+
+// The key of a connection in a Set: its ends joined by a character no step id holds.
+const edgeKey = (source, target) => `${source}\u0000${target}`
 
 // Outgoing connections per step id, in file order. Connections to unknown steps are ignored.
 const indexTargets = (nodes, edges) => {
@@ -20,7 +23,7 @@ const indexTargets = (nodes, edges) => {
 
 // Connections that close a loop: found by a depth-first walk from each step in file order, an
 // edge back to a step still on the walk's path. Iterative, so a long chain cannot overflow the
-// stack. Returns a Set of "source\u0000target" keys.
+// stack. Returns a Set of edgeKey keys.
 const findBackEdges = (nodes, targets) => {
   const backEdges = new Set()
   const done = new Set()
@@ -37,7 +40,7 @@ const findBackEdges = (nodes, targets) => {
         done.add(frame.id)
       } else {
         frame.next += 1
-        if (onPath.has(target)) backEdges.add(`${frame.id}\u0000${target}`)
+        if (onPath.has(target)) backEdges.add(edgeKey(frame.id, target))
         else if (!done.has(target)) {
           onPath.add(target)
           stack.push({ id: target, next: 0 })
@@ -60,7 +63,7 @@ const assignColumns = (nodes, edges) => {
   const forward = new Map(
     nodes.map(({ id }) => [
       id,
-      targets.get(id).filter((target) => !backEdges.has(`${id}\u0000${target}`)),
+      targets.get(id).filter((target) => !backEdges.has(edgeKey(id, target))),
     ]),
   )
   const incoming = new Map(nodes.map(({ id }) => [id, 0]))

@@ -472,10 +472,15 @@ describe('write', () => {
   describe('when the write fails part way', () => {
     // Writes the first bytes to the temp file, then fails, as a full disk would.
     const failAfterPartialWrite = () => {
-      const realWriteFile = fsp.writeFile
-      vi.spyOn(fsp, 'writeFile').mockImplementation(async (file, text, options) => {
-        await realWriteFile(file, text.slice(0, 2), options)
-        throw new Error('disk full')
+      const realOpen = fsp.open
+      vi.spyOn(fsp, 'open').mockImplementation(async (...args) => {
+        const handle = await realOpen(...args)
+        const realWriteFile = handle.writeFile.bind(handle)
+        handle.writeFile = async (text) => {
+          await realWriteFile(text.slice(0, 2))
+          throw new Error('disk full')
+        }
+        return handle
       })
     }
 
@@ -541,16 +546,93 @@ describe('write', () => {
   })
 
   it('writes to a temp file that is created exclusively, under a name no project can have', async () => {
-    const calls = []
-    const realWriteFile = fsp.writeFile
-    vi.spyOn(fsp, 'writeFile').mockImplementation(async (file, text, options) => {
-      calls.push({ name: path.basename(file), options })
-      return realWriteFile(file, text, options)
-    })
+    const open = vi.spyOn(fsp, 'open')
     await createStore(startDir).write('team.json', 'x')
-    expect(calls).toHaveLength(1)
-    expect(calls[0].name).toMatch(/^\./)
-    expect(calls[0].options).toEqual({ flag: 'wx' })
+    expect(open).toHaveBeenCalledTimes(1)
+    const [file, flags] = open.mock.calls[0]
+    expect(path.basename(file)).toMatch(/^\./)
+    expect(flags).toBe('wx')
+  })
+
+  it('flushes the temp file to disk before it replaces or creates a project', async () => {
+    const events = []
+    const realOpen = fsp.open
+    vi.spyOn(fsp, 'open').mockImplementation(async (...args) => {
+      const handle = await realOpen(...args)
+      const realSync = handle.sync.bind(handle)
+      handle.sync = async () => {
+        events.push('sync')
+        return realSync()
+      }
+      return handle
+    })
+    const realRename = fsp.rename
+    vi.spyOn(fsp, 'rename').mockImplementation(async (...args) => {
+      events.push('rename')
+      return realRename(...args)
+    })
+    const realLink = fsp.link
+    vi.spyOn(fsp, 'link').mockImplementation(async (...args) => {
+      events.push('link')
+      return realLink(...args)
+    })
+    const store = createStore(startDir)
+    await store.write('team.json', 'x')
+    await store.write('fresh.json', 'y', { mustBeNew: true })
+    expect(events).toEqual(['sync', 'rename', 'sync', 'link'])
+  })
+
+  it('closes the temp file when the flush fails, and leaves the old file intact', async () => {
+    const file = path.join(folder, 'team.json')
+    await writeFile(file, 'old text')
+    const before = await snapshot(tmp)
+    const realOpen = fsp.open
+    let closed = false
+    vi.spyOn(fsp, 'open').mockImplementation(async (...args) => {
+      const handle = await realOpen(...args)
+      const realClose = handle.close.bind(handle)
+      handle.sync = async () => {
+        throw new Error('io error')
+      }
+      handle.close = async () => {
+        closed = true
+        return realClose()
+      }
+      return handle
+    })
+    const result = await createStore(startDir).write('team.json', 'new text')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+    expect(closed).toBe(true)
+    expect(await snapshot(tmp)).toEqual(before)
+  })
+
+  it('writes text of exactly 5 MB', async () => {
+    const text = 'a'.repeat(MAX_BYTES)
+    expect(await createStore(startDir).write('big.json', text)).toEqual({ ok: true })
+    expect(await readFile(path.join(folder, 'big.json'), 'utf8')).toHaveLength(MAX_BYTES)
+  })
+
+  it('rejects text above 5 MB as FILE_TOO_LARGE, counting bytes, and changes nothing', async () => {
+    const file = path.join(folder, 'team.json')
+    await writeFile(file, 'old text')
+    const before = await snapshot(tmp)
+    const store = createStore(startDir)
+    // 2 bytes per character: under the cap by length, over it by bytes.
+    const wide = '\u00e9'.repeat(MAX_BYTES / 2 + 1)
+    for (const text of ['a'.repeat(MAX_BYTES + 1), wide]) {
+      const result = await store.write('team.json', text)
+      expect(result.ok).toBe(false)
+      expect(result.problems.map((p) => p.code)).toEqual(['FILE_TOO_LARGE'])
+      expectNameOnlyInUntrusted(result.problems[0], 'team.json')
+    }
+    expect(await snapshot(tmp)).toEqual(before)
+  })
+
+  it('does not create the projects folder for text that is too large', async () => {
+    await rm(folder, { recursive: true })
+    const result = await createStore(startDir).write('big.json', 'a'.repeat(MAX_BYTES + 1))
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_TOO_LARGE'])
+    expect(await readdir(startDir)).not.toContain('projects')
   })
 
   it('has no temp file to remove when the name is rejected', async () => {

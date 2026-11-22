@@ -56,6 +56,7 @@ const startServer = async ({ files = {} } = {}) => {
   const child = spawn(process.execPath, [SERVER], { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] })
   const stdout = []
   const pending = new Map()
+  const badLines = []
   let stderr = ''
   let buffered = ''
   let nextId = 1
@@ -67,8 +68,17 @@ const startServer = async ({ files = {} } = {}) => {
     buffered = lines.pop()
     for (const line of lines) {
       stdout.push(line)
-      const message = JSON.parse(line)
-      pending.get(message.id)?.(message)
+      let message
+      try {
+        message = JSON.parse(line)
+      } catch {
+        // Stdout is the protocol channel: any other text on it fails the test, with the line.
+        badLines.push(line)
+        const error = new Error(`The server wrote a line to stdout that is not JSON: ${line}`)
+        pending.forEach(({ reject }) => reject(error))
+        continue
+      }
+      pending.get(message.id)?.resolve(message)
     }
   })
   child.stderr.setEncoding('utf8')
@@ -86,9 +96,9 @@ const startServer = async ({ files = {} } = {}) => {
   const send = (message) => child.stdin.write(`${JSON.stringify(message)}\n`)
 
   const request = (method, params) =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       const id = nextId++
-      pending.set(id, resolve)
+      pending.set(id, { resolve, reject })
       send({ jsonrpc: '2.0', id, method, params })
     })
 
@@ -108,6 +118,7 @@ const startServer = async ({ files = {} } = {}) => {
   const finish = async () => {
     child.stdin.end()
     await closed
+    expect(badLines, 'lines on stdout that are not JSON').toEqual([])
     return { stdout, stderr }
   }
 
@@ -185,7 +196,7 @@ describe('the stdio server', () => {
       ['an unknown tool', { name: 'nope', arguments: {} }, 'CMD_TOOL_UNKNOWN'],
       [
         'an unknown argument',
-        { name: 'add_step', arguments: { name: 'Build', path: '/etc' } },
+        { name: 'create_project', arguments: { name: 'Demo', path: '/etc' } },
         'CMD_ARGUMENT_UNKNOWN',
       ],
       [

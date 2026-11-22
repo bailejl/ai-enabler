@@ -159,11 +159,13 @@ describe('disconnect', () => {
     ['no source', { targetId: 'build' }, ['sourceId']],
     ['no target', { sourceId: 'idea' }, ['targetId']],
     ['ids that are not text', { sourceId: 5, targetId: { toString: 1 } }, ['sourceId', 'targetId']],
-  ])('asks for the step ids with CONN_TARGET_INVALID for %s', (_label, args, fields) => {
+  ])('asks for the step ids with CONN_ENDPOINT_ID_INVALID for %s', (_label, args, fields) => {
     const project = projectWith([ideaToBuild])
     const result = run(project, 'disconnect', args)
     expect(result.ok).toBe(false)
-    expect(result.problems.map(({ code }) => code)).toEqual(fields.map(() => 'CONN_TARGET_INVALID'))
+    expect(result.problems.map(({ code }) => code)).toEqual(
+      fields.map(() => 'CONN_ENDPOINT_ID_INVALID'),
+    )
     expect(result.problems.map(({ field }) => field)).toEqual(fields)
     expect(result.project).toBe(project)
     result.problems.forEach((found, i) => {

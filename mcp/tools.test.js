@@ -44,6 +44,7 @@ const fileText = async (nodes, { name = 'Checkout', edges = [] } = {}) =>
 
 // A fake projects folder with the store's contract: a plain .json name, mustBeNew refuses a taken
 // name, and a failed write changes nothing. `hold` makes reads wait, to interleave calls.
+// double-waiver: B1 — the real store does file I/O; mcp/store.test.js covers it against a temp dir
 const fakeStore = (initial = {}) => {
   const files = new Map(Object.entries(initial))
   const writes = []
@@ -138,6 +139,24 @@ describe('TOOLS', () => {
       expect(inputSchema.additionalProperties, name).toBe(false)
       for (const [argument, schema] of Object.entries(inputSchema.properties)) {
         expect(schema.type, `${name}.${argument}`).toMatch(/^(string|number|integer)$/)
+      }
+    }
+  })
+
+  it('publishes the whole-number rule for pt, lt, queue and batch and the percent range for ca', () => {
+    const { properties } = TOOLS.find(({ name }) => name === 'set_step_metrics').inputSchema
+    for (const metric of ['pt', 'lt', 'queue', 'batch']) {
+      expect(properties[metric], metric).toEqual({ type: 'integer', minimum: 0 })
+    }
+    expect(properties.ca).toEqual({ type: 'number', minimum: 0, maximum: 100 })
+  })
+
+  it('publishes the same schema for an argument in every tool that takes it', () => {
+    const schemas = new Map()
+    for (const { name, inputSchema } of TOOLS) {
+      for (const [argument, schema] of Object.entries(inputSchema.properties)) {
+        expect(schema, `${name}.${argument}`).toEqual(schemas.get(argument) ?? schema)
+        schemas.set(argument, schema)
       }
     }
   })
@@ -385,12 +404,15 @@ describe('list_problems', () => {
     expect(result.content.problems[0].message).toContain('data-complete')
   })
 
-  it.each([null, 5, '', {}])('rejects the gate %j as unknown', async (gate) => {
-    const { call } = await withOpenProject()
-    const result = await call('list_problems', { gate })
-    expect(result.isError).toBe(true)
-    expect(codes(result)).toEqual(['GATE_UNKNOWN'])
-  })
+  it.each([null, 5, '', {}, 'toString', '__proto__', 'constructor'])(
+    'rejects the gate %j as unknown',
+    async (gate) => {
+      const { call } = await withOpenProject()
+      const result = await call('list_problems', { gate })
+      expect(result.isError).toBe(true)
+      expect(codes(result)).toEqual(['GATE_UNKNOWN'])
+    },
+  )
 
   it('returns 20 problems and a total of 25 when 25 steps are missing data', async () => {
     const nodes = Array.from({ length: 25 }, (_, i) => step(`s${i}`, `Step ${i}`))
@@ -414,14 +436,14 @@ describe('list_problems', () => {
     expect(result.content.total).toBe(20)
   })
 
-  it('caps the problems of a rejected command too', async () => {
-    const nodes = Array.from({ length: 25 }, (_, i) => step(`s${i}`, `Step ${i}`))
-    const { call } = makeHost({ 'big.json': await fileText(nodes) })
-    await call('open_project', { name: 'big.json' })
-    const result = await call('set_step_metrics', { stepId: 'nope', pt: -1 })
+  it('caps the problems of a rejected call too', async () => {
+    const nodes = Array.from({ length: 25 }, (_, i) => step(`s${i}`, `Step ${i}`, { pt: -1 }))
+    const { call } = makeHost({ 'bad.json': await fileText(nodes) })
+    const result = await call('open_project', { name: 'bad.json' })
     expect(result.isError).toBe(true)
-    expect(result.content.problems.length).toBeLessThanOrEqual(20)
-    expect(result.content.total).toBeGreaterThanOrEqual(result.content.problems.length)
+    expect(result.content.problems).toHaveLength(20)
+    expect(result.content.total).toBe(25)
+    expect(new Set(codes(result))).toEqual(new Set(['STEP_COUNT_INVALID']))
   })
 })
 
@@ -481,6 +503,14 @@ describe('with no open project', () => {
   it('checks the arguments before the project', async () => {
     const { call } = makeHost()
     expect(codes(await call('get_project', { path: 'x' }))).toEqual(['CMD_ARGUMENT_UNKNOWN'])
+  })
+
+  it('checks the arguments of a command that needs a project after the project, once', async () => {
+    const { call } = makeHost()
+    expect(codes(await call('add_step', { name: 'Build', path: 'x' }))).toEqual(['CMD_NO_PROJECT'])
+    expect(codes(await call('create_project', { name: 'Demo', path: 'x' }))).toEqual([
+      'CMD_ARGUMENT_UNKNOWN',
+    ])
   })
 })
 
@@ -683,7 +713,7 @@ describe('save_project', () => {
     await call('create_project', { name: 'Demo' })
     const result = await call('save_project')
     expect(result.isError).toBe(true)
-    expect(codes(result)).toEqual(['CMD_NAME_REQUIRED'])
+    expect(codes(result)).toEqual(['FILE_NAME_REQUIRED'])
     expect(store.writes).toEqual([])
   })
 
@@ -746,7 +776,7 @@ describe('save_project', () => {
     const { call, store } = makeHost()
     await call('create_project', { name: 'Demo' })
     const result = await call('save_project', { name: null })
-    expect(codes(result)).toEqual(['CMD_NAME_REQUIRED'])
+    expect(codes(result)).toEqual(['FILE_NAME_REQUIRED'])
     expect(store.writes).toEqual([])
   })
 
@@ -815,17 +845,71 @@ describe('serialising calls', () => {
   })
 })
 
-describe('a store that throws', () => {
-  it('rejects that call and keeps answering the next', async () => {
+describe('a tool that throws unexpectedly', () => {
+  const throwing = async (breakStore) => {
     const store = fakeStore({ 'team.json': await fileText([step('a', 'Plan')]) })
-    const read = store.read
+    const host = createToolHost({ store, now: () => NOW, newId: () => 'id', log: () => {} })
+    breakStore(store)
+    return { store, host }
+  }
+
+  it('is answered with CMD_INTERNAL_ERROR and no project change, never a throw', async () => {
+    const { host } = await throwing((store) => {
+      store.read = async () => {
+        throw new Error('disk gone')
+      }
+    })
+    const result = await host.callTool('open_project', { name: 'team.json' })
+    expect(result.isError).toBe(true)
+    expect(codes(result)).toEqual(['CMD_INTERNAL_ERROR'])
+    expect(result.content).toMatchObject({ ok: false, total: 1 })
+    expect(result.content.summary).toBe('Rejected open_project: nothing changed (1 problem)')
+    expect(JSON.stringify(result)).not.toContain('disk gone')
+  })
+
+  it('keeps the open project and answers the next call when a save throws', async () => {
+    const { store, host } = await throwing(() => {})
+    await host.callTool('open_project', { name: 'team.json' })
+    await host.callTool('add_step', { name: 'Ship' })
+    const write = store.write
+    store.write = () => {
+      throw new Error('disk gone')
+    }
+    const failed = await host.callTool('save_project')
+    expect(codes(failed)).toEqual(['CMD_INTERNAL_ERROR'])
+    store.write = write
+    const { content } = await host.callTool('get_project')
+    expect(content.project.nodes.map(({ data }) => data.label)).toEqual(['Plan', 'Ship'])
+    expect((await host.callTool('save_project')).isError).toBe(false)
+  })
+
+  it('does not stop the calls queued behind it', async () => {
+    const { store, host } = await throwing((broken) => {
+      broken.read = async () => {
+        throw new Error('disk gone')
+      }
+    })
+    const first = host.callTool('open_project', { name: 'team.json' })
+    const second = host.callTool('get_project')
+    expect((await first).isError).toBe(true)
+    expect(codes(await second)).toEqual(['CMD_NO_PROJECT'])
+    expect(store.files.size).toBe(1)
+  })
+
+  it('does not log the failed call', async () => {
+    const lines = []
+    const store = fakeStore()
     store.read = async () => {
       throw new Error('disk gone')
     }
-    const host = createToolHost({ store, now: () => NOW, newId: () => 'id', log: () => {} })
-    await expect(host.callTool('open_project', { name: 'team.json' })).rejects.toThrow('disk gone')
-    store.read = read
-    expect((await host.callTool('open_project', { name: 'team.json' })).isError).toBe(false)
+    const host = createToolHost({
+      store,
+      now: () => NOW,
+      newId: () => 'id',
+      log: (line) => lines.push(line),
+    })
+    await host.callTool('open_project', { name: 'team.json' })
+    expect(lines).toEqual([])
   })
 })
 

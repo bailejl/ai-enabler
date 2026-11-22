@@ -1,7 +1,5 @@
 import { hasText, quoted } from './text.js'
 
-export { hasText }
-
 export const STEP_TYPE = 'step'
 
 // Every field a step's data may carry. Export copies these; validation must cover each optional one.

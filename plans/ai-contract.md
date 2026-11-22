@@ -707,9 +707,9 @@ Feature: Open, edit and save a project
 #### Step 6.2: Confined projects-folder store and test wiring
 
 **Complexity**: complex
-**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `FILE_NOT_FOUND` or `FILE_SAVE_FAILED` problems (new catalog codes).
+**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `FILE_NOT_FOUND` or `FILE_SAVE_FAILED` problems (new catalog codes). Review added more hardening: a target that is not a regular file or has another hard link is rejected, reads and writes are capped at 5 MB with `FILE_TOO_LARGE`, writes go through an fsynced temp file renamed or linked into place, and reads open with `O_NOFOLLOW`.
 **TEST**: `mcp/store.test.js` against a temp directory: every outline name for read and write, a non-string name, a name with a NUL byte, saving a new project over an existing file, a symlink inside pointing out, a symlinked save target, a missing folder, an unwritable folder, a missing file.
-**REFACTOR**: One `resolveName` used by both read and write.
+**REFACTOR**: One `checkName` and one `resolveTarget` used by both read and write.
 **Files**: `mcp/store.js`, `mcp/store.test.js`, `vitest.config.js`, `stryker.config.mjs`
 **Covers**: AC10, AC22
 **Commit**: `feat: confine project files to the projects folder`

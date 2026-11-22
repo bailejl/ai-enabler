@@ -2,7 +2,7 @@ import { applyCommand, rejectCommand, replacesProject } from './commands/index.j
 import { problem } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
 import { layoutSteps } from './layout.js'
-import { toProjectFile, withContentHash } from './projectFile.js'
+import { toMemoryProject, toProjectFile, withContentHash } from './projectFile.js'
 
 /**
  * The editing session is a plain value; every transition takes one and returns the next, so
@@ -21,8 +21,6 @@ export const EMPTY_SESSION = Object.freeze({
   baseline: null,
   changes: 0,
 })
-
-const toMemory = ({ project, nodes, edges }) => ({ project, nodes, edges })
 
 export const hasUnsavedChanges = (session) => session.changes > 0
 
@@ -44,7 +42,7 @@ export const openInto = async (session, text, name) => {
   if (blocked.length > 0) return { ok: false, session, problems: blocked }
   const result = await parseImport(text)
   if (!result.ok) return { ok: false, session, problems: result.problems }
-  const project = toMemory(result.file)
+  const project = toMemoryProject(result.file)
   return { ok: true, session: { name, project, baseline: project, changes: 0 } }
 }
 
@@ -104,7 +102,7 @@ export const toSaveFile = async (session, { now, tool }) => {
  * @param {{ file: object, from: object }} saved The ok result of toSaveFile
  */
 export const markSaved = (session, { file, from }, name = session.name) => {
-  const project = toMemory(file)
+  const project = toMemoryProject(file)
   if (session.project !== from) {
     return {
       name,

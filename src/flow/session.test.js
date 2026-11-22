@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { problem } from './diagnostics/problem.js'
 import { contentHash } from './contentHash.js'
 import { parseImport } from './importFile.js'
-import { layoutSteps, STEP_CARD_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
+import { layoutSteps, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
 import { toProjectFile, withContentHash } from './projectFile.js'
 import {
   EMPTY_SESSION,
@@ -91,6 +91,27 @@ describe('openInto', () => {
       },
     })
     expect(hasUnsavedChanges(result.session)).toBe(false)
+  })
+
+  it('keeps only the known project, step and connection fields of a file', async () => {
+    const file = await appExport()
+    const extra = {
+      ...file,
+      stray: 1,
+      project: { ...file.project, owner: 'x' },
+      nodes: file.nodes.map((node) => ({
+        ...node,
+        selected: true,
+        data: { ...node.data, colour: 'red' },
+        position: { ...node.position, z: 3 },
+      })),
+      edges: file.edges.map((edge) => ({ ...edge, label: 'x' })),
+    }
+    const result = await openInto(EMPTY_SESSION, JSON.stringify(extra), 'extra.json')
+    expect(result.ok).toBe(true)
+    const expected = { project: file.project, nodes: file.nodes, edges: file.edges }
+    expect(result.session.project).toEqual(expected)
+    expect(result.session.baseline).toEqual(expected)
   })
 
   it('opens over a clean open project', async () => {
@@ -371,7 +392,7 @@ describe('toSaveFile', () => {
       expect(at(edge.source).x).toBeLessThan(at(edge.target).x)
     })
     const overlap = (p, q) =>
-      Math.abs(p.x - q.x) < STEP_CARD_WIDTH && Math.abs(p.y - q.y) < STEP_CARD_HEIGHT
+      Math.abs(p.x - q.x) < STEP_CARD_WIDTH && Math.abs(p.y - q.y) < STEP_ROW_HEIGHT
     file.nodes.forEach((first, i) =>
       file.nodes.slice(i + 1).forEach((second) => {
         expect(overlap(first.position, second.position)).toBe(false)
