@@ -2,7 +2,7 @@ import { test, expect } from './fixtures.js'
 import { DEV_COMMAND_EVENT, DEV_COMMAND_READY_ATTRIBUTE } from '../src/shell/devCommand.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, connect, edgeBetween } from './canvas.js'
-import { recordsIn, waitForRecords } from './console.js'
+import { expectNoneOf, recordsIn, waitForRecords } from './console.js'
 import {
   asUpload,
   chooseFile,
@@ -101,10 +101,7 @@ test('a rejected edit is announced and listed, and nothing changes', async ({
   // The record carries the code and no text from the map or the command.
   const records = await waitForRecords(page, capture.messages, 1)
   expect(records.map(({ record }) => record.code)).toEqual(['STEP_NOT_FOUND'])
-  const recordText = JSON.stringify(records)
-  for (const secret of ['nope', 'Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production']) {
-    expect(recordText).not.toContain(secret)
-  }
+  expectNoneOf(records, ['nope', 'Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production'])
 })
 
 test('a rejected edit does not move focus', async ({ page, diagnostics }) => {
@@ -298,10 +295,7 @@ test('an edit rejected with 2 problems writes 2 records and no step name', async
     'STEP_COUNT_INVALID',
   ])
   expect(recordsIn(capture.messages)).toHaveLength(2)
-  const recordText = JSON.stringify(records)
-  for (const stepName of ['Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production']) {
-    expect(recordText).not.toContain(stepName)
-  }
+  expectNoneOf(records, ['Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production'])
 })
 
 test('the rejected-edit view has no axe violations', async ({ page, diagnostics }) => {
@@ -334,23 +328,29 @@ test('two edits sent in one task both apply', async ({ page }) => {
   await expect(edgeBetween(page, 'plan', 'test')).toHaveCount(1)
 })
 
-// A refused send leaves no trace to wait for, so a rejected edit sent after it marks the point
-// where the earlier one has been handled: its panel and its record are all there should be.
-test('the dev command hook refuses a create_project command', async ({
+// A refused send leaves no trace to wait for, so a rejected edit sent after it is a sentinel: a
+// leaked create_project, or any accepted refused send, would show up as an extra record or as
+// extra panel content next to the sentinel's own.
+test('the dev command hook refuses a create_project command, and an empty or missing list', async ({
   page,
   capture,
   diagnostics,
 }) => {
   diagnostics.expect(['STEP_NOT_FOUND'])
+  const projectName = page.getByRole('banner').locator('.header__project')
+  const nameBefore = await projectName.textContent()
 
   await sendEdit(page, [{ name: 'create_project', args: { name: 'Other' } }])
+  await sendEdit(page, [])
+  await sendEdit(page, undefined)
   await sendEdit(page, REMOVE_UNKNOWN_STEP)
 
-  await expect(
-    editPanel(page).getByRole('heading', { name: 'Edit rejected: 1 problem' }),
-  ).toBeVisible()
-  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
-  await expect(page.getByText('Other', { exact: true })).toHaveCount(0)
+  const panel = editPanel(page)
+  await expect(panel.getByRole('heading', { name: 'Edit rejected: 1 problem' })).toBeVisible()
+  await expect(panel.getByRole('heading')).toHaveCount(1)
+  await expect(panel.getByRole('listitem')).toHaveCount(1)
   const records = await waitForRecords(page, capture.messages, 1)
   expect(records.map(({ record }) => record.code)).toEqual(['STEP_NOT_FOUND'])
+  await expect(projectName).toHaveText(nameBefore)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 })

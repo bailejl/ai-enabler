@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moveEdit, deleteEdit, syncCanvas } from './canvas.js'
 import { EDIT_EVENT, INITIAL_EDIT_STATE, reduceEdit, runEdit, toEditEvent } from './editFlow.js'
 import { createStarterMemoryProject } from './project.js'
+import { toProblemsView } from './problemsView.js'
 
 const context = { newId: () => 'new-id' }
 const PROJECT = createStarterMemoryProject({ newId: () => 'project-id' })
@@ -119,6 +120,9 @@ describe('runEdit', () => {
     const result = runEdit({ project: PROJECT, canvas: dragged }, commands, context)
     expect(result).toMatchObject({ ok: false, changed: false, shouldMoveFocus: false })
     expect(result.problems.map((p) => p.code)).toEqual(['CMD_UNKNOWN'])
+    const listed = result.problems[0].message.split('The commands are: ')[1].replace(/\.$/, '')
+    expect(listed.split(', ')).toContain('move_step')
+    expect(listed.split(', ')).not.toContain('create_project')
     expect(result.project).toBe(PROJECT)
     expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
   })
@@ -174,6 +178,11 @@ describe('reduceEdit', () => {
     expect(announcement).toBe('Edit rejected: 1 problem. Step "Nope" does not exist.')
     expect(state.rejection.heading).toBe('Edit rejected: 1 problem')
     expect(state.focusReturn).toBe('a-button')
+  })
+
+  it('shows the same problems view an import rejection shows', () => {
+    const { state } = reduceEdit(INITIAL_EDIT_STATE, rejected(two))
+    expect(state.rejection).toEqual(toProblemsView('Edit rejected: 2 problems', two))
   })
 
   it('replaces a shown rejection with the next, and its focus return', () => {

@@ -3,10 +3,22 @@ import { PAGES_BASE } from '../scripts/pages-base.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
 import { DEV_COMMAND_EVENT, DEV_COMMAND_READY_ATTRIBUTE } from '../src/shell/devCommand.js'
 import { CRASH_KIND, DEV_CRASH_EVENT } from '../src/shell/devCrash.js'
-import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, waitForRecords, recordsIn } from './console.js'
+import {
+  flushConsole,
+  ISO_UTC_TIMESTAMP,
+  PACKAGE_VERSION,
+  waitForRecords,
+  recordsIn,
+} from './console.js'
 import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
+
+// How long to let a refused event have its effect, if it had one.
+const SETTLE_MS = 100
+
+const settle = (page) =>
+  page.evaluate((ms) => new Promise((done) => setTimeout(done, ms)), SETTLE_MS)
 
 const currentPath = (page) => page.evaluate(() => window.location.pathname)
 
@@ -143,7 +155,8 @@ test('the dev command event does nothing in production', async ({ page, capture 
       ),
     [DEV_COMMAND_EVENT],
   )
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)))
+  await settle(page)
+  await flushConsole(page)
 
   await expectStarterSteps(page)
   await expect(page.getByRole('region', { name: 'Edit problems' })).toHaveCount(0)

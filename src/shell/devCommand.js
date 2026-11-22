@@ -9,7 +9,8 @@ export const DEV_COMMAND_EVENT = 'aie-dev-command'
 // Set on <html> while the listener is attached.
 export const DEV_COMMAND_READY_ATTRIBUTE = 'data-aie-dev-command-ready'
 
-const isEntry = (value) => typeof value === 'object' && value !== null && !Array.isArray(value)
+const isCommandObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
  * The commands an event's `detail` asks for, as a non-empty list of `{ name, args }`, or `null`
@@ -19,6 +20,6 @@ const isEntry = (value) => typeof value === 'object' && value !== null && !Array
 export const parseDevCommand = (detail) => {
   const commands = detail?.commands
   if (!Array.isArray(commands) || commands.length === 0) return null
-  if (!commands.every(isEntry) || commands.some(replacesProject)) return null
+  if (!commands.every(isCommandObject) || commands.some(replacesProject)) return null
   return commands.map(({ name, args }) => ({ name, args }))
 }

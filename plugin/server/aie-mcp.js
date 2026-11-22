@@ -17220,10 +17220,14 @@ var COMMANDS = {
 	...CONNECTION_COMMANDS
 };
 var COMMAND_NAMES = Object.keys(COMMANDS);
-var unknownCommand = (name) => problem("CMD_UNKNOWN", {
+/**
+* The CMD_UNKNOWN problem for `name`. The message lists `names` as the commands on offer: every
+* command by default, or the ones a caller allows.
+*/
+var unknownCommand = (name, names = COMMAND_NAMES) => problem("CMD_UNKNOWN", {
 	params: {
 		command: nameLabel(name),
-		commands: COMMAND_NAMES.join(", ")
+		commands: names.join(", ")
 	},
 	untrusted: { command: name }
 });
@@ -17251,7 +17255,7 @@ var checkArgs = (name, entry, args) => {
 * caller can guard the open project first. False for anything else, including a malformed command.
 */
 var replacesProject = (command) => typeof command?.name === "string" && Object.hasOwn(COMMANDS, command.name) && COMMANDS[command.name].replacesProject === true;
-var isToolCommand = ([, command]) => !command.uiOnly;
+var isToolEntry = ([, command]) => !command.uiOnly;
 /**
 * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
 * @param {string} name The command name; shown cut short and never as part of the problems.
@@ -17993,7 +17997,7 @@ var getRepairGuide = (session, { code }, { guides }) => {
 	});
 };
 var DEFINITIONS = [
-	...Object.entries(COMMANDS).filter(isToolCommand).map(([name, { args }]) => ({
+	...Object.entries(COMMANDS).filter(isToolEntry).map(([name, { args }]) => ({
 		name,
 		args,
 		required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),

@@ -30,9 +30,13 @@ export const COMMANDS = {
 
 const COMMAND_NAMES = Object.keys(COMMANDS)
 
-export const unknownCommand = (name) =>
+/**
+ * The CMD_UNKNOWN problem for `name`. The message lists `names` as the commands on offer: every
+ * command by default, or the ones a caller allows.
+ */
+export const unknownCommand = (name, names = COMMAND_NAMES) =>
   problem('CMD_UNKNOWN', {
-    params: { command: nameLabel(name), commands: COMMAND_NAMES.join(', ') },
+    params: { command: nameLabel(name), commands: names.join(', ') },
     untrusted: { command: name },
   })
 
@@ -73,7 +77,7 @@ export const replacesProject = (command) =>
 
 // Whether a `[name, command]` entry of COMMANDS is an MCP tool: the ones flagged `uiOnly` serve the
 // app alone.
-export const isToolCommand = ([, command]) => !command.uiOnly
+export const isToolEntry = ([, command]) => !command.uiOnly
 
 /**
  * The result of a command that changed nothing: `{ ok: false, problems, summary }`.

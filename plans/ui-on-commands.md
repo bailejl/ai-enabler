@@ -23,7 +23,7 @@ Make every edit the React UI already has (connect, delete, move) a command from 
 
 - **Move commit rule.** React Flow 12.12.1 sends every move as a `position` change: `dragging: true` while a pointer drag is in progress, and `dragging: false` for the drop of a node drag, the drop of a box-selection drag, and each arrow-key move (its `updateNodePositions` defaults `dragging` to false). The app applies `dragging: true` changes to the view only and turns the `dragging: false` changes of one `onNodesChange` call into one `move_step` edit. One rule covers mouse, selection drags and the keyboard. No `onNodeDragStop` or `onSelectionDragStop` wiring. A move to the step's current position is skipped, so a click never runs a command.
 - **Delete seam.** `onBeforeDelete({ nodes, edges })` runs the delete edit and returns `false`, so React Flow never removes anything itself; the project change and the resync do it. Focus after delete runs only when the edit is accepted.
-- **No sync effect.** A pure `runEdit(project, commands, context)` returns `{ project, ok, problems, announcement }`. The hook holds the latest project in a ref (so two edits in one tick both apply), then, in the same handler, sets the project state and calls `setNodes(prev => syncCanvas(prev, project))` and `setEdges(...)`. It resyncs after every edit, accepted or rejected, so a rejected move snaps the card back. Import's replacement uses the same path, then asks for the fit as today. `report` and `announce` are called from the handler, never inside a state updater.
+- **No sync effect.** A pure `runEdit({ project, canvas }, commands, context)` returns `{ project, canvas, ok, changed, problems, shouldMoveFocus }`. The hook holds the latest project in a ref (so two edits in one tick both apply), then, in the same handler, sets the project state and the canvas (`useCanvasEdits` holds the canvas and calls `syncCanvas` through `setCanvas`). It resyncs after every edit, accepted or rejected, so a rejected move snaps the card back. Import's replacement uses the same path, then asks for the fit as today. `report` and `announce` are called from the handler, never inside a state updater.
 - **Hooks.** `useProject.js` keeps the project, export and the import flow. A new `useCanvasEdits.js` holds the canvas view state, `applyEdit`, the edit-rejection state and the React Flow callbacks. `App.jsx` only wires props.
 - **Starter.** `project.js` gains `createStarterMemoryProject()` (`{ project, nodes, edges }` from `createStarterProject` and `initialFlow.js` through `toMemoryProject`). `initialFlow.js` stays data only.
 - **First rejection wins.** `applyCommands` stops at the first rejected command and returns that command's problems. Later commands would run against a state that will not exist, so their problems would mislead. This narrows the spec's "every problem" to "every problem of the rejected command" (the spec's Ambiguity Log records it).
@@ -173,7 +173,7 @@ Feature: UI-only commands and all-or-nothing edits
 ### Slice 2: Shared problems panel
 
 **Depends-on:** none
-**Files:** `src/flow/problemsView.js`, `src/flow/problemsView.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ProblemsPanel.jsx`, `src/shell/ImportStatus.jsx`, `src/index.css`, `e2e/export-import.spec.js`
+**Files:** `src/flow/problemsView.js`, `src/flow/problemsView.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ProblemsPanel.jsx`, `src/shell/ImportStatus.jsx`, `src/index.css`, `src/flow/projectFile.test.js`, `src/shell/contrast.test.js`, `e2e/export-import.spec.js`
 
 **Behavior:**
 
@@ -369,7 +369,7 @@ Feature: Canvas edits through commands
 ### Slice 4: Rejected edits announced, listed and logged
 
 **Depends-on:** 2, 3
-**Files:** `src/shell/useCanvasEdits.js`, `src/App.jsx`, `src/shell/devCommand.js`, `src/shell/devCommand.test.js`, `src/shell/DevCommandTrigger.jsx`, `e2e/edit-rejection.spec.js`, `e2e/pages.spec.js`, `CHANGELOG.md`
+**Files:** `src/shell/useCanvasEdits.js`, `src/App.jsx`, `src/shell/devCommand.js`, `src/shell/devCommand.test.js`, `src/shell/DevCommandTrigger.jsx`, `src/flow/diagnostics/record.test.js`, `e2e/edit-rejection.spec.js`, `e2e/crash.spec.js`, `e2e/views.js`, `e2e/pages.spec.js`, `CHANGELOG.md`
 
 **Behavior:**
 
@@ -474,7 +474,7 @@ Feature: Rejected edits
 
 **Complexity**: standard
 **IMPLEMENT**: `applyEdit` dispatches `reduceEdit` events: on rejection it records `document.activeElement` as `focusReturn`, calls D1's `report(problem)` once per problem and `announce(...)` (the announcer's clear-then-set re-speaks identical text); on an accepted, changed edit it dispatches `accepted`, and if focus was inside the panel it focuses the canvas. Import's confirm dispatches `importReplaced`. `App.jsx` renders `ProblemsPanel` labelled "Edit problems", after `ImportStatus`, without `takesFocus`; Dismiss focuses `focusReturn` when it is a connected element other than `document.body`, else the canvas. The panel's list has a capped height with its own scroll, so two shown panels leave the canvas usable at 320 px. `CHANGELOG.md` `Unreleased`: "Edits run through the command layer; rejected edits and import problems are listed with their fixes; new connection ids are UUIDs."
-**TEST**: `e2e/edit-rejection.spec.js` (D1 fixture; `expectDiagnostics` with the expected codes per test): announce and list; focus kept; repeated rejection re-announced; replace with the 2-problem `add_step`; clear on connect; select keeps it; import clears it; keyboard Dismiss returns focus, and falls back to the canvas when focus was on the body; both panels shown at 320 px leave the canvas controls visible; 2 records for 2 problems with no step name; axe; unknown command lists `CMD_UNKNOWN`; hook refusals.
+**TEST**: `e2e/edit-rejection.spec.js` (D1 fixture; `diagnostics.expect` with the expected codes per test): announce and list; focus kept; repeated rejection re-announced; replace with the 2-problem `add_step`; clear on connect; select keeps it; import clears it; keyboard Dismiss returns focus, and falls back to the canvas when focus was on the body; both panels shown at 320 px leave the canvas controls visible; 2 records for 2 problems with no step name; axe; unknown command lists `CMD_UNKNOWN`; hook refusals.
 **REFACTOR**: Keep `useCanvasEdits.js` the only place that calls `report` for edits.
 **Files**: `src/shell/useCanvasEdits.js`, `src/App.jsx`, `e2e/edit-rejection.spec.js`, `CHANGELOG.md`
 **Covers**: AC8, AC9, AC12
@@ -548,7 +548,7 @@ Round 1: Parallelization approved. Acceptance, Design, UX and Strategic asked fo
 - **Resolved blocker**: Slice 3 - self and duplicate refusals. Named the existing `connections.spec.js` tests and added a scenario.
 - Warnings applied: no sync effect (one handler sets project and canvas; latest project in a ref; fit after import keeps working); `useCanvasEdits.js` split from `useProject.js`; pure `runEdit`; `onBeforeDelete` seam; no `MCP_COMMANDS` export; both parity uses filtered; stale comments fixed; starter composed in `project.js`; first rejection wins, pinned by a test; panel region, DOM order, not a live region, "Fix:" label; repeated announcement; import clears the edit panel; select does not clear it; 2-problem logging; dev hook refuses `replacesProject` and passes unknown names; production bundle check covers the ready attribute; Slice 5 folded into Slices 1 and 4 so nothing in wave 1 needs D1's changelog; changelog notes the id change; weak falsifiers replaced.
 - Round 2: UX and Strategic approved. Acceptance flagged one blocker, fixed below after the two-round limit, so it is not re-reviewed; check it at the human gate.
-- **Resolved blocker**: Slice 3 - the rejected move and rejected delete scenarios had no executable test. `runEdit` now returns the rebuilt canvas and a `moveFocus` flag, the hook only applies that result, and `editFlow.test.js` covers both rejection paths. Both scenarios are marked unit level.
+- **Resolved blocker**: Slice 3 - the rejected move and rejected delete scenarios had no executable test. `runEdit` now returns the rebuilt canvas and a `shouldMoveFocus` flag, the hook only applies that result, and `editFlow.test.js` covers both rejection paths. Both scenarios are marked unit level.
 - Round 2 warnings applied: observable Thens; unit-level labels; the arrow-key scenario checks the connection; the repeat announcement is observed through text changes; the focus card follows the existing rule; `moveEdit` ignores changes without a position; Dismiss treats the body as no target; panel height is capped; focus after delete runs after the resync.
 - Noted for E5: arrow keys make one move edit per key press, so undo history will be fine-grained; E5 decides whether to coalesce.
 - Observations kept: dependency direction is clean; `uiOnly` extends the existing entry pattern; rollback is a plain revert plus a bundle rebuild.

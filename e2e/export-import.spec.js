@@ -14,25 +14,20 @@ import {
   asUpload,
   chooseFile,
   confirmDialog,
+  EXPORT_BUTTON_NAME,
+  exportProjectFile,
   fixturePath,
   importAndConfirm,
   importStatus,
   metricRegion,
+  readDownloadedJson,
   readFixture,
   STARTER_STEP_COUNT,
 } from './views.js'
 
-const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
 const EXPORT_NODE_FIELDS = ['data', 'id', 'position', 'type']
 const EDGE_FIELDS = ['id', 'source', 'target']
-
-const readDownloadedJson = async (download) => {
-  const stream = await download.createReadStream()
-  const chunks = []
-  for await (const chunk of stream) chunks.push(chunk)
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-}
 
 test('the header offers Export with a descriptive accessible name', async ({ page }) => {
   await page.goto('/')
@@ -173,12 +168,6 @@ const recordAnnouncements = async (page) => {
   })
 }
 const spokenMessages = (page) => page.evaluate(() => window.spokenMessages)
-
-const exportProjectFile = async (page) => {
-  const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: EXPORT_BUTTON_NAME }).click()
-  return readDownloadedJson(await downloadPromise)
-}
 
 const tileTexts = (page) => metricRegion(page).locator('dd').allTextContents()
 const expectedTileTexts = (steps) =>

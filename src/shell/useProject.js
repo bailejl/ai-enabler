@@ -106,7 +106,8 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     canvasElementRef,
     announce,
   })
-  const { replaceProject } = canvasEdits
+  // `replaceProject` serves import alone, so it stays out of what the hook returns.
+  const { replaceProject, ...editActions } = canvasEdits
   const { fitView } = useReactFlow()
   // Fitting must wait for React Flow to hold the replaced nodes, so a replacement only asks for it.
   const [fitRequestCount, setFitRequestCount] = useState(0)
@@ -137,7 +138,7 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     projectName: project.project.name,
     steps: project.nodes.map((node) => node.data),
     exportProject,
-    ...canvasEdits,
+    ...editActions,
     ...importFlow,
   }
 }

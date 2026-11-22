@@ -13,6 +13,7 @@ import {
   viewportZoom,
 } from './canvas.js'
 import {
+  exportProjectFile,
   fixturePath,
   importAndConfirm,
   metricRegion,
@@ -22,26 +23,12 @@ import {
   STARTER_STEP_COUNT,
 } from './views.js'
 
-const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const STARTER_EDGE_COUNT = 5
 // Plan to Build and Build to Test go with Build; Idea to Plan is deleted with it.
 const REMOVED_EDGE_COUNT = 3
 const ARROW_STEP = 5
 const DRAG_OFFSET = { x: 60, y: 90 }
 const MULTI_SELECT_KEY = 'ControlOrMeta'
-
-const readDownloadedJson = async (download) => {
-  const stream = await download.createReadStream()
-  const chunks = []
-  for await (const chunk of stream) chunks.push(chunk)
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-}
-
-const exportProjectFile = async (page) => {
-  const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: EXPORT_BUTTON_NAME }).click()
-  return readDownloadedJson(await downloadPromise)
-}
 
 const positionsById = (file) =>
   Object.fromEntries(file.nodes.map(({ id, position }) => [id, position]))
@@ -67,7 +54,7 @@ test('dropping a dragged step stores its position and no other step moves', asyn
   const after = positionsById(await exportProjectFile(page))
   expectMovedBy(after.build, before.build, DRAG_OFFSET, zoom)
   for (const id of Object.keys(before).filter((stepId) => stepId !== 'build')) {
-    expect(after[id]).toEqual(before[id])
+    expect(after[id], id).toEqual(before[id])
   }
 })
 
@@ -85,7 +72,7 @@ test('dragging a box selection moves each selected step by the drag offset and n
   expectMovedBy(after.plan, before.plan, DRAG_OFFSET, zoom)
   expectMovedBy(after.build, before.build, DRAG_OFFSET, zoom)
   for (const id of ['idea', 'test', 'deploy', 'production']) {
-    expect(after[id]).toEqual(before[id])
+    expect(after[id], id).toEqual(before[id])
   }
 })
 
@@ -134,10 +121,11 @@ test('a map replaced by import is the project: a later connection keeps its step
   const canvas = await settledBox(page.getByRole('main'))
   for (const card of await cards(page).all()) {
     const box = await settledBox(card)
-    expect(box.x).toBeGreaterThanOrEqual(canvas.x)
-    expect(box.y).toBeGreaterThanOrEqual(canvas.y)
-    expect(box.x + box.width).toBeLessThanOrEqual(canvas.x + canvas.width)
-    expect(box.y + box.height).toBeLessThanOrEqual(canvas.y + canvas.height)
+    const title = await card.getAttribute('data-id')
+    expect(box.x, `${title} left`).toBeGreaterThanOrEqual(canvas.x)
+    expect(box.y, `${title} top`).toBeGreaterThanOrEqual(canvas.y)
+    expect(box.x + box.width, `${title} right`).toBeLessThanOrEqual(canvas.x + canvas.width)
+    expect(box.y + box.height, `${title} bottom`).toBeLessThanOrEqual(canvas.y + canvas.height)
   }
 })
 

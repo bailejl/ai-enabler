@@ -1,4 +1,4 @@
-import { COMMANDS, checkArgs, isToolCommand, rejectCommand } from '../src/flow/commands/index.js'
+import { COMMANDS, checkArgs, isToolEntry, rejectCommand } from '../src/flow/commands/index.js'
 import { isCatalogCode, problem } from '../src/flow/diagnostics/problem.js'
 import { allProblems, isKnownGate, runGate } from '../src/flow/gates/index.js'
 import {
@@ -158,7 +158,7 @@ const getRepairGuide = (session, { code }, { guides }) => {
 const DEFINITIONS = [
   // applyCommand checks for an open project itself, with the same problem.
   ...Object.entries(COMMANDS)
-    .filter(isToolCommand)
+    .filter(isToolEntry)
     .map(([name, { args }]) => ({
       name,
       args,

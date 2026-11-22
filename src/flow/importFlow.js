@@ -1,5 +1,5 @@
 import { toMemoryProject } from './projectFile.js'
-import { toProblemsView } from './problemsView.js'
+import { toRejection } from './problemsView.js'
 import { formatCount } from './text.js'
 
 export const IMPORT_IDLE = 'idle'
@@ -33,9 +33,6 @@ const describeChangedBy = (changedBy) =>
 const noticesFor = (isEdited, aiNotice) =>
   [isEdited ? EDITED_NOTICE : null, aiNotice].filter(Boolean)
 
-const describeRejection = (problems) =>
-  `Import rejected: ${formatCount(problems.length, 'problem')}`
-
 export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
 
 const describeImported = (name, stepCount, notices) => {
@@ -64,7 +61,7 @@ const stay = (state) => transition(state)
 const rejectFile = (problems) =>
   transition(
     { type: IMPORT_ERROR, problems },
-    { announcement: `${describeRejection(problems)}. ${problems[0].message}` },
+    { announcement: toRejection('Import', problems).announcement },
   )
 
 const acceptFile = (state, { result: { file, edited, changedBy }, project }) => {
@@ -130,10 +127,7 @@ const HANDLERS = {
  */
 export const describeImportStatus = (state) => {
   if (state.type === IMPORT_ERROR) {
-    return {
-      isError: true,
-      view: toProblemsView(describeRejection(state.problems), state.problems),
-    }
+    return { isError: true, view: toRejection('Import', state.problems).view }
   }
   if (state.type === IMPORT_IDLE && state.status) return { text: state.status, isError: false }
   return null

@@ -234,4 +234,13 @@ describe('toMemoryProject', () => {
       edges: [{ id: 'e1', source: 'a', target: 'b' }],
     })
   })
+
+  it('defaults an absent node type to step', () => {
+    const [node] = toMemoryProject({
+      project: { id: 'p1', name: 'Delivery' },
+      nodes: [{ id: 'idea', position: { x: 0, y: 0 }, data: { label: 'Idea' } }],
+      edges: [],
+    }).nodes
+    expect(node.type).toBe('step')
+  })
 })

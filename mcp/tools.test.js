@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import { COMMANDS, isToolCommand } from '../src/flow/commands/index.js'
+import { COMMANDS, isToolEntry } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
@@ -110,8 +110,8 @@ const withOpenProject = async (extra = {}, guides = {}) => {
   return harness
 }
 
-const MCP_COMMANDS = Object.entries(COMMANDS).filter(isToolCommand)
-const UI_ONLY_COMMANDS = Object.entries(COMMANDS).filter(([, { uiOnly }]) => uiOnly)
+const MCP_COMMAND_ENTRIES = Object.entries(COMMANDS).filter(isToolEntry)
+const UI_ONLY_COMMAND_ENTRIES = Object.entries(COMMANDS).filter(([, { uiOnly }]) => uiOnly)
 
 const codes = (result) => result.content.problems.map(({ code }) => code)
 
@@ -135,7 +135,7 @@ describe('TOOLS', () => {
   })
 
   it('gives each MCP command its tool, with its arguments as the schema properties', () => {
-    for (const [name, { args }] of MCP_COMMANDS) {
+    for (const [name, { args }] of MCP_COMMAND_ENTRIES) {
       const tool = TOOLS.find((candidate) => candidate.name === name)
       expect(tool, name).toBeDefined()
       expect(Object.keys(tool.inputSchema.properties), name).toEqual(args)
@@ -143,8 +143,8 @@ describe('TOOLS', () => {
   })
 
   it('gives no UI-only command a tool', () => {
-    expect(UI_ONLY_COMMANDS.length).toBeGreaterThan(0)
-    for (const [name] of UI_ONLY_COMMANDS) {
+    expect(UI_ONLY_COMMAND_ENTRIES.length).toBeGreaterThan(0)
+    for (const [name] of UI_ONLY_COMMAND_ENTRIES) {
       expect(
         TOOLS.map((tool) => tool.name),
         name,
@@ -333,7 +333,7 @@ describe('bad arguments', () => {
   it('answers a UI-only command with an unknown tool and leaves the project as it was', async () => {
     const { call, lines } = await withOpenProject()
     const before = (await call('get_project')).content.project
-    for (const [name] of UI_ONLY_COMMANDS) {
+    for (const [name] of UI_ONLY_COMMAND_ENTRIES) {
       const result = await call(name, { stepId: 'a', x: 420, y: 80 })
       expect(result.isError, name).toBe(true)
       expect(codes(result), name).toEqual(['CMD_TOOL_UNKNOWN'])

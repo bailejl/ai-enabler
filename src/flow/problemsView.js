@@ -1,8 +1,11 @@
+import { DETAIL_KEYS } from './diagnostics/problem.js'
+import { formatCount } from './text.js'
+
 // The list shows this many problems; the rest are counted in one trailing "and N more" line.
 export const MAX_LISTED_PROBLEMS = 10
 
 // What an item keeps beyond its code, message and fix. `untrusted` text never reaches the view.
-const OPTIONAL_KEYS = ['stepId', 'edgeId', 'field']
+const OPTIONAL_KEYS = DETAIL_KEYS.filter((key) => key !== 'untrusted')
 
 const toItem = (problem) => ({
   code: problem.code,
@@ -29,3 +32,20 @@ export const toProblemsView = (heading, problems) => ({
   items: problems.slice(0, MAX_LISTED_PROBLEMS).map(toItem),
   more: describeMore(problems.length),
 })
+
+/**
+ * The wording of a rejection, shared by edit and import so both read alike: the heading (subject
+ * and problem count), the problems view under it, and the line to speak (the heading and the
+ * first problem's message).
+ * @param {string} subject What was rejected, e.g. "Edit" or "Import".
+ * @param {{ code: string, message: string, fix: string }[]} problems At least one.
+ * @returns {{ heading: string, view: ReturnType<typeof toProblemsView>, announcement: string }}
+ */
+export const toRejection = (subject, problems) => {
+  const heading = `${subject} rejected: ${formatCount(problems.length, 'problem')}`
+  return {
+    heading,
+    view: toProblemsView(heading, problems),
+    announcement: `${heading}. ${problems[0].message}`,
+  }
+}

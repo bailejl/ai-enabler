@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_LISTED_PROBLEMS, toProblemsView } from './problemsView.js'
+import { MAX_LISTED_PROBLEMS, toProblemsView, toRejection } from './problemsView.js'
 
 const HEADING = 'Import rejected'
 
@@ -82,5 +82,20 @@ describe('toProblemsView', () => {
 
     expect(item).not.toHaveProperty('severity')
     expect(item).not.toHaveProperty('extra')
+  })
+})
+
+describe('toRejection', () => {
+  it('words the heading, the view and the announcement from the subject and the problems', () => {
+    const problems = manyProblems(2)
+    const rejection = toRejection('Edit', problems)
+
+    expect(rejection.heading).toBe('Edit rejected: 2 problems')
+    expect(rejection.view).toEqual(toProblemsView('Edit rejected: 2 problems', problems))
+    expect(rejection.announcement).toBe('Edit rejected: 2 problems. Problem 1.')
+  })
+
+  it('counts one problem in the singular', () => {
+    expect(toRejection('Import', manyProblems(1)).heading).toBe('Import rejected: 1 problem')
   })
 })

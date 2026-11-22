@@ -1,7 +1,6 @@
 import { syncCanvas } from './canvas.js'
-import { applyCommands, replacesProject, unknownCommand } from './commands/index.js'
-import { toProblemsView } from './problemsView.js'
-import { formatCount } from './text.js'
+import { COMMANDS, applyCommands, replacesProject, unknownCommand } from './commands/index.js'
+import { toRejection } from './problemsView.js'
 
 export const EDIT_EVENT = Object.freeze({
   rejected: 'rejected',
@@ -12,7 +11,10 @@ export const EDIT_EVENT = Object.freeze({
 
 export const INITIAL_EDIT_STATE = Object.freeze({ rejection: null, focusReturn: null })
 
-const describeRejection = (problems) => `Edit rejected: ${formatCount(problems.length, 'problem')}`
+// The commands an edit may hold: all but the ones that replace the project.
+const EDIT_COMMAND_NAMES = Object.entries(COMMANDS)
+  .filter(([, command]) => !command.replacesProject)
+  .map(([name]) => name)
 
 /**
  * Runs one edit (a list of commands) as a whole and redraws the canvas from the result. The
@@ -30,7 +32,12 @@ const describeRejection = (problems) => `Edit rejected: ${formatCount(problems.l
 export const runEdit = ({ project, canvas }, commands, context) => {
   const replacing = commands.find(replacesProject)
   const result = replacing
-    ? { ok: false, project, changed: false, problems: [unknownCommand(replacing.name)] }
+    ? {
+        ok: false,
+        project,
+        changed: false,
+        problems: [unknownCommand(replacing.name, EDIT_COMMAND_NAMES)],
+      }
     : applyCommands(project, commands, context)
   return {
     project: result.project,
@@ -58,11 +65,8 @@ export const toEditEvent = (result, focusReturn = null) => {
 const transition = (state, announcement = null) => ({ state, announcement })
 
 const showRejection = (_state, { problems, focusReturn = null }) => {
-  const heading = describeRejection(problems)
-  return transition(
-    { rejection: toProblemsView(heading, problems), focusReturn },
-    `${heading}. ${problems[0].message}`,
-  )
+  const { view, announcement } = toRejection('Edit', problems)
+  return transition({ rejection: view, focusReturn }, announcement)
 }
 
 const clearRejection = () => transition(INITIAL_EDIT_STATE)

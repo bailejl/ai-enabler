@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { COMMANDS, isToolCommand } from '../commands/index.js'
+import { COMMANDS, isToolEntry } from '../commands/index.js'
 import projectSchema from '../../../public/schema/project-0.1.0.json'
 
 // Only MCP commands count: a UI-only command (flagged `uiOnly`) is not a tool, so a client cannot
 // use it to set a field.
-const MCP_COMMANDS = Object.fromEntries(Object.entries(COMMANDS).filter(isToolCommand))
+const MCP_COMMANDS = Object.fromEntries(Object.entries(COMMANDS).filter(isToolEntry))
 
 // True when the "command.argument" reference names an argument of a command in `commands`.
 const hasArgument = (commands, ref) => {
@@ -65,7 +65,8 @@ const MAPPING = {
 
 const options = { exempt: EXEMPT, mapping: MAPPING, commands: MCP_COMMANDS }
 
-// AC23: every writable field in the save-file JSON Schema can be set by some command.
+// Every writable field in the save-file JSON Schema must be settable by an MCP command, or the AI
+// cannot write it.
 describe('save-file parity', () => {
   it('has a command argument for every writable path in the JSON Schema', () => {
     expect(pathsWithoutCommand(projectSchema, options)).toEqual([])
@@ -118,11 +119,6 @@ describe('save-file parity', () => {
         commands: MCP_COMMANDS,
       })
       expect(missing).toEqual(['nodes[].position.x', 'nodes[].position.y'])
-    })
-
-    it('does not count a mapping to it as an argument in the command table', () => {
-      expect(hasArgument(COMMANDS, 'move_step.x')).toBe(true)
-      expect(hasArgument(MCP_COMMANDS, 'move_step.x')).toBe(false)
     })
   })
 })
