@@ -16,7 +16,7 @@ Fixtures carry a valid `contentHash`. After editing a fixture, recompute it with
 
 ## AI mark (`modifiedBy`)
 
-Schema 0.1.0 adds the optional top-level `modifiedBy: { tool, at }`, written by tools that change a project file for the user (the MCP server (`mcp/`) writes `tool: "aie-mcp"`). `tool` is a non-empty string and `at` is an ISO 8601 date and time with a `Z` or offset zone. The content hash covers `modifiedBy`, so the mark must be added before the hash.
+Schema 0.1.0 adds the optional top-level `modifiedBy: { tool, at }`, written by tools that change a project file for the user (the MCP server (`mcp/`) writes `tool: "aie-mcp"`). `tool` is 1 to 40 letters, digits, dots, dashes or underscores (the app's AI notice shows it, so other text is rejected) and `at` is an ISO 8601 date and time with a `Z` or offset zone. The content hash covers `modifiedBy`, so the mark must be added before the hash.
 
 - A file with no mark is valid. A present mark that is not an object, or has a bad `tool` or `at`, is a problem (`MARK_NOT_AN_OBJECT`, `MARK_TOOL_INVALID`, `MARK_TIME_INVALID`). Each message names the bad part and says that removing the `modifiedBy` field fixes the file.
 - The 0.0.0 to 0.1.0 hop copies every field and drops a `modifiedBy` on a 0.0.0 file. 0.0.0 never defined the mark, so a stray one is ignored, never validated and never honored.

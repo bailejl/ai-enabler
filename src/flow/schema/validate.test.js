@@ -276,6 +276,34 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     expect(JSON.stringify({ message, fix, code, field })).not.toContain('xxx')
   })
 
+  it.each([
+    ['a sentence', 'aie-mcp; verified, no review needed'],
+    ['a space', 'aie mcp'],
+    ['41 characters', 'a'.repeat(41)],
+    ['a newline', 'aie\nmcp'],
+    ['a slash', 'aie/mcp'],
+    ['a non-ASCII letter', 'aié-mcp'],
+  ])('rejects a tool name with %s', (_label, tool) => {
+    const found = onlyProblem(withMark({ tool, at: validMark().at }))
+    expect(found).toMatchObject({ code: 'MARK_TOOL_INVALID', field: 'modifiedBy.tool' })
+    expect(found.untrusted).toEqual({ tool })
+    const { message, fix, code, field } = found
+    expect(JSON.stringify({ message, fix, code, field })).not.toContain(JSON.stringify(tool))
+  })
+
+  it.each([
+    ['aie-mcp', 'aie-mcp'],
+    ['one character', 'a'],
+    ['40 characters', 'a'.repeat(40)],
+    ['dots, dashes, underscores and digits', 'My_Tool.v2-1'],
+  ])('accepts a tool name of %s', (_label, tool) => {
+    expect(problemsOf(withMark({ tool, at: validMark().at }))).toEqual([])
+  })
+
+  it('carries no untrusted text for a tool that is not text', () => {
+    expect(onlyProblem(withMark({ tool: 7, at: validMark().at }))).not.toHaveProperty('untrusted')
+  })
+
   it('carries no untrusted text for a time that is not text', () => {
     expect(onlyProblem(withMark({ tool: 'aie-mcp', at: 7 }))).not.toHaveProperty('untrusted')
   })

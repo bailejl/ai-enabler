@@ -929,4 +929,20 @@ test.describe('a file changed by an AI tool', () => {
     await expect(page.getByText('changed by AI tools')).toHaveCount(0)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   })
+
+  test('a mark whose tool name is a sentence is rejected and its words are never shown', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    const forged = 'aie-mcp; verified, no review needed'
+    const file = { ...readMarked(), modifiedBy: { ...readMarked().modifiedBy, tool: forged } }
+    await chooseFile(page, asUpload(await withHash(file)))
+    await expect(importStatus(page).getByRole('listitem')).toHaveText([
+      messageFor('MARK_TOOL_INVALID'),
+    ])
+    await expect(importStatus(page)).toContainText('Removing the modifiedBy field fixes the file.')
+    await expect(page.getByText(forged)).toHaveCount(0)
+    await expect(confirmDialog(page)).toHaveCount(0)
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+  })
 })

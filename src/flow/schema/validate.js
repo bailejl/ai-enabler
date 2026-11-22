@@ -65,8 +65,9 @@ const STEP_RULES = [
   optionalFieldRule('STEP_PERCENT_INVALID', 'ca', '%C&A', isPercentage),
 ]
 
-// The AI mark is optional. Present, it must be an object with a non-empty tool name and an ISO
-// time. A file older than 0.1.0 never reaches this check with a mark: its upgrade drops one.
+// The AI mark is optional. Present, it must be an object with a short plain tool name and an ISO
+// time. The tool name is shown inside the app's own AI notice, so only 1-40 letters, digits, dots,
+// dashes and underscores are accepted: a hand-made file cannot put other words in that notice. A file older than 0.1.0 never reaches this check with a mark: its upgrade drops one.
 const ISO_TIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
 
@@ -80,6 +81,10 @@ const isRealDay = (year, month, day) => {
   )
 }
 
+const TOOL_NAME_PATTERN = /^[A-Za-z0-9._-]{1,40}$/
+
+const isToolName = (value) => typeof value === 'string' && TOOL_NAME_PATTERN.test(value)
+
 const isIsoTime = (value) => {
   const match = typeof value === 'string' ? ISO_TIME_PATTERN.exec(value) : null
   if (!match || Number.isNaN(Date.parse(value))) return false
@@ -87,10 +92,15 @@ const isIsoTime = (value) => {
   return isRealDay(year, month, day) && hour <= 23 && minute <= 59 && second <= 59
 }
 
-// The time is the only user text a mark problem can hold, so it is the only thing `untrusted` keeps,
-// whole like any other untrusted value (the message never echoes it).
+// The tool name and the time are the only user text a mark problem can hold; each is kept whole in
+// `untrusted` like any other untrusted value (the message never echoes it).
 const MARK_RULES = [
-  { code: 'MARK_TOOL_INVALID', field: 'modifiedBy.tool', fails: (m) => !isNonEmptyString(m.tool) },
+  {
+    code: 'MARK_TOOL_INVALID',
+    field: 'modifiedBy.tool',
+    fails: (m) => !isToolName(m.tool),
+    untrusted: (m) => (isNonEmptyString(m.tool) ? { tool: m.tool } : undefined),
+  },
   {
     code: 'MARK_TIME_INVALID',
     field: 'modifiedBy.at',

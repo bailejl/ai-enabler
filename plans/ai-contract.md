@@ -301,10 +301,11 @@ Feature: Files changed by AI tools
     Then a problem names the bad part of the mark and says removing it fixes the file
 
     Examples:
-      | defect            |
-      | no time           |
-      | the time "soon"   |
-      | an empty tool     |
+      | defect                         |
+      | no time                        |
+      | the time "soon"                |
+      | an empty tool                  |
+      | a tool name that is a sentence |
 
   Scenario: A mark on an older-schema file is ignored
     # Still passes if: the stray mark is dropped by the upgrade instead of skipped by the notice
@@ -331,7 +332,7 @@ Feature: Files changed by AI tools
 #### Step 3.1: Release schema 0.1.0 with an optional mark
 
 **Complexity**: standard
-**IMPLEMENT**: Per `docs/schema-versioning.md`: fixture `0.1.0.json` (no mark, matching the app's export shape) and `0.1.0-marked.json` (with a mark), both with valid hashes; version bump; identity hop; regenerated snapshots; the 0.0.0→0.1.0 hop copies every 0.0.0 field and drops a stray `modifiedBy` (0.0.0 never defined it, so it is ignored, not validated); validate `modifiedBy` (`tool` non-empty string, `at` ISO time) with messages that name the bad part and say removing the field fixes it.
+**IMPLEMENT**: Per `docs/schema-versioning.md`: fixture `0.1.0.json` (no mark, matching the app's export shape) and `0.1.0-marked.json` (with a mark), both with valid hashes; version bump; identity hop; regenerated snapshots; the 0.0.0→0.1.0 hop copies every 0.0.0 field and drops a stray `modifiedBy` (0.0.0 never defined it, so it is ignored, not validated); validate `modifiedBy` (`tool` 1–40 characters from `[A-Za-z0-9._-]`, since the notice shows it; `at` ISO time) with messages that name the bad part and say removing the field fixes it.
 **TEST**: `upgrades.test.js` registry and fixture checks, `version.test.js`, `validate.test.js` mark outline, `shape.test.js` against the unmarked fixture.
 **REFACTOR**: Document `modifiedBy` and the two-fixture pattern in `docs/schema-versioning.md`.
 **Files**: `src/flow/schema/version.js`, `src/flow/schema/version.test.js`, `src/flow/schema/upgrades.js`, `src/flow/schema/upgrades.test.js`, `src/flow/schema/fixtures/0.1.0.json`, `src/flow/schema/fixtures/0.1.0-marked.json`, `src/flow/schema/fixtures/expected/0.0.0.json`, `src/flow/schema/fixtures/expected/0.1.0.json`, `src/flow/schema/fixtures/expected/0.1.0-marked.json`, `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/shape.test.js`, `docs/schema-versioning.md`
