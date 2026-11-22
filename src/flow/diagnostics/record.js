@@ -2,6 +2,8 @@
 // spreading a problem, so message, params, untrusted, stepId, edgeId and any other key a problem
 // carries cannot reach the console.
 
+import { problem } from './problem.js'
+
 /** The keys every record has, in order. Other keys (`field`, `suppressed`) appear only when set. */
 export const RECORD_KEYS = Object.freeze([
   'source',
@@ -50,12 +52,34 @@ const pick = (source, keys) => Object.fromEntries(keys.map((key) => [key, source
  * the count of records of this code dropped since the last one. Only `code`, `severity`, the
  * context keys, a known `field` and a `suppressed` count above zero are copied.
  */
-export const toRecord = (problem, context, suppressed = 0) => ({
+export const toRecord = (found, context, suppressed = 0) => ({
   source: SOURCE,
-  ...pick(problem, ['code', 'severity']),
+  ...pick(found, ['code', 'severity']),
   ...pick(context, CONTEXT_KEYS),
-  ...(KNOWN_FIELDS.includes(problem.field) && { field: problem.field }),
+  ...(KNOWN_FIELDS.includes(found.field) && { field: found.field }),
   ...(suppressed > 0 && { suppressed }),
+})
+
+const NON_ERROR_NAME = 'NonError'
+
+// Only a dev build keeps the message and stack. Anything that is not exactly 'dev' is treated as
+// production, so an unexpected build value never leaks detail.
+const errorDetail = (error, build) => {
+  const isError = error instanceof Error
+  const name = isError ? error.name : NON_ERROR_NAME
+  if (build !== 'dev' || !isError) return { name }
+  return { name, message: error.message, stack: error.stack }
+}
+
+/**
+ * Builds the record of a crash code (APP_RENDER_FAILED, APP_UNCAUGHT_ERROR,
+ * APP_UNHANDLED_REJECTION) with an `error` detail. A prod build gets `{ name }` only. A dev build
+ * gets `{ name, message, stack }` for an Error. A thrown value that is not an Error is named
+ * "NonError" and its text is never kept. Throws on a code that is not in the catalog.
+ */
+export const toErrorRecord = (code, error, context, suppressed = 0) => ({
+  ...toRecord(problem(code), context, suppressed),
+  error: errorDetail(error, context.build),
 })
 
 /** The record as one line of JSON text. */

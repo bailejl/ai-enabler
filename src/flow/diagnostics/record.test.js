@@ -3,7 +3,7 @@ import { applyCommand } from '../commands/index.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { STEP_DATA_FIELDS } from '../step.js'
 import { problem } from './problem.js'
-import { KNOWN_FIELDS, RECORD_KEYS, serializeRecord, toRecord } from './record.js'
+import { KNOWN_FIELDS, RECORD_KEYS, serializeRecord, toErrorRecord, toRecord } from './record.js'
 
 const MARKER = 'SECRET-MARKER'
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -159,5 +159,55 @@ describe('KNOWN_FIELDS', () => {
   it('contains every field the validator and the commands set', () => {
     const missing = [...new Set(collected)].filter((field) => !KNOWN_FIELDS.includes(field))
     expect(missing).toEqual([])
+  })
+})
+
+describe('toErrorRecord', () => {
+  const crash = (build) => ({ ...context, build })
+  const withMarker = () => new TypeError(`${MARKER} is not a function`)
+
+  it('keeps only the error name for a prod build, with no marker anywhere', () => {
+    const record = toErrorRecord('APP_UNCAUGHT_ERROR', withMarker(), crash('prod'))
+    expect(record.error).toEqual({ name: 'TypeError' })
+    expect(serializeRecord(record)).not.toContain(MARKER)
+  })
+
+  it('keeps the name, message and stack for a dev build', () => {
+    const error = withMarker()
+    const record = toErrorRecord('APP_UNCAUGHT_ERROR', error, crash('dev'))
+    expect(record.error).toEqual({ name: 'TypeError', message: error.message, stack: error.stack })
+  })
+
+  it('treats a build other than dev as prod', () => {
+    const record = toErrorRecord('APP_UNCAUGHT_ERROR', withMarker(), crash('staging'))
+    expect(record.error).toEqual({ name: 'TypeError' })
+  })
+
+  it('names a thrown string NonError and keeps its text out, in dev and prod', () => {
+    const dev = toErrorRecord('APP_UNHANDLED_REJECTION', MARKER, crash('dev'))
+    const prod = toErrorRecord('APP_UNHANDLED_REJECTION', MARKER, crash('prod'))
+    expect(dev.error).toEqual({ name: 'NonError' })
+    expect(prod.error).toEqual({ name: 'NonError' })
+    expect(serializeRecord(dev)).not.toContain(MARKER)
+  })
+
+  it('names a thrown null NonError', () => {
+    expect(toErrorRecord('APP_UNHANDLED_REJECTION', null, crash('dev')).error).toEqual({
+      name: 'NonError',
+    })
+  })
+
+  it('has the base record keys, the catalog severity and the error, in one line', () => {
+    const record = toErrorRecord('APP_RENDER_FAILED', new Error('x'), crash('prod'), 3)
+    expect(Object.keys(record)).toEqual([...RECORD_KEYS, 'suppressed', 'error'])
+    expect(record).toMatchObject({ source: 'aie', code: 'APP_RENDER_FAILED', severity: 'error' })
+    expect(record.suppressed).toBe(3)
+    expect(serializeRecord(record)).not.toMatch(/[\r\n]/)
+  })
+
+  it('throws on a code that is not in the catalog', () => {
+    expect(() => toErrorRecord('APP_MADE_UP', new Error('x'), crash('dev'))).toThrow(
+      'Unknown diagnostic code: APP_MADE_UP',
+    )
   })
 })
