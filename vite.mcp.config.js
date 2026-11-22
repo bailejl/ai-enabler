@@ -1,17 +1,19 @@
-import { copyFileSync, mkdirSync } from 'node:fs'
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 
-const SCHEMA = 'public/schema/project-0.1.0.json'
+const SCHEMA_SOURCE = 'public/schema/project-0.1.0.json'
 
 // Copies the JSON Schema next to the server folder, so `plugin/schema/` and `plugin/server/` stay
-// a pair wherever the build writes them.
+// a pair wherever the build writes them. The schema folder is emptied first, so a schema from an
+// older version cannot linger.
 const copySchema = () => ({
   name: 'aie-copy-schema',
   writeBundle: ({ dir }) => {
-    const target = path.resolve(dir, '..', 'schema', path.basename(SCHEMA))
-    mkdirSync(path.dirname(target), { recursive: true })
-    copyFileSync(SCHEMA, target)
+    const folder = path.resolve(dir, '..', 'schema')
+    rmSync(folder, { recursive: true, force: true })
+    mkdirSync(folder, { recursive: true })
+    copyFileSync(SCHEMA_SOURCE, path.join(folder, path.basename(SCHEMA_SOURCE)))
   },
 })
 

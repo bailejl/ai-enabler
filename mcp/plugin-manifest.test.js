@@ -1,13 +1,22 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { TOOLS } from '../mcp/tools.js'
+import { TOOLS } from './tools.js'
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
-const path = (relative) => resolve(ROOT, relative)
-const readJson = (relative) => JSON.parse(readFileSync(path(relative), 'utf8'))
+const fromRoot = (relative) => resolve(ROOT, relative)
+const readJson = (relative) => JSON.parse(readFileSync(fromRoot(relative), 'utf8'))
+
+// Asks git about the real checkout, found from this file's folder. A Stryker sandbox sits inside
+// the checkout, so `git rev-parse` there still names the real repo, where `plugin/.mcp.json` lives.
+const repoTop = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT })
+  .toString()
+  .trim()
+// git check-ignore exits 0 when the path is ignored, 1 when it is not, and 128 on an error.
+const checkIgnore = (relative) =>
+  spawnSync('git', ['check-ignore', '-q', relative], { cwd: repoTop }).status
 
 const marketplace = readJson('.claude-plugin/marketplace.json')
 const pluginRoot = resolve(ROOT, marketplace.plugins[0].source)
@@ -24,7 +33,7 @@ describe('marketplace manifest', () => {
     expect(marketplace.plugins).toHaveLength(1)
     expect(marketplace.plugins[0].name).toBe('aie')
     expect(marketplace.plugins[0].description).toBeTruthy()
-    expect(pluginRoot).toBe(path('plugin'))
+    expect(pluginRoot).toBe(fromRoot('plugin'))
     expect(existsSync(resolve(pluginRoot, '.claude-plugin/plugin.json'))).toBe(true)
   })
 })
@@ -53,10 +62,7 @@ describe('.mcp.json', () => {
   })
 
   test('is not git-ignored, so it is committed', () => {
-    const ignored = () =>
-      execFileSync('git', ['check-ignore', '-q', 'plugin/.mcp.json'], { cwd: ROOT })
-    // check-ignore exits 1 when the path is not ignored, which makes execFileSync throw
-    expect(ignored).toThrow(expect.objectContaining({ status: 1 }))
+    expect(checkIgnore('plugin/.mcp.json')).toBe(1)
   })
 })
 
@@ -65,7 +71,7 @@ const SCHEMA_MAJOR = readJson(
 ).properties.schemaVersion.const.split('.')[0]
 
 const readSkill = (name) => {
-  const text = readFileSync(path(`plugin/skills/${name}/SKILL.md`), 'utf8')
+  const text = readFileSync(fromRoot(`plugin/skills/${name}/SKILL.md`), 'utf8')
   const [, frontmatter = '', body = ''] = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/) ?? []
   const field = (key) => frontmatter.match(new RegExp(`^${key}: (.+)$`, 'm'))?.[1]
   return { name: field('name'), description: field('description'), body }
@@ -92,7 +98,8 @@ describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
   })
 
   test('checks the schema major by reading the project file, and handles FILE_NEWER_SCHEMA', () => {
-    expect(skill.body).toContain('./projects/<name>.json')
+    expect(skill.body).toContain('./projects/<file>')
+    expect(skill.body).toContain('./projects/checkout.json')
     expect(skill.body).toMatch(/file Read tool/)
     expect(skill.body).toMatch(/does not exist/i)
     expect(skill.body).toContain('FILE_NEWER_SCHEMA')

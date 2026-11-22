@@ -7,7 +7,7 @@ description: Use when the user asks to review, check or audit an AI Enabler valu
 
 Report what is wrong with the open project. Do not change the project.
 
-Supported schema major: 0 (`schemaVersion` 0.x). No tool returns `schemaVersion`, so check it in the file: before `open_project`, read `./projects/<name>.json` with the client's file Read tool and check the major of its `schemaVersion`. If the file does not exist, skip the check. If the major is not 0, or `open_project` fails with `FILE_NEWER_SCHEMA`, say this skill does not support that file, tell the user to update the plugin, and stop.
+Supported schema major: 0 (`schemaVersion` 0.x). No tool returns `schemaVersion`, so check it in the file: before `open_project`, read `./projects/<file>` with the client's file Read tool, where `<file>` is the exact name you pass to `open_project`, which already ends in `.json` (for example `./projects/checkout.json`), and check the major of its `schemaVersion`. If the file does not exist, skip the check. If the major is not 0, or `open_project` fails with `FILE_NEWER_SCHEMA`, say this skill does not support that file, tell the user to update the plugin, and stop.
 
 ## Steps
 

@@ -34,7 +34,13 @@ const PROBLEM_KEYS = [
   'field',
   'untrusted',
 ]
-const DURATION_MINUTES = ['60', '480', '2400', '9600']
+// Each unit with the line llms.txt states for it, so a number cannot match under the wrong unit.
+const DURATIONS = [
+  ['hour', /\b1 hour = 60\b/],
+  ['day', /\b1 day = 480\b/],
+  ['week', /\b1 week = 2400\b/],
+  ['month', /\b1 month = (?:4 weeks = )?9600\b/],
+]
 
 // The `## ` section with this heading: its text up to the next heading.
 const section = (text, heading) => {
@@ -64,33 +70,33 @@ describe('llms.txt', () => {
   })
 
   describe('MCP tools', () => {
-    const tools = section(LLMS, 'MCP tools')
+    const toolsSection = section(LLMS, 'MCP tools')
 
     it.each(TOOLS.map(({ name }) => [name]))('documents the tool %s', (name) => {
-      expect(entryFor(tools, name)).not.toBe('')
+      expect(entryFor(toolsSection, name)).not.toBe('')
     })
 
     it.each(TOOLS.map((tool) => [tool.name, Object.keys(tool.inputSchema.properties)]))(
       'gives the arguments of %s',
       (name, args) => {
-        const entry = entryFor(tools, name)
+        const entry = entryFor(toolsSection, name)
         const missing = args.filter((arg) => !entry.includes(`\`${arg}\``))
         expect(missing).toEqual([])
       },
     )
 
-    const results = section(LLMS, 'Tool results')
+    const resultsSection = section(LLMS, 'Tool results')
 
     it.each(RESULT_KEYS.map((key) => [key]))('describes the result key %s', (key) => {
-      expect(results).toContain(`\`${key}\``)
+      expect(resultsSection).toContain(`\`${key}\``)
     })
 
     it.each(PROBLEM_KEYS.map((key) => [key]))('describes the problem key %s', (key) => {
-      expect(results).toContain(`\`${key}\``)
+      expect(resultsSection).toContain(`\`${key}\``)
     })
 
     it('gives the cap on problems shown', () => {
-      expect(results).toMatch(/at most 20\b/)
+      expect(resultsSection).toMatch(/at most 20\b/)
     })
 
     it.each(Object.keys(GATES).map((id) => [id]))('names the gate %s', (id) => {
@@ -99,28 +105,25 @@ describe('llms.txt', () => {
   })
 
   describe('step fields', () => {
-    const fields = section(LLMS, 'Steps')
+    const fieldsSection = section(LLMS, 'Steps')
 
     it.each(STEP_DATA_FIELDS.map((key) => [key]))('gives data.%s with its meaning', (key) => {
-      expect(entryFor(fields, `data.${key}`)).not.toBe('')
+      expect(entryFor(fieldsSection, `data.${key}`)).not.toBe('')
     })
 
     it.each(STEP_DATA_FIELDS.filter((key) => !UNITLESS_FIELDS.includes(key)).map((key) => [key]))(
       'gives data.%s its unit',
       (key) => {
         expect(UNIT_WORDS, `no unit declared for ${key}`).toHaveProperty(key)
-        expect(entryFor(fields, `data.${key}`).toLowerCase()).toContain(UNIT_WORDS[key])
+        expect(entryFor(fieldsSection, `data.${key}`).toLowerCase()).toContain(UNIT_WORDS[key])
       },
     )
 
-    const durations = section(LLMS, 'Durations')
+    const durationsSection = section(LLMS, 'Durations')
 
-    it.each(DURATION_MINUTES.map((minutes) => [minutes]))(
-      'says how a duration is counted in working time: %s minutes',
-      (minutes) => {
-        expect(durations).toMatch(new RegExp(`\\b${minutes}\\b`))
-      },
-    )
+    it.each(DURATIONS)('says how a duration is counted in working time: one %s', (_unit, line) => {
+      expect(durationsSection).toMatch(line)
+    })
 
     it('says step and box mean the same thing', () => {
       expect(LLMS).toMatch(/(?=[^.]*\bstep\b)(?=[^.]*\bbox\b)(?=[^.]*\bsame\b)[^.]*\./i)
@@ -128,7 +131,7 @@ describe('llms.txt', () => {
   })
 
   describe('rules only the server and the app check', () => {
-    const rules = section(LLMS, 'Rules the JSON Schema cannot express')
+    const rulesSection = section(LLMS, 'Rules the JSON Schema cannot express')
       .toLowerCase()
       .replaceAll('`', '')
 
@@ -137,7 +140,7 @@ describe('llms.txt', () => {
       ['duplicate ids', /duplicate .*id/],
       ['missing endpoints', /source|target|endpoint/i],
     ])('lists %s', (_, pattern) => {
-      expect(rules).toMatch(pattern)
+      expect(rulesSection).toMatch(pattern)
     })
   })
 

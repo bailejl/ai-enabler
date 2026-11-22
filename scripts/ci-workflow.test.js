@@ -1,25 +1,19 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
+import { parse } from 'yaml'
 
-const WORKFLOW = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
+const WORKFLOW = parse(
+  readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+)
 
 const GUARD_STEP = 'node scripts/schema-fixture-guard-cli.js origin/main'
 const PLUGIN_CHECK_STEP = 'npm run check:plugin'
 const UNIT_TEST_STEP = 'npm test'
 const E2E_TEST_STEP = 'npm run test:e2e'
 
-// Reads one job's block, from its two-space key to the next top-level job key.
-const jobBlock = (name) => {
-  const lines = WORKFLOW.split('\n')
-  const start = lines.indexOf(`  ${name}:`)
-  if (start === -1) return ''
-  const rest = lines.slice(start + 1)
-  const end = rest.findIndex((line) => /^ {2}\S/.test(line))
-  return (end === -1 ? rest : rest.slice(0, end)).join('\n')
-}
+const { jobs } = WORKFLOW
 
-const runSteps = (name) =>
-  [...jobBlock(name).matchAll(/^\s+(?:- )?run: (.+)$/gm)].map((match) => match[1].trim())
+const runSteps = (name) => jobs[name].steps.flatMap((step) => (step.run ? [step.run.trim()] : []))
 
 describe('CI workflow', () => {
   test('the unit job runs the schema fixture guard against origin/main', () => {
@@ -44,8 +38,10 @@ describe('CI workflow', () => {
   })
 
   test.each(['unit', 'e2e'])('the %s job does not tolerate a failing step', (name) => {
-    const block = jobBlock(name)
-    expect(block).not.toBe('')
-    expect(block).not.toMatch(/continue-on-error:\s*true/)
+    const { steps, ...job } = jobs[name]
+    expect(steps.length).toBeGreaterThan(0)
+    expect(
+      [job, ...steps].filter((entry) => String(entry['continue-on-error']) === 'true'),
+    ).toEqual([])
   })
 })
