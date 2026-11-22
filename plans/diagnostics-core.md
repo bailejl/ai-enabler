@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/diagnostics-core
-**Status**: approved
+**Status**: in-progress
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/diagnostics-core.md` (AC1–AC17). Plan AC18 and AC19 split out the Reload and narrow-screen checks from spec AC6. Row 4 of the MVP build order v2. No GitHub issue.
 
@@ -740,15 +740,15 @@ Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance,
 
 #### Wave 5
 
-- [ ] Slice 7: E2E test gate
-  - [ ] Step 7.1: Shared fixture with the gate
-  - [ ] Step 7.2: Find existing e2e console noise
-  - [ ] Step 7.3: Move every e2e file onto the fixture
+- [x] Slice 7: E2E test gate
+  - [x] Step 7.1: Shared fixture with the gate
+  - [x] Step 7.2: Find existing e2e console noise
+  - [x] Step 7.3: Move every e2e file onto the fixture
 
 #### Wave 6
 
-- [ ] Slice 8: Crash handling and lint rules
-  - [ ] Step 8.1: Dev-only crash event
-  - [ ] Step 8.2: Global handlers
-  - [ ] Step 8.3: Error boundary, root options and crash screen
-  - [ ] Step 8.4: Lint rules for the console and the class exception
+- [x] Slice 8: Crash handling and lint rules
+  - [x] Step 8.1: Dev-only crash event
+  - [x] Step 8.2: Global handlers
+  - [x] Step 8.3: Error boundary, root options and crash screen
+  - [x] Step 8.4: Lint rules for the console and the class exception
