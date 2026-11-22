@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/repair-guides
-**Status**: in-progress
+**Status**: implemented
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/repair-guides.md`
 **Examination**: not-applicable — the plugin's acceptance recorder does not credit output redirected to a file, and summary reporters hide test names, so the examiner cannot observe these criteria reliably. `/code-review` and CI still gate the PR.
