@@ -2,6 +2,8 @@ import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { DEV_CRASH_EVENT, crashKind } from './shell/devCrash.js'
+import { reportError } from './shell/diagnostics.js'
+import { installGlobalHandlers } from './shell/globalHandlers.js'
 import './index.css'
 
 // Dev only: forces a crash of the kind named by the dev crash event's `detail`.
@@ -26,6 +28,8 @@ function DevCrashTrigger() {
   if (isRenderCrashing) throw new Error('Forced render crash')
   return null
 }
+
+installGlobalHandlers(window, reportError)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
