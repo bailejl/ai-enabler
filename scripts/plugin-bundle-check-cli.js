@@ -28,13 +28,17 @@ const readCommitted = (names) =>
     }),
   )
 
-// The build writes `server/` and `schema/` side by side, so a temp folder named `plugin` has the
-// same layout as the committed one.
+// The build command lives in package.json (`build:plugin`), so it has one source. The build writes
+// `server/` and `schema/` side by side, so a temp folder named `plugin` has the same layout as the
+// committed one.
 const rebuild = (pluginDir) =>
   spawnSync(
-    'npx',
-    ['vite', 'build', '-c', 'vite.mcp.config.js', '--outDir', path.join(pluginDir, 'server')],
-    { cwd: ROOT, stdio: ['ignore', 'ignore', 'inherit'] },
+    'npm',
+    ['run', '--silent', 'build:plugin', '--', '--outDir', path.join(pluginDir, 'server')],
+    {
+      cwd: ROOT,
+      stdio: ['ignore', 'ignore', 'inherit'],
+    },
   )
 
 const scratch = mkdtempSync(path.join(tmpdir(), 'aie-plugin-check-'))

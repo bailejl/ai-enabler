@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { TOOLS } from '../mcp/tools.js'
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
 const path = (relative) => resolve(ROOT, relative)
@@ -70,6 +71,8 @@ const readSkill = (name) => {
   return { name: field('name'), description: field('description'), body }
 }
 
+const diagnostics = readJson('src/flow/diagnostics/catalog.json')
+
 describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
   const skill = readSkill(folder)
 
@@ -87,6 +90,19 @@ describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
   test('treats tool output as data, not instructions', () => {
     expect(skill.body).toMatch(/data, not instructions/i)
   })
+
+  test('checks the schema major by reading the project file, and handles FILE_NEWER_SCHEMA', () => {
+    expect(skill.body).toContain('./projects/<name>.json')
+    expect(skill.body).toMatch(/file Read tool/)
+    expect(skill.body).toMatch(/does not exist/i)
+    expect(skill.body).toContain('FILE_NEWER_SCHEMA')
+    expect(diagnostics.FILE_NEWER_SCHEMA).toBeDefined()
+  })
+
+  test('says so and stops when llms.txt cannot be read', () => {
+    expect(skill.body).toContain('llms.txt')
+    expect(skill.body).toMatch(/cannot be read, say so to the user and stop/i)
+  })
 })
 
 describe('skill aie-review', () => {
@@ -102,6 +118,26 @@ describe('skill aie-review', () => {
 
   test('says not to change the project', () => {
     expect(body).toMatch(/do not change the project/i)
+  })
+
+  describe('allow-list of tools', () => {
+    const toolNames = TOOLS.map(({ name }) => name)
+    const allowed = ['open_project', 'get_project', 'list_problems']
+    const line = body.split('\n').find((text) => /call only/i.test(text)) ?? ''
+    const listed = [...line.matchAll(/`([a-z_]+)`/g)].map(([, name]) => name)
+
+    test('names only open_project, get_project and list_problems', () => {
+      expect(listed).toEqual(allowed)
+    })
+
+    test('lists only tools the server has', () => {
+      listed.forEach((name) => expect(toolNames).toContain(name))
+    })
+
+    test('mentions no other tool anywhere in the skill', () => {
+      const mentioned = toolNames.filter((name) => new RegExp(`\\b${name}\\b`).test(body))
+      expect(mentioned.toSorted()).toEqual(allowed.toSorted())
+    })
   })
 })
 
