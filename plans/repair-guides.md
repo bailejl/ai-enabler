@@ -485,10 +485,10 @@ Plan tier: complex (4 slices, 4 waves, complex steps, new MCP trust surface). Re
 
 #### Wave 2
 
-- [ ] Slice 2: The get_repair_guide tool
-  - [ ] Step 2.1: Guide source, bundling and the happy-path tool
-  - [ ] Step 2.2: Refuse bad codes with CMD_CODE_UNKNOWN
-  - [ ] Step 2.3: llms.txt entry and parity
+- [x] Slice 2: The get_repair_guide tool
+  - [x] Step 2.1: Guide source, bundling and the happy-path tool
+  - [x] Step 2.2: Refuse bad codes with CMD_CODE_UNKNOWN
+  - [x] Step 2.3: llms.txt entry and parity
 
 #### Wave 3
 
