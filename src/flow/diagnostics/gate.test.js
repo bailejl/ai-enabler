@@ -161,67 +161,16 @@ describe('checkDiagnostics: page errors', () => {
     expect(failures).toEqual(['page error: boom'])
   })
 
-  it('passes a page error paired with an expected APP_UNCAUGHT_ERROR record', () => {
+  // Chromium raises no page error once the app's handler calls preventDefault (e2e/gate.spec.js),
+  // so a page error never stands for a record, whatever the test declared.
+  it.each([UNCAUGHT, REJECTION])('fails every page error beside an expected %s record', (code) => {
     const failures = checkDiagnostics({
-      entries: [recordEntry(UNCAUGHT)],
-      pageErrors: ['boom'],
-      expected: [UNCAUGHT],
-    })
-
-    expect(failures).toEqual([])
-  })
-
-  it('passes a page error paired with an expected APP_UNHANDLED_REJECTION record', () => {
-    const failures = checkDiagnostics({
-      entries: [recordEntry(REJECTION)],
-      pageErrors: ['rejected'],
-      expected: [REJECTION],
-    })
-
-    expect(failures).toEqual([])
-  })
-
-  it('lets one record cover only one page error', () => {
-    const failures = checkDiagnostics({
-      entries: [recordEntry(UNCAUGHT)],
+      entries: [recordEntry(code)],
       pageErrors: ['first', 'second'],
-      expected: [UNCAUGHT],
+      expected: [code],
     })
 
-    expect(failures).toEqual(['page error: second'])
-  })
-
-  it('lets two records cover two page errors', () => {
-    const failures = checkDiagnostics({
-      entries: [recordEntry(UNCAUGHT), recordEntry(REJECTION)],
-      pageErrors: ['first', 'second'],
-      expected: [UNCAUGHT, REJECTION],
-    })
-
-    expect(failures).toEqual([])
-  })
-
-  it('does not let a record of a code the test did not declare cover a page error', () => {
-    const failures = checkDiagnostics({
-      entries: [recordEntry(UNCAUGHT)],
-      pageErrors: ['boom'],
-      expected: [],
-    })
-
-    expect(failures).toEqual([
-      `unexpected ${UNCAUGHT} (error): ${catalog[UNCAUGHT].fix}`,
-      'page error: boom',
-    ])
-  })
-
-  it('does not let a record of another expected code cover a page error', () => {
-    const failures = checkDiagnostics({
-      entries: [recordEntry('FILE_NOT_JSON')],
-      pageErrors: ['boom'],
-      expected: ['FILE_NOT_JSON'],
-    })
-
-    expect(failures).toEqual(['page error: boom'])
+    expect(failures).toEqual(['page error: first', 'page error: second'])
   })
 
   it('treats a missing pageErrors list as none', () => {

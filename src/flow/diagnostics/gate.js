@@ -8,10 +8,6 @@ import { parseRecord } from './record.js'
 const ALLOWED_KEYS = Object.freeze(['entries', 'pageErrors', 'expected'])
 const UNCODED_LEVELS = Object.freeze(['error', 'warn'])
 
-// The crash codes whose record can stand for a page error the browser raised too (Rule B of the
-// e2e gate). To drop the pairing, make `unpairedPageErrors` return all of its `pageErrors`.
-const PAIRING_CODES = Object.freeze(['APP_UNCAUGHT_ERROR', 'APP_UNHANDLED_REJECTION'])
-
 // Every failure line is built here, so the unit and e2e gates print the same text.
 const FAILURE_LINE = Object.freeze({
   uncoded: (level, text) => `uncoded ${level}: ${text}`,
@@ -34,14 +30,6 @@ const entryLineFor = (entry, expected) => {
   return UNCODED_LEVELS.includes(entry.level) ? FAILURE_LINE.uncoded(entry.level, entry.text) : null
 }
 
-// Each record of an expected crash code covers one page error; the rest are unpaired.
-const unpairedPageErrors = (records, expected, pageErrors) => {
-  const coverCount = records.filter(
-    (record) => PAIRING_CODES.includes(record.code) && expected.includes(record.code),
-  ).length
-  return pageErrors.slice(coverCount)
-}
-
 /**
  * Checks one test's console output. `entries` are `{ level, text }` console messages (level is
  * the console method name, such as `error`, `warn` or `info`), `pageErrors` are the messages of
@@ -59,6 +47,6 @@ export const checkDiagnostics = (options) => {
   return [
     ...entries.map((entry) => entryLineFor(entry, expected)).filter(Boolean),
     ...expected.filter((code) => !seenCodes.includes(code)).map(FAILURE_LINE.notSeen),
-    ...unpairedPageErrors(records, expected, pageErrors).map(FAILURE_LINE.pageError),
+    ...pageErrors.map(FAILURE_LINE.pageError),
   ]
 }
