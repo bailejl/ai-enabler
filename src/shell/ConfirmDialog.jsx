@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { EDITED_NOTICE } from '../flow/importFlow.js'
 
 const HEADING_ID = 'confirm-dialog-heading'
 const BODY_ID = 'confirm-dialog-body'
@@ -9,7 +8,7 @@ export default function ConfirmDialog({
   message,
   currentName,
   incomingName,
-  isEdited,
+  notices,
   onConfirm,
   onCancel,
 }) {
@@ -50,7 +49,9 @@ export default function ConfirmDialog({
             Current project: <strong>{currentName}</strong>. Incoming project:{' '}
             <strong>{incomingName}</strong>.
           </p>
-          {isEdited && <p>{EDITED_NOTICE}</p>}
+          {notices.map((notice) => (
+            <p key={notice}>{notice}</p>
+          ))}
         </div>
         <div className="dialog__actions">
           <button type="button" className="button" onClick={onConfirm}>

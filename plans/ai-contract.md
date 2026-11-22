@@ -17,6 +17,8 @@ Let Claude Code build and edit a VSM one small, validated change at a time throu
 - Integration: PRs with green checks (default), split at the ship boundaries below.
 - Replace vs. merge: `CLAUDE.md`, configs and the product plan get additive edits; `AGENTS.md` and `llms.txt` are new.
 
+**Catalog**: every new failure mode in Slices 2–7 adds its catalog entry only; repair guides and docs come later with D1/D2 (user decision 2026-11-21).
+
 **Ship boundaries**: PR1 = Slice 1 (import lists every problem; useful alone). PR2 = Slices 2–7 (the working server; minimum viable subset, AC1–AC19, AC22; first demo with `claude mcp add`). PR3 = Slices 8–9 (contract docs, save-file parity and plugin distribution, AC20, AC21, AC23).
 
 **Design decisions made during plan review** (not in the spec; correct them at this gate):
@@ -30,7 +32,7 @@ Let Claude Code build and edit a VSM one small, validated change at a time throu
 - Commands take no position arguments. Unknown arguments are a problem, so a call with `x`/`y` is rejected.
 - `open_project` requires a valid file (the same pipeline as import), so every opened project starts valid and a command is rejected only for problems it introduces.
 - A new `discard_changes` tool gives a way out of unsaved changes; its summary says how many changes were discarded. `create_project` and `open_project` are both blocked by unsaved changes, and a created project starts unsaved. `save_project` may overwrite only the file the session opened; saving a new project under an existing name is refused. Only successful commands (`create_project` and the editing commands) are logged; open, save, discard and reads are not.
-- A rejected tool call sets MCP `isError: true` with the same `{ ok, problems, summary }` JSON content. Results return at most 20 problems plus a total. `add_step` returns the new step id. A missing-step problem lists the valid step ids and titles. A successful command returns the summary and problems, not the whole project.
+- A rejected tool call sets MCP `isError: true` with the same `{ ok, problems, summary }` JSON content. Results return at most 20 problems plus a total. `add_step` returns the new step id. A missing-step problem lists the valid step ids and titles. A successful command returns the summary and problems, not the whole project. The pure `applyCommand` does return `{ ok, project, problems, summary }`; only the MCP tool content leaves the project out, and `get_project` returns it (AC3).
 
 ## Acceptance Criteria
 
@@ -248,7 +250,7 @@ Feature: Auto-layout for readability
 #### Step 2.1: Layered left-to-right layout
 
 **Complexity**: standard
-**IMPLEMENT**: Pure `layoutSteps(nodes, edges)`: column = longest path from a source (with a visited guard for loops); rows ordered by file order; spacing from `STEP_CARD_WIDTH` and a generous `STEP_CARD_HEIGHT` defined in `layout.js`, with a comment tying the width to `--card-width` in `src/index.css`.
+**IMPLEMENT**: Pure `layoutSteps(nodes, edges)`: column = longest path from a source (with a visited guard for loops); rows ordered by file order; spacing from `STEP_CARD_WIDTH` (144, matching `--card-width: 9rem` in `src/index.css` at a 16px root) and `STEP_ROW_HEIGHT` (240, above the tallest card) defined in `layout.js`, with a comment tying the width to `--card-width`. A test reads `--card-width` from `src/index.css` and checks it matches.
 **TEST**: `layout.test.js` covering every scenario, with overlap computed from the card constants.
 **REFACTOR**: Separate column assignment from row placement.
 **Files**: `src/flow/layout.js`, `src/flow/layout.test.js`
@@ -299,16 +301,18 @@ Feature: Files changed by AI tools
     Then a problem names the bad part of the mark and says removing it fixes the file
 
     Examples:
-      | defect            |
-      | no time           |
-      | the time "soon"   |
-      | an empty tool     |
+      | defect                         |
+      | no time                        |
+      | the time "soon"                |
+      | an empty tool                  |
+      | a tool name that is a sentence |
 
   Scenario: A mark on an older-schema file is ignored
-    # Still passes if: the stray mark is also removed by the upgrade
+    # Still passes if: the stray mark is dropped by the upgrade instead of skipped by the notice
     Given a schema 0.0.0 file with a stray mark and a matching hash
     When the user imports it
     Then no AI notice is shown
+    And a malformed stray mark on a 0.0.0 file is ignored, not validated
 
   Scenario: The app's export drops the mark and keeps dragged positions
     # Still passes if: the export also drops other unknown top-level fields
@@ -317,7 +321,7 @@ Feature: Files changed by AI tools
     Then the file has schema 0.1.0, no mark, and the dragged position
 
   Scenario: Older files still import
-    # Still passes if: the upgrade hop also adds an empty mark
+    # Still passes if: the confirmation text is reworded
     Given the released schema 0.0.0 fixture
     When it is imported
     Then it is upgraded to 0.1.0 and imports with no AI notice
@@ -328,7 +332,7 @@ Feature: Files changed by AI tools
 #### Step 3.1: Release schema 0.1.0 with an optional mark
 
 **Complexity**: standard
-**IMPLEMENT**: Per `docs/schema-versioning.md`: fixture `0.1.0.json` (no mark, matching the app's export shape) and `0.1.0-marked.json` (with a mark), both with valid hashes; version bump; identity hop; regenerated snapshots; validate `modifiedBy` (`tool` non-empty string, `at` ISO time) with messages that name the bad part and say removing the field fixes it.
+**IMPLEMENT**: Per `docs/schema-versioning.md`: fixture `0.1.0.json` (no mark, matching the app's export shape) and `0.1.0-marked.json` (with a mark), both with valid hashes; version bump; identity hop; regenerated snapshots; the 0.0.0→0.1.0 hop copies every 0.0.0 field and drops a stray `modifiedBy` (0.0.0 never defined it, so it is ignored, not validated); validate `modifiedBy` (`tool` 1–40 characters from `[A-Za-z0-9._-]`, since the notice shows it; `at` ISO time) with messages that name the bad part and say removing the field fixes it.
 **TEST**: `upgrades.test.js` registry and fixture checks, `version.test.js`, `validate.test.js` mark outline, `shape.test.js` against the unmarked fixture.
 **REFACTOR**: Document `modifiedBy` and the two-fixture pattern in `docs/schema-versioning.md`.
 **Files**: `src/flow/schema/version.js`, `src/flow/schema/version.test.js`, `src/flow/schema/upgrades.js`, `src/flow/schema/upgrades.test.js`, `src/flow/schema/fixtures/0.1.0.json`, `src/flow/schema/fixtures/0.1.0-marked.json`, `src/flow/schema/fixtures/expected/0.0.0.json`, `src/flow/schema/fixtures/expected/0.1.0.json`, `src/flow/schema/fixtures/expected/0.1.0-marked.json`, `src/flow/schema/validate.js`, `src/flow/schema/validate.test.js`, `src/flow/schema/shape.test.js`, `docs/schema-versioning.md`
@@ -338,7 +342,7 @@ Feature: Files changed by AI tools
 #### Step 3.2: Show the AI notice on import
 
 **Complexity**: standard
-**IMPLEMENT**: `parseImport` keeps `edited` and adds `changedBy: { tool, at }` only when the hash matches, the file's own version is ≥ 0.1.0 and the mark is present. `reduceImport` adds `AI_NOTICE(tool, date)` to the dialog announcement and outcome; `ConfirmDialog` shows it; `App.jsx` passes it.
+**IMPLEMENT**: `parseImport` keeps `edited` and adds `changedBy: { tool, at }` only when the hash matches, the file's own version is ≥ 0.1.0 and the mark is present. `reduceImport` adds `AI_NOTICE(tool, date)` (date = the UTC date of `at`, `YYYY-MM-DD`; text as in the design decisions) to the dialog announcement and outcome; `ConfirmDialog` shows it; `App.jsx` passes it.
 **TEST**: `importFile.test.js` and `importFlow.test.js` for valid, mismatched, missing hash, invalid content and older-schema cases; e2e imports `0.1.0-marked.json`.
 **REFACTOR**: Keep the notice string a single exported constant builder, like `EDITED_NOTICE`.
 **Files**: `src/flow/importFile.js`, `src/flow/importFile.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ConfirmDialog.jsx`, `src/App.jsx`, `e2e/export-import.spec.js`
@@ -445,7 +449,7 @@ Feature: One validated change at a time
     # Still passes if: the problem names the connection by its endpoints instead of its id
     Given two unconnected steps
     When they are disconnected
-    Then the result fails with the no-such-connection problem and the project is unchanged
+    Then the result fails with the CONN_NOT_FOUND problem and the project is unchanged
 
   Scenario: Removing a step removes its connections
     # Still passes if: the summary counts connections in words instead of digits
@@ -492,7 +496,7 @@ Feature: One validated change at a time
 #### Step 4.3: Connection commands
 
 **Complexity**: standard
-**IMPLEMENT**: `connect` and `disconnect`, using `connectionProblem` from `src/flow/connections.js`, with a no-such-connection problem.
+**IMPLEMENT**: `connect` and `disconnect`, with a `CONN_NOT_FOUND` problem. `connect` only adds the connection; the rejection comes from `validateProjectFile`, which uses `connectionProblem`.
 **TEST**: `connections.test.js` covering the connection scenarios and outline.
 **REFACTOR**: Reuse the validator's problem codes and messages through its public results; do not move or edit `validate.js` here (Slice 3 owns it this wave).
 **Files**: `src/flow/commands/connections.js`, `src/flow/commands/connections.test.js`, `src/flow/commands/index.js`
@@ -554,7 +558,7 @@ Feature: Stage-gate checks
 **Complexity**: standard
 **IMPLEMENT**: `runGate(project, gateId, registry = GATES)`; `data-complete` returns a problem per incomplete step naming missing fields, and one for an empty project.
 **TEST**: `index.test.js` and `dataComplete.test.js` covering every scenario, with a test-only registry.
-**REFACTOR**: Derive required fields from `STEP_DATA_FIELDS` so the lists cannot drift.
+**REFACTOR**: Name the checked fields `GATE_STEP_FIELDS` (pt, lt, ca, queue), drawn from `STEP_DATA_FIELDS`, with a test pinning the list. Every step data field stays optional for files and commands (user decision 2026-11-21: they can be provided later); the gate only reports what is still to fill in.
 **Files**: `src/flow/gates/index.js`, `src/flow/gates/index.test.js`, `src/flow/gates/dataComplete.js`, `src/flow/gates/dataComplete.test.js`
 **Covers**: AC19
 **Commit**: `feat: add stage-gate checks with data-complete`
@@ -694,7 +698,7 @@ Feature: Open, edit and save a project
 #### Step 6.1: Pure editing session
 
 **Complexity**: standard
-**IMPLEMENT**: A plain session value with pure transitions: `openSession(text, name)` (through `parseImport`, so files are upgraded and must be valid), `applyToSession(session, command, deps)` (dirty only on success; positions untouched, new steps placed provisionally), `discard`, `toSaveFile(session, { now, tool })` (via `toProjectFile` and `withContentHash`, running `layoutSteps` first and adding `modifiedBy: { tool, at }`; `mcp/tools.js` passes `'aie-mcp'`), and guards for unsaved changes and no open project.
+**IMPLEMENT**: A plain session value with pure transitions: `openInto(session, text, name)` (through `parseImport`, so files are upgraded and must be valid; unsaved changes in `session` block it), `applyToSession(session, command, deps)` (dirty only on success; positions untouched, new steps placed provisionally), `discard`, `toSaveFile(session, { now, tool })` (via `toProjectFile` and `withContentHash`, running `layoutSteps` first and adding `modifiedBy: { tool, at }` before `withContentHash`, so the hash covers it; `mcp/tools.js` passes `'aie-mcp'`), and guards for unsaved changes and no open project.
 **TEST**: `session.test.js` covering the session scenarios with an injected `now` and `newId`.
 **REFACTOR**: Keep state in values passed in and returned; no closures holding state.
 **Files**: `src/flow/session.js`, `src/flow/session.test.js`
@@ -704,9 +708,9 @@ Feature: Open, edit and save a project
 #### Step 6.2: Confined projects-folder store and test wiring
 
 **Complexity**: complex
-**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `FILE_NOT_FOUND` or `FILE_SAVE_FAILED` problems (new catalog codes).
+**IMPLEMENT**: Add `mcp/**/*.test.js` to the vitest `include`, `mcp/**/*.js` to coverage and to Stryker `mutate`, excluding `mcp/server.js` and tests. `mcp/store.js`: `createStore(startDir)` resolves `./projects` once; a name must match `^[A-Za-z0-9][A-Za-z0-9._-]*\.json$`; the folder's realpath is checked; the target is `lstat`ed and a symlink is rejected for both read and write; the folder is created on save; I/O errors become `FILE_NOT_FOUND` or `FILE_SAVE_FAILED` problems (new catalog codes). Review added more hardening: a target that is not a regular file or has another hard link is rejected, reads and writes are capped at 5 MB with `FILE_TOO_LARGE`, writes go through an fsynced temp file renamed or linked into place, and reads open with `O_NOFOLLOW`.
 **TEST**: `mcp/store.test.js` against a temp directory: every outline name for read and write, a non-string name, a name with a NUL byte, saving a new project over an existing file, a symlink inside pointing out, a symlinked save target, a missing folder, an unwritable folder, a missing file.
-**REFACTOR**: One `resolveName` used by both read and write.
+**REFACTOR**: One `checkName` and one `resolveTarget` used by both read and write.
 **Files**: `mcp/store.js`, `mcp/store.test.js`, `vitest.config.js`, `stryker.config.mjs`
 **Covers**: AC10, AC22
 **Commit**: `feat: confine project files to the projects folder`
@@ -811,7 +815,7 @@ Feature: Claude Code builds a VSM through MCP tools
 #### Step 7.1: Tool host over the session and store
 
 **Complexity**: standard
-**IMPLEMENT**: `mcp/tools.js` exports the tool list (names, input schemas derived from the command table) and `createToolHost({ store, now, newId, log })`, which holds the session between calls and returns `{ isError, content: { ok, problems, total, summary, ... } }`. It formats the one-line log (escaping control characters) and calls `log` only for applied commands. Bad arguments are turned into problems.
+**IMPLEMENT**: `mcp/tools.js` exports the tool list (names, input schemas derived from the command table) and `createToolHost({ store, now, newId, log })`, which holds the session between calls and returns `{ isError, content: { ok, problems, total, summary, ... } }`. It formats the one-line log, e.g. `add_step: Added step "Build" (step-1)`, escaping control characters, and calls `log` only for applied commands; open, save, discard and reads log nothing (tested). The host checks every argument itself: the derived JSON schemas are published as hints only, and bad arguments return `{ ok: false, problems, summary }` with `isError`.
 **TEST**: `mcp/tools.test.js` with a fake store and log: every scenario except the stdio ones.
 **REFACTOR**: Derive command tools from the command table so a new command cannot miss its tool.
 **Files**: `mcp/tools.js`, `mcp/tools.test.js`
@@ -821,7 +825,7 @@ Feature: Claude Code builds a VSM through MCP tools
 #### Step 7.2: Stdio server
 
 **Complexity**: complex
-**IMPLEMENT**: Add `@modelcontextprotocol/sdk` as an exact devDependency (bundled later). `mcp/server.js` wires the tool host to stdio and writes log lines to stderr. Add an ESLint `no-restricted-imports` rule: `mcp/**` may import `src/flow/**` only, and `src/**` may not import `mcp/`. Add the `mcp/` rule to `CLAUDE.md`.
+**IMPLEMENT**: Add `@modelcontextprotocol/sdk` as an exact devDependency (bundled later). `mcp/server.js` wires the tool host to stdio through the SDK's low-level `Server` with `tools/list` and `tools/call` handlers (no SDK-side argument validation), with `tools/call` registered with a request schema that accepts any `arguments` value so our code answers a non-object one too (using `zod`, a direct dependency; it registers `tools/call` through the SDK's lower-level `Protocol` handler, so it depends on internals of the exact-pinned SDK version), and writes log lines to stderr. Add an ESLint `no-restricted-imports` rule: `mcp/**` may import `src/flow/**` only, and `src/**` may not import `mcp/`. Add the `mcp/` rule to `CLAUDE.md`.
 **TEST**: `mcp/server.test.js` spawns the server in a temp folder: lists tools, runs the build-from-empty flow and imports the saved file with `parseImport`, the path-like name, and stderr and stdout separation.
 **REFACTOR**: Keep `server.js` to wiring only.
 **Files**: `mcp/server.js`, `mcp/server.test.js`, `package.json`, `package-lock.json`, `eslint.config.js`, `CLAUDE.md`
@@ -1049,33 +1053,33 @@ graph TD
   - [x] Step 1.1: Collect every rule failure in two phases
   - [x] Step 1.2: Import pipeline carries problems
   - [x] Step 1.3: The import status lists every problem
-- [ ] Slice 2: Deterministic auto-layout
-  - [ ] Step 2.1: Layered left-to-right layout
+- [x] Slice 2: Deterministic auto-layout
+  - [x] Step 2.1: Layered left-to-right layout
 
 #### Wave 2
 
-- [ ] Slice 3: Schema 0.1.0 and the AI mark
-  - [ ] Step 3.1: Release schema 0.1.0 with an optional mark
-  - [ ] Step 3.2: Show the AI notice on import
-  - [ ] Step 3.3: The app's export drops the mark and keeps positions
-- [ ] Slice 4: Pure command layer
-  - [ ] Step 4.1: Command result, argument checks and create project
-  - [ ] Step 4.2: Step commands
-  - [ ] Step 4.3: Connection commands
-- [ ] Slice 5: Gate checks
-  - [ ] Step 5.1: Gate registry and data-complete
+- [x] Slice 3: Schema 0.1.0 and the AI mark
+  - [x] Step 3.1: Release schema 0.1.0 with an optional mark
+  - [x] Step 3.2: Show the AI notice on import
+  - [x] Step 3.3: The app's export drops the mark and keeps positions
+- [x] Slice 4: Pure command layer
+  - [x] Step 4.1: Command result, argument checks and create project
+  - [x] Step 4.2: Step commands
+  - [x] Step 4.3: Connection commands
+- [x] Slice 5: Gate checks
+  - [x] Step 5.1: Gate registry and data-complete
 
 #### Wave 3
 
-- [ ] Slice 6: Editing session and projects folder
-  - [ ] Step 6.1: Pure editing session
-  - [ ] Step 6.2: Confined projects-folder store and test wiring
+- [x] Slice 6: Editing session and projects folder
+  - [x] Step 6.1: Pure editing session
+  - [x] Step 6.2: Confined projects-folder store and test wiring
 
 #### Wave 4
 
-- [ ] Slice 7: MCP server
-  - [ ] Step 7.1: Tool host over the session and store
-  - [ ] Step 7.2: Stdio server
+- [x] Slice 7: MCP server
+  - [x] Step 7.1: Tool host over the session and store
+  - [x] Step 7.2: Stdio server
 
 #### Wave 5
 

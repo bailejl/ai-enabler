@@ -21,6 +21,8 @@ const validFile = (overrides = {}) => ({
   ...overrides,
 })
 
+const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
+
 const withoutPosition = (node) =>
   Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'position'))
 
@@ -234,8 +236,6 @@ describe('parseImport', () => {
   })
 
   describe('edit detection', () => {
-    const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
-
     it('is not edited when the contentHash matches the file', async () => {
       const file = await withHash(validFile())
       expect(await parse(file)).toEqual({ ok: true, file, edited: false })
@@ -315,6 +315,93 @@ describe('parseImport', () => {
     })
   })
 
+  // AC15, AC17: the mark is honored only for an untouched file of a version that defines it.
+  describe('the AI mark', () => {
+    const mark = { tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' }
+    const markedFile = (overrides = {}) => validFile({ modifiedBy: mark, ...overrides })
+
+    it('reports who changed a marked file whose hash matches', async () => {
+      const file = await withHash(markedFile())
+      expect(await parse(file)).toEqual({ ok: true, file, edited: false, changedBy: mark })
+    })
+
+    it('reports only the tool and the time of the mark', async () => {
+      const file = await withHash(markedFile({ modifiedBy: { ...mark, extra: 'x' } }))
+      expect((await parse(file)).changedBy).toEqual(mark)
+    })
+
+    it('reports nothing for an unmarked file whose hash matches', async () => {
+      expect(await parse(await withHash(validFile()))).not.toHaveProperty('changedBy')
+    })
+
+    it('reports nothing for a marked file whose hash does not match', async () => {
+      const result = await parse({ ...(await withHash(markedFile())), exportedAt: 'later' })
+      expect(result).toMatchObject({ ok: true, edited: true })
+      expect(result).not.toHaveProperty('changedBy')
+    })
+
+    it.each([
+      ['missing', undefined],
+      ['an empty string', ''],
+    ])('reports nothing for a marked file whose hash is %s', async (_name, hash) => {
+      const result = await parse(markedFile({ contentHash: hash }))
+      expect(result).toMatchObject({ ok: true, edited: true })
+      expect(result).not.toHaveProperty('changedBy')
+    })
+
+    it('rejects an invalid marked file with a valid hash and no changedBy', async () => {
+      const result = await parse(await withHash(markedFile({ project: { id: 'p1', name: '' } })))
+      expect(codesOf(result)).toEqual(['FILE_PROJECT_NAME_EMPTY'])
+      expect(result).not.toHaveProperty('changedBy')
+    })
+
+    it('rejects a malformed mark, with no changedBy', async () => {
+      const result = await parse(await withHash(markedFile({ modifiedBy: { tool: 'aie-mcp' } })))
+      expect(codesOf(result)).toEqual(['MARK_TIME_INVALID'])
+      expect(result).not.toHaveProperty('changedBy')
+    })
+
+    describe('for a file older than the version that defines the mark', () => {
+      const olderMarked = () => validFile({ schemaVersion: '0.0.0', modifiedBy: mark })
+
+      it('ignores the stray mark of a 0.0.0 file whose hash matches', async () => {
+        const result = await parse(await withHash(olderMarked()))
+        expect(result).toMatchObject({ ok: true, edited: false })
+        expect(result).not.toHaveProperty('changedBy')
+      })
+
+      it('ignores a malformed stray mark instead of rejecting the file', async () => {
+        const result = await parse(
+          await withHash({ ...olderMarked(), modifiedBy: { tool: '', at: 'soon' } }),
+        )
+        expect(result).toMatchObject({ ok: true, edited: false })
+        expect(result).not.toHaveProperty('changedBy')
+      })
+
+      it('ignores a mark that an injected upgrade adds to an older file', async () => {
+        const settings = {
+          current: '0.1.0',
+          released: ['0.0.0', '0.1.0'],
+          registry: [
+            {
+              from: '0.0.0',
+              to: '0.1.0',
+              upgrade: (file) => ({ ...file, schemaVersion: '0.1.0', modifiedBy: mark }),
+            },
+          ],
+        }
+        const result = await parse(await withHash(validFile({ schemaVersion: '0.0.0' })), settings)
+        expect(result).toMatchObject({ ok: true, edited: false })
+        expect(result).not.toHaveProperty('changedBy')
+      })
+    })
+
+    it('reports changedBy for the 0.1.0-marked fixture', async () => {
+      const result = await parseImport(fixtures['./schema/fixtures/0.1.0-marked.json'])
+      expect(result).toMatchObject({ ok: true, edited: false, changedBy: mark })
+    })
+  })
+
   describe('e2e fixtures', () => {
     it('finds the e2e fixtures', () => {
       expect(Object.keys(e2eFixtures).length).toBeGreaterThan(0)
@@ -339,6 +426,12 @@ describe('parseImport', () => {
     it.each(fixtureVersions)('treats the %s fixture as untouched', async (version) => {
       const result = await parseImport(fixtures[`./schema/fixtures/${version}.json`])
       expect(result.edited).toBe(false)
+    })
+
+    it('shows no AI notice for the unmarked 0.0.0 fixture', async () => {
+      const result = await parseImport(fixtures['./schema/fixtures/0.0.0.json'])
+      expect(result.ok).toBe(true)
+      expect(result).not.toHaveProperty('changedBy')
     })
   })
 })

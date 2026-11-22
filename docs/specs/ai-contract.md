@@ -8,7 +8,7 @@ Sources: [#24 E13](https://github.com/bailejl/ai-enabler/issues/24) and the requ
 
 Today an AI can build a VSM only by writing the whole project file and importing it. The app's validator stops at the first error, so a large VSM takes many slow round trips. This change gives Claude Code a local MCP server that applies one small, validated change at a time, through the same pure rules the app enforces, and returns every problem with that change right away.
 
-Claude can create a project or open an existing one, edit it with commands, and save it. The server lays out the steps for human readability after every change, and marks the file as changed by AI tools. A human then imports the file into the GitHub Pages app to review it, and the app validates it again. The app stays a static site with no backend.
+Claude can create a project or open an existing one, edit it with commands, and save it. When it saves, the server lays out the steps for human readability and marks the file as changed by AI tools. A human then imports the file into the GitHub Pages app to review it, and the app validates it again. The app stays a static site with no backend.
 
 The server ships in a Claude Code plugin from this repo, together with the `aie-guide` and `aie-review` skills, a JSON Schema for the file, `llms.txt` and `AGENTS.md`.
 
@@ -27,9 +27,9 @@ The server ships in a Claude Code plugin from this repo, together with the `aie-
 - Command layer: pure functions under `src/flow/commands/`. Each takes a project and arguments and returns `{ ok, project, problems, summary }`. A rejected command returns the input project unchanged.
 - Gate checks: a pure registry under `src/flow/gates/`, keyed by gate id, with `data-complete` as the first check (Q gate checks, 2026-11-17).
 - Layout: a pure, deterministic function under `src/flow/` that positions steps left to right in flow order. The session runs it when `save_project` writes the file. The layout algorithm is a `/plan` decision.
-- MCP server: a new top-level `mcp/` folder (Q server home). It may import the pure modules in `src/flow/`, never React or `src/shell/`. It is a thin stdio adapter: one tool per command, plus `get_project`, `list_problems` (with an optional gate id) and `save_project`. It is excluded from coverage and mutation like the CLIs, and the logic it calls is tested in `src/flow/`.
+- MCP server: a new top-level `mcp/` folder (Q server home). It may import the pure modules in `src/flow/`, never React or `src/shell/`. It is a thin stdio adapter: one tool per command, plus `open_project`, `save_project`, `discard_changes`, `get_project` and `list_problems` (with an optional gate id). It is covered by unit tests and mutation testing like `src/flow/`, except the stdio wiring in `mcp/server.js` (Q 2026-11-21).
 - Projects folder: `./projects`, resolved from the server's working directory at start (Q projects dir). Files are opened and saved by name only.
-- Schema 0.1.0 adds an optional top-level `modifiedBy: { tool: "aie-mcp", at: <ISO time> }`. The upgrade from 0.0.0 is an identity hop, with a new fixture, per `docs/schema-versioning.md`.
+- Schema 0.1.0 adds an optional top-level `modifiedBy: { tool: "aie-mcp", at: <ISO time> }`. The app shows the tool name in its AI notice, so it accepts only 1–40 letters, digits, dots, dashes and underscores; any other tool name rejects the import, and removing `modifiedBy` fixes it (user decision, 2026-11-21). The upgrade from 0.0.0 copies every field and drops a stray `modifiedBy`, with a new fixture, per `docs/schema-versioning.md`.
 - App: import shows "Changed by AI tools" for a file with a valid hash and a `modifiedBy` mark, in place of `EDITED_NOTICE`. The app's own export omits `modifiedBy`.
 - JSON Schema: `public/schema/project-0.1.0.json`, also copied into the plugin. Rules that JSON Schema cannot express (loops, duplicate ids, missing endpoints) are listed in `llms.txt`.
 - Plugin: a Claude Code plugin and marketplace manifest in this repo. It holds the MCP server registration, `aie-guide` and `aie-review`. It runs with Node 24 and needs no `npm install` by the user. How the server is bundled is a `/plan` decision.
@@ -47,7 +47,7 @@ Citations: **R**/**S** = requirements doc row, **Q** = stakeholder decision, **i
 
 1. **Every problem.** `validateProjectFile` on a file with three different problems returns all three, each with a `code` and a readable `message`. A valid file returns `{ ok: true, problems: [] }`. (R1)
 2. **Import lists every problem.** The app still accepts valid files, and for an invalid file it shows every problem, not just the first. (R2)
-3. **Commands.** These commands exist: create project, add step, update step, remove step, connect, disconnect, and set step metrics (`pt`, `lt`, `ca`, `queue`, `batch`). Each returns the new project, every problem, and a one-line summary. (R3, R6)
+3. **Commands.** These commands exist: create project, add step, update step, remove step, connect, disconnect, and set step metrics (`pt`, `lt`, `ca`, `queue`, `batch`). Each returns the new project, every problem, and a one-line summary. This holds for the pure command layer; an MCP tool result leaves out the project, and `get_project` returns it. (R3, R6; Q 2026-11-21)
 4. **Rejected commands change nothing.** A command that would leave the project invalid returns `ok: false` with its problems, and the project is unchanged. For example, connecting a step to itself or adding a negative `pt`. (R3)
 5. **Removing a step removes its connections.** Removing a step also removes every connection to or from it, and the summary says how many. (inference)
 6. **MCP tools.** The server offers one tool per command plus `open_project`, `save_project`, `discard_changes`, `get_project` and `list_problems`, over stdio. A rejected call sets MCP `isError`. Claude Code can register it with `claude mcp add` and build a VSM from an empty project using only these tools. (R5)

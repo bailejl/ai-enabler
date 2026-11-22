@@ -10,10 +10,13 @@ import {
 import { parseImport, unreadableImport } from '../flow/importFile.js'
 import { initialEdges, initialNodes } from '../flow/initialFlow.js'
 import { createStarterProject } from '../flow/project.js'
-import { projectFileName, toProjectFile, withContentHash } from '../flow/projectFile.js'
+import {
+  projectFileName,
+  serializeProjectFile,
+  toProjectFile,
+  withContentHash,
+} from '../flow/projectFile.js'
 import { downloadTextFile } from './download.js'
-
-const JSON_INDENT = 2
 
 // A file the browser cannot read is reported like any other file that cannot be imported.
 const readImport = async (file) => {
@@ -110,10 +113,7 @@ export const useProject = ({ announce, importButtonRef }) => {
   const exportProject = useCallback(async () => {
     const projectFile = toProjectFile({ project, nodes, edges, now: new Date() })
     const fileName = projectFileName(project.name)
-    downloadTextFile(
-      fileName,
-      JSON.stringify(await withContentHash(projectFile), null, JSON_INDENT),
-    )
+    downloadTextFile(fileName, serializeProjectFile(await withContentHash(projectFile)))
     return fileName
   }, [project, nodes, edges])
   return {

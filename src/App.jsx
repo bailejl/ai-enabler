@@ -73,7 +73,7 @@ function Shell({ routeName }) {
           message={importState.message}
           currentName={importState.currentName}
           incomingName={importState.incomingName}
-          isEdited={importState.isEdited}
+          notices={importState.notices}
           onConfirm={confirmImport}
           onCancel={cancelImport}
         />

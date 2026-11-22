@@ -2,6 +2,8 @@ import { contentHash } from './contentHash.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
 import { STEP_DATA_FIELDS, STEP_TYPE } from './step.js'
 
+const JSON_INDENT = 2
+
 const FALLBACK_FILE_SLUG = 'project'
 const FILE_SUFFIX = '.ai-enabler.json'
 
@@ -26,6 +28,14 @@ export const toExportNode = (node) => ({
 
 export const toExportEdge = (edge) => pick(edge, EDGE_FIELDS)
 
+// The in-memory project (`{ project, nodes, edges }`) cut to the known fields, so a field a file
+// carries beyond them never enters the app or comes back out.
+export const toMemoryProject = ({ project, nodes, edges }) => ({
+  project: pick(project, PROJECT_FIELDS),
+  nodes: nodes.map(toExportNode),
+  edges: edges.map(toExportEdge),
+})
+
 /**
  * @param {{ project: { id: string, name: string }, nodes: object[], edges: object[], now: Date }} input
  *   now is the export moment as a Date, injected so the output is deterministic.
@@ -33,13 +43,14 @@ export const toExportEdge = (edge) => pick(edge, EDGE_FIELDS)
 export const toProjectFile = ({ project, nodes, edges, now }) => ({
   schemaVersion: CURRENT_SCHEMA_VERSION,
   exportedAt: now.toISOString(),
-  project: pick(project, PROJECT_FIELDS),
-  nodes: nodes.map(toExportNode),
-  edges: edges.map(toExportEdge),
+  ...toMemoryProject({ project, nodes, edges }),
 })
 
 // The file as written to disk: the project file plus the hash of everything else in it.
 export const withContentHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
+
+// The text of a project file as written to disk or downloaded: indented JSON and a final newline.
+export const serializeProjectFile = (file) => `${JSON.stringify(file, null, JSON_INDENT)}\n`
 
 export const projectFileName = (name) => {
   const slug = name

@@ -1,11 +1,10 @@
 import { findEdgeProblems, PROBLEM_DUPLICATE, PROBLEM_LOOP, PROBLEM_SELF } from '../connections.js'
 import { problem } from '../diagnostics/problem.js'
 import { STEP_TYPE, stepPositionName } from '../step.js'
+import { hasText, shorten } from '../text.js'
 import { isObject } from './primitives.js'
 
 const isNonEmptyString = (value) => typeof value === 'string' && value !== ''
-
-const isNonEmptyText = (value) => isNonEmptyString(value) && value.trim() !== ''
 
 const isNonNegativeInteger = (value) => Number.isInteger(value) && value >= 0
 
@@ -14,19 +13,10 @@ const isPercentage = (value) => Number.isFinite(value) && value >= 0 && value <=
 const hasPosition = (node) =>
   Number.isFinite(node?.position?.x) && Number.isFinite(node?.position?.y)
 
-// User text echoed into a message is cut to this many characters, so a huge label or id cannot
-// flood the import status. The full text stays in `untrusted`.
-const MAX_ECHOED_TEXT = 80
-
-const shorten = (text) =>
-  text.length > MAX_ECHOED_TEXT ? `${text.slice(0, MAX_ECHOED_TEXT - 1)}…` : text
-
 // Steps are named by label and 1-based position. A missing or blank label leaves the position.
 const stepName = (node, index) => {
   const label = node?.data?.label
-  return isNonEmptyText(label)
-    ? `Step "${shorten(label)}" (#${index + 1})`
-    : stepPositionName(index)
+  return hasText(label) ? `Step "${shorten(label)}" (#${index + 1})` : stepPositionName(index)
 }
 
 // A file that is not an object with step and connection lists is one problem and nothing else.
@@ -39,7 +29,7 @@ const PROJECT_RULES = [
   {
     code: 'FILE_PROJECT_NAME_EMPTY',
     field: 'project.name',
-    fails: (p) => !isNonEmptyText(p?.name),
+    fails: (p) => !hasText(p?.name),
   },
   { code: 'FILE_PROJECT_ID_MISSING', field: 'project.id', fails: (p) => !isNonEmptyString(p?.id) },
 ]
@@ -75,6 +65,50 @@ const STEP_RULES = [
   optionalFieldRule('STEP_PERCENT_INVALID', 'ca', '%C&A', isPercentage),
 ]
 
+// The AI mark is optional. Present, it must be an object with a short plain tool name and an ISO
+// time. The tool name is shown inside the app's own AI notice, so only 1-40 letters, digits, dots,
+// dashes and underscores are accepted: a hand-made file cannot put other words in that notice. A file older than 0.1.0 never reaches this check with a mark: its upgrade drops one.
+const ISO_TIME_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
+
+// Date rolls an impossible day over (February 30 becomes March 2), so the day is checked by
+// building it and reading it back.
+const isRealDay = (year, month, day) => {
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  )
+}
+
+const TOOL_NAME_PATTERN = /^[A-Za-z0-9._-]{1,40}$/
+
+const isToolName = (value) => typeof value === 'string' && TOOL_NAME_PATTERN.test(value)
+
+const isIsoTime = (value) => {
+  const match = typeof value === 'string' ? ISO_TIME_PATTERN.exec(value) : null
+  if (!match || Number.isNaN(Date.parse(value))) return false
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number)
+  return isRealDay(year, month, day) && hour <= 23 && minute <= 59 && second <= 59
+}
+
+// The tool name and the time are the only user text a mark problem can hold; each is kept whole in
+// `untrusted` like any other untrusted value (the message never echoes it).
+const MARK_RULES = [
+  {
+    code: 'MARK_TOOL_INVALID',
+    field: 'modifiedBy.tool',
+    fails: (m) => !isToolName(m.tool),
+    untrusted: (m) => (isNonEmptyString(m.tool) ? { tool: m.tool } : undefined),
+  },
+  {
+    code: 'MARK_TIME_INVALID',
+    field: 'modifiedBy.at',
+    fails: (m) => !isIsoTime(m.at),
+    untrusted: (m) => (isNonEmptyString(m.at) ? { time: m.at } : undefined),
+  },
+]
+
 const connectionName = (index) => `Connection ${index + 1}`
 
 const CONNECTION_RULES = [
@@ -83,17 +117,26 @@ const CONNECTION_RULES = [
 
 const failedRules = (rules, subject) => rules.filter((rule) => rule.fails(subject))
 
-const checkShape = (file) => {
-  return isProjectShaped(file) ? [] : [problem('FILE_NOT_A_PROJECT')]
-}
+const checkShape = (file) => (isProjectShaped(file) ? [] : [problem('FILE_NOT_A_PROJECT')])
 
 const checkProject = (project) =>
   failedRules(PROJECT_RULES, project).map((rule) => problem(rule.code, { field: rule.field }))
 
+const markProblem = (rule, mark) => {
+  const untrusted = rule.untrusted?.(mark)
+  return problem(rule.code, { field: rule.field, ...(untrusted && { untrusted }) })
+}
+
+const checkMark = (mark) => {
+  if (mark === undefined) return []
+  if (!isObject(mark)) return [problem('MARK_NOT_AN_OBJECT', { field: 'modifiedBy' })]
+  return failedRules(MARK_RULES, mark).map((rule) => markProblem(rule, mark))
+}
+
 // What a step problem carries about the step: its id when it has one, its title as user text.
 const stepRefs = (node) => ({
   ...(typeof node?.id === 'string' && { stepId: node.id }),
-  ...(isNonEmptyText(node?.data?.label) && { untrusted: { title: node.data.label } }),
+  ...(hasText(node?.data?.label) && { untrusted: { title: node.data.label } }),
 })
 
 const connectionRefs = (edge) => (isNonEmptyString(edge?.id) ? { edgeId: edge.id } : {})
@@ -135,26 +178,31 @@ const repeatedIdEntries = (entries) => {
   })
 }
 
-const duplicateStepIds = (stepEntries) =>
-  repeatedIdEntries(stepEntries).map(({ item, index }) =>
-    problem('STEP_ID_DUPLICATE', {
-      params: { step: stepName(item, index), id: shorten(item.id) },
+// One problem per entry whose id an earlier entry already used. `describe` gives the message
+// params and the refs (ids, untrusted text) for the kind of item. The id is echoed into the
+// message, so its full text is marked as user text too.
+const duplicateIdProblems = (entries, code, describe) =>
+  repeatedIdEntries(entries).map(({ item, index }) => {
+    const { params, refs } = describe(item, index)
+    return problem(code, {
+      params: { ...params, id: shorten(item.id) },
       field: 'id',
-      ...stepRefs(item),
-      // The id is echoed into the message, so its full text is marked as user text too.
-      untrusted: { ...stepRefs(item).untrusted, id: item.id },
-    }),
-  )
+      ...refs,
+      untrusted: { ...refs.untrusted, id: item.id },
+    })
+  })
+
+const duplicateStepIds = (stepEntries) =>
+  duplicateIdProblems(stepEntries, 'STEP_ID_DUPLICATE', (item, index) => ({
+    params: { step: stepName(item, index) },
+    refs: stepRefs(item),
+  }))
 
 const duplicateConnectionIds = (connectionEntries) =>
-  repeatedIdEntries(connectionEntries).map(({ item, index }) =>
-    problem('CONN_ID_DUPLICATE', {
-      params: { connection: connectionName(index), id: shorten(item.id) },
-      field: 'id',
-      ...connectionRefs(item),
-      untrusted: { id: item.id },
-    }),
-  )
+  duplicateIdProblems(connectionEntries, 'CONN_ID_DUPLICATE', (item, index) => ({
+    params: { connection: connectionName(index) },
+    refs: connectionRefs(item),
+  }))
 
 const CONNECTION_KIND_CODES = {
   [PROBLEM_SELF]: 'CONN_SELF',
@@ -223,6 +271,7 @@ export const validateProjectFile = (file) => {
   const connectionEntries = checkItems(file.edges, CONNECTION_RULES, connectionProblem)
   const problems = [
     ...checkProject(file.project),
+    ...checkMark(file.modifiedBy),
     ...entryProblems(stepEntries),
     ...entryProblems(connectionEntries),
     ...duplicateStepIds(passedEntries(stepEntries)),

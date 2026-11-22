@@ -2,10 +2,13 @@ import { CURRENT_SCHEMA_VERSION, compareSemver, parseSemver } from './version.js
 import { isObject } from './primitives.js'
 import { problem } from '../diagnostics/problem.js'
 
+// 0.0.0 never defined modifiedBy, so a stray one is dropped, never validated or honored.
+const dropModifiedBy = ({ modifiedBy: _stray, ...file }) => file
+
 // Ordered upgrade hops, oldest first. Each is { from, to, upgrade }, where upgrade takes a file at
 // `from` and returns a new file in the `to` shape. It must not mutate its input. upgradeToCurrent
 // stamps schemaVersion itself, so an upgrade only changes the data.
-export const REGISTRY = Object.freeze([])
+export const REGISTRY = Object.freeze([{ from: '0.0.0', to: '0.1.0', upgrade: dropModifiedBy }])
 
 // The hops from a version up to current, or null when the chain breaks. Bounded by the registry
 // length, so a cyclic registry ends instead of looping.

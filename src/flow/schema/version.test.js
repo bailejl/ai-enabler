@@ -67,9 +67,9 @@ describe('compareSemver', () => {
 })
 
 describe('schema versions', () => {
-  it('starts at 0.0.0', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe('0.0.0')
-    expect(RELEASED_SCHEMA_VERSIONS).toEqual(['0.0.0'])
+  it('releases 0.0.0 and 0.1.0, with 0.1.0 current', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe('0.1.0')
+    expect(RELEASED_SCHEMA_VERSIONS).toEqual(['0.0.0', '0.1.0'])
   })
 
   it('has only valid, unique released versions', () => {

@@ -1,5 +1,8 @@
-export const CURRENT_SCHEMA_VERSION = '0.0.0'
-export const RELEASED_SCHEMA_VERSIONS = ['0.0.0']
+export const CURRENT_SCHEMA_VERSION = '0.1.0'
+export const RELEASED_SCHEMA_VERSIONS = ['0.0.0', '0.1.0']
+
+// AC15: the first schema version whose files may carry the AI mark.
+export const MARK_SINCE_VERSION = '0.1.0'
 
 const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 

@@ -7,11 +7,16 @@ export default {
   mutate: [
     'src/**/*.{js,jsx}',
     '!src/**/*.test.{js,jsx}',
+    '!src/**/testHelpers.js',
     '!src/main.jsx',
     '!src/App.jsx',
     'scripts/**/*.js',
     '!scripts/**/*.test.js',
     // CLI wrappers are thin stdin/exit shells covered by spawn tests
     '!scripts/**/*-cli.js',
+    'mcp/**/*.js',
+    '!mcp/**/*.test.js',
+    // The server is a thin stdio shell over the tested tools; it has no logic of its own
+    '!mcp/server.js',
   ],
 }

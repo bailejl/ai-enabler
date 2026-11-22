@@ -1,0 +1,55 @@
+import { problem } from '../diagnostics/problem.js'
+import { isObject } from '../schema/primitives.js'
+import { validateProjectFile } from '../schema/validate.js'
+import { nameLabel } from '../text.js'
+import { dataCompleteProblems } from './dataComplete.js'
+
+// The gate table: each id maps to one pure function `(project) => problems[]`. A new gate is added
+// by registering it here. Ids are the gate names MCP callers send.
+export const GATES = {
+  'data-complete': dataCompleteProblems,
+}
+
+/**
+ * True when `gateId` is the id of a gate in the registry. Only a string can be an id: another
+ * value, such as an array that would turn into one, is not.
+ * @param {unknown} gateId
+ * @param {Record<string, unknown>} registry
+ */
+export const isKnownGate = (gateId, registry = GATES) =>
+  typeof gateId === 'string' && Object.hasOwn(registry, gateId)
+
+const unknownGate = (gateId, registry) =>
+  problem('GATE_UNKNOWN', {
+    params: { gate: nameLabel(gateId), gates: Object.keys(registry).join(', ') },
+    untrusted: { gate: gateId },
+  })
+
+/**
+ * Runs one gate over the in-memory project (the shape the commands work on). A gate only reports;
+ * it never changes the project.
+ * @param {object|null} project
+ * @param {string} gateId
+ * @param {Record<string, (project: object) => object[]>} registry injected so tests can add gates
+ * @returns {{ ok: boolean, problems: object[] }}
+ */
+export const runGate = (project, gateId, registry = GATES) => {
+  if (!isKnownGate(gateId, registry)) {
+    return { ok: false, problems: [unknownGate(gateId, registry)] }
+  }
+  if (!isObject(project)) return { ok: false, problems: [problem('CMD_NO_PROJECT')] }
+  const problems = registry[gateId](project)
+  return { ok: problems.length === 0, problems }
+}
+
+/**
+ * Every check over the in-memory project: the project's own rules, then every registered gate in
+ * registry order.
+ * @param {object} project
+ * @param {Record<string, (project: object) => object[]>} registry injected so tests can add gates
+ * @returns {object[]} problems
+ */
+export const allProblems = (project, registry = GATES) => [
+  ...validateProjectFile(project).problems,
+  ...Object.keys(registry).flatMap((gateId) => runGate(project, gateId, registry).problems),
+]

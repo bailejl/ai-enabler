@@ -14,6 +14,14 @@ An upgrade does not rewrite `contentHash`: the stored value stays the hash of th
 
 Fixtures carry a valid `contentHash`. After editing a fixture, recompute it with `contentHash` from `src/flow/contentHash.js`. `importFile.test.js` fails for a released fixture whose hash does not match.
 
+## AI mark (`modifiedBy`)
+
+Schema 0.1.0 adds the optional top-level `modifiedBy: { tool, at }`, written by tools that change a project file for the user (the MCP server (`mcp/`) writes `tool: "aie-mcp"`). `tool` is 1 to 40 letters, digits, dots, dashes or underscores (the app's AI notice shows it, so other text is rejected) and `at` is an ISO 8601 date and time with a `Z` or offset zone. The content hash covers `modifiedBy`, so the mark must be added before the hash.
+
+- A file with no mark is valid. A present mark that is not an object, or has a bad `tool` or `at`, is a problem (`MARK_NOT_AN_OBJECT`, `MARK_TOOL_INVALID`, `MARK_TIME_INVALID`). Each message names the bad part and says that removing the `modifiedBy` field fixes the file.
+- The 0.0.0 to 0.1.0 hop copies every field and drops a `modifiedBy` on a 0.0.0 file. 0.0.0 never defined the mark, so a stray one is ignored, never validated and never honored.
+- The app's export never writes a mark.
+
 ## Bump levels
 
 - **Major:** a breaking change, such as a field removed, renamed, or its meaning changed.
@@ -22,9 +30,11 @@ Fixtures carry a valid `contentHash`. After editing a fixture, recompute it with
 
 Every bump, at any level, adds an upgrade function (identity is allowed) and a fixture.
 
+A version that adds an optional field also gets a second fixture with the field set, named `<version>-marked.json` for the mark. The plain `<version>.json` matches the app's export and carries no optional field; the marked one carries the field and nothing else extra. Both hold a valid `contentHash`, and each gets its own snapshot under `fixtures/expected/`.
+
 ## Bump the schema
 
-1. Add a fixture for the new version: `src/flow/schema/fixtures/<new>.json`. Copy the shape of the export at that version, including a valid `contentHash`.
+1. Add a fixture for the new version: `src/flow/schema/fixtures/<new>.json`. Copy the shape of the export at that version, including a valid `contentHash`. When the version adds an optional field, add the `<new>-marked.json` variant too.
 2. In `src/flow/schema/version.js`, add the new version to `RELEASED_SCHEMA_VERSIONS` and set `CURRENT_SCHEMA_VERSION` to it.
 3. Add a hop to `REGISTRY` in `src/flow/schema/upgrades.js`:
 
@@ -41,7 +51,7 @@ Every bump, at any level, adds an upgrade function (identity is allowed) and a f
 
 ## Expected snapshots
 
-Each released input fixture is upgraded to current and compared with `src/flow/schema/fixtures/expected/<v>.json`. After adding a hop, regenerate:
+Each input fixture (marked variants included) is upgraded to current and compared with `src/flow/schema/fixtures/expected/<name>.json`. After adding a hop, regenerate:
 
 ```sh
 npx vitest run -u src/flow/schema/upgrades.test.js
@@ -61,6 +71,6 @@ On a push to `main` the diff against `origin/main` is empty by design, so the gu
 
 ## Export shape check
 
-`src/flow/schema/shape.test.js` compares the key paths and value types of a starter project export with the fixture for `CURRENT_SCHEMA_VERSION`. If the export shape changes without a version bump and a new fixture, that test fails.
+`src/flow/schema/shape.test.js` compares the key paths and value types of a starter project export with the unmarked fixture for `CURRENT_SCHEMA_VERSION`, and checks that the marked fixture adds only the `modifiedBy` paths to it. If the export shape changes without a version bump and a new fixture, that test fails.
 
 The test only catches changes to fields that the starter export or the fixture contains. A new optional data field that neither sets is not caught.

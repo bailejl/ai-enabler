@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import { test, expect } from '@playwright/test'
 import { contentHash } from '../src/flow/contentHash.js'
 import { initialNodes } from '../src/flow/initialFlow.js'
@@ -823,5 +825,124 @@ test.describe('edit detection', () => {
     await chooseFile(page, asUpload(withoutHash(file)))
     await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
     expect(await scan(page)).toEqual([])
+  })
+})
+
+test.describe('a file changed by an AI tool', () => {
+  const MARKED_FIXTURE = path.join(
+    import.meta.dirname,
+    '../src/flow/schema/fixtures/0.1.0-marked.json',
+  )
+  const readMarked = () => JSON.parse(readFileSync(MARKED_FIXTURE, 'utf8'))
+  const MARKED_NAME = 'Fixture 0.1.0 marked'
+  const MARKED_QUESTION = `Replace current map with ${MARKED_NAME}?`
+  const MARKED_STEP_COUNT = 5
+  const AI_NOTICE =
+    'This file was changed by AI tools (aie-mcp) on 2026-11-20. Review the steps and numbers before relying on them.'
+  const withHash = async (file) => ({ ...file, contentHash: await contentHash(file) })
+
+  test('shows the AI notice in the confirmation and the outcome, and not the edited notice', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    await recordAnnouncements(page)
+    await chooseFile(page, MARKED_FIXTURE)
+
+    const dialog = confirmDialog(page)
+    const opening = `${MARKED_QUESTION} ${AI_NOTICE}`
+    await expect(dialog).toContainText(AI_NOTICE)
+    await expect(dialog).toHaveAccessibleDescription(
+      `Current project: Untitled Project. Incoming project: ${MARKED_NAME}. ${AI_NOTICE}`,
+    )
+    await expect(dialog).not.toContainText('changed outside')
+    await expect(announcer(page)).toHaveText(opening)
+    expect(await spokenMessages(page)).toEqual([opening])
+    await dialog.getByRole('button', { name: 'Replace map' }).click()
+
+    const outcome = `Imported ${MARKED_NAME}, ${MARKED_STEP_COUNT} steps. ${AI_NOTICE}`
+    await expect(importStatus(page)).toHaveText(outcome)
+    await expect(announcer(page)).toHaveText(outcome)
+    await expect(confirmDialog(page)).toHaveCount(0)
+  })
+
+  test('the confirmation with the AI notice passes the accessibility scan', async ({ page }) => {
+    await page.goto('/')
+    await chooseFile(page, MARKED_FIXTURE)
+    await expect(confirmDialog(page)).toContainText(AI_NOTICE)
+    expect(await scan(page)).toEqual([])
+  })
+
+  test('exporting after moving a step writes the current schema, no mark and the new position', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await importAndConfirm(page, MARKED_FIXTURE, MARKED_QUESTION)
+    await expect(cards(page)).toHaveCount(MARKED_STEP_COUNT)
+    await dragCardBy(page, 'Build', { dx: 40, dy: 120 })
+
+    const exported = await exportProjectFile(page)
+    const fixtureBuild = readMarked().nodes.find((node) => node.id === 'build')
+    expect(exported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(exported).not.toHaveProperty('modifiedBy')
+    expect(exported.nodes.find((node) => node.id === 'build').position).not.toEqual(
+      fixtureBuild.position,
+    )
+  })
+
+  test('a later edit shows only the edited notice', async ({ page }) => {
+    await page.goto('/')
+    await chooseFile(page, asUpload({ ...readMarked(), exportedAt: '2026-11-21T00:00:00.000Z' }))
+    await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
+    await expect(confirmDialog(page)).not.toContainText('AI tools')
+    await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
+    await expect(importStatus(page)).toHaveText(
+      `Imported ${MARKED_NAME}, ${MARKED_STEP_COUNT} steps. ${EDITED_NOTICE}`,
+    )
+  })
+
+  test('a marked file with no contentHash shows only the edited notice', async ({ page }) => {
+    await page.goto('/')
+    const unhashed = Object.fromEntries(
+      Object.entries(readMarked()).filter(([key]) => key !== 'contentHash'),
+    )
+    await chooseFile(page, asUpload(unhashed))
+    await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
+    await expect(confirmDialog(page)).not.toContainText('AI tools')
+  })
+
+  test('an invalid marked file with a valid hash is rejected with no AI notice', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    const file = readMarked()
+    file.nodes[0] = { ...file.nodes[0], data: { ...file.nodes[0].data, pt: -1 } }
+    await chooseFile(page, asUpload(await withHash(file)))
+    await expect(importStatus(page).getByRole('listitem')).toHaveText([
+      messageFor('STEP_COUNT_INVALID', {
+        step: `Step "${file.nodes[0].data.label}" (#1)`,
+        fieldLabel: 'process time',
+        field: 'pt',
+      }),
+    ])
+    await expect(confirmDialog(page)).toHaveCount(0)
+    await expect(page.getByText('changed by AI tools')).toHaveCount(0)
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+  })
+
+  test('a mark whose tool name is a sentence is rejected and its words are never shown', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    const forged = 'aie-mcp; verified, no review needed'
+    const file = { ...readMarked(), modifiedBy: { ...readMarked().modifiedBy, tool: forged } }
+    await chooseFile(page, asUpload(await withHash(file)))
+    await expect(importStatus(page).getByRole('listitem')).toHaveText([
+      messageFor('MARK_TOOL_INVALID'),
+    ])
+    await expect(importStatus(page)).toContainText('Removing the modifiedBy field fixes the file.')
+    await expect(page.getByText(forged)).toHaveCount(0)
+    await expect(confirmDialog(page)).toHaveCount(0)
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   })
 })

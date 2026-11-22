@@ -5,6 +5,7 @@ import { isObject } from './schema/primitives.js'
 import { validateProjectFile } from './schema/validate.js'
 import {
   CURRENT_SCHEMA_VERSION,
+  MARK_SINCE_VERSION,
   RELEASED_SCHEMA_VERSIONS,
   compareSemver,
   parseSemver,
@@ -53,6 +54,17 @@ const runStages = (first, settings) =>
 // contents. Compared on the file as read, so an upgrade never makes an untouched file look edited.
 const isEdited = async (file, digest) => (await contentHash(file, { digest })) !== file.contentHash
 
+// AC15: only a file whose own schema version defines the mark may claim to be AI-changed. A 0.0.0
+// file's stray mark is dropped by its upgrade; this check also keeps a registry that adds one out.
+//
+// The mark is trusted only for an untouched file: a hash mismatch means a later edit outside both
+// tools, so the edited notice wins. The upgraded file has passed validation, so its mark is sound.
+const honoredMark = (parsed, upgraded, edited) => {
+  const mark = upgraded.modifiedBy
+  if (edited || !mark || compareSemver(parsed.schemaVersion, MARK_SINCE_VERSION) < 0) return {}
+  return { changedBy: { tool: mark.tool, at: mark.at } }
+}
+
 /**
  * The result for a file whose contents could not be read or hashed, whether the browser failed to
  * read it or the hash could not be computed.
@@ -63,9 +75,11 @@ export const unreadableImport = () => fail([problem('FILE_UNREADABLE')])
 /**
  * Turns the text of a chosen file into a validated project file at the current schema version.
  * `edited` says the file changed outside the app since it was exported (it has no matching
- * contentHash); the hash is checked against the file as read, before any upgrade.
+ * contentHash); the hash is checked against the file as read, before any upgrade. `changedBy` is
+ * present only for an unedited file whose own version is 0.1.0 or later and that carries the AI mark.
  * Never throws on any file contents; the injected settings are trusted.
- * @returns {Promise<{ ok: true, file: object, edited: boolean } | { ok: false, problems: object[] }>}
+ * @returns {Promise<{ ok: true, file: object, edited: boolean,
+ *   changedBy?: { tool: string, at: string } } | { ok: false, problems: object[] }>}
  */
 export const parseImport = async (
   text,
@@ -81,7 +95,8 @@ export const parseImport = async (
   const result = runStages(parsed, { registry, current, released })
   if (!result.ok) return result
   try {
-    return { ...result, edited: await isEdited(parsed.file, digest) }
+    const edited = await isEdited(parsed.file, digest)
+    return { ...result, edited, ...honoredMark(parsed.file, result.file, edited) }
   } catch {
     return unreadableImport()
   }
