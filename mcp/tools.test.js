@@ -5,6 +5,7 @@ import { problem } from '../src/flow/diagnostics/problem.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
+import { MAX_ECHOED_TEXT } from '../src/flow/text.js'
 import { TOOLS, createToolHost, toCallResult } from './tools.js'
 
 const NOW = new Date('2026-11-21T10:30:00.000Z')
@@ -587,7 +588,12 @@ describe('get_repair_guide', () => {
     ['a path', { code: '../catalog.json' }, '../catalog.json', { code: '../catalog.json' }],
     ['a file name', { code: 'CONN_LOOP.md' }, 'CONN_LOOP.md', { code: 'CONN_LOOP.md' }],
     ['a windows path', { code: 'C:\\x' }, 'C:\\x', { code: 'C:\\x' }],
-    ['a 10,000-letter string', { code: LONG }, `${'a'.repeat(79)}…`, { code: LONG }],
+    [
+      'a 10,000-letter string',
+      { code: LONG },
+      `${'a'.repeat(MAX_ECHOED_TEXT - 1)}…`,
+      { code: LONG },
+    ],
   ]
 
   describe.each(NOT_A_CODE)('with a code that is %s', (_label, args, label, untrusted) => {
@@ -606,17 +612,22 @@ describe('get_repair_guide', () => {
       expect(found.fix).toBe('Call get_repair_guide with the code of a problem from a tool result.')
     })
 
-    it('keeps the value out of fix, field, stepId and edgeId and as sent in untrusted', async () => {
+    it('keeps the value out of fix, field, stepId and edgeId', async () => {
       const { call } = makeHost({}, GUIDES)
       const [found] = (await call('get_repair_guide', args)).content.problems
       const value = args.code
-      if (typeof value === 'string' && value !== '') {
-        for (const key of ['fix', 'field', 'stepId', 'edgeId']) {
-          expect(found[key] ?? '', key).not.toContain(value)
-        }
+      // A missing or empty value is contained in every text, so only a non-empty string can be checked.
+      if (typeof value !== 'string' || value === '') return
+      for (const key of ['fix', 'field', 'stepId', 'edgeId']) {
+        expect(found[key] ?? '', key).not.toContain(value)
       }
-      if (untrusted === undefined) expect(found).not.toHaveProperty('untrusted')
-      else expect(found.untrusted).toEqual(untrusted)
+    })
+
+    it('keeps the value as sent in untrusted, and no untrusted when none was sent', async () => {
+      const { call } = makeHost({}, GUIDES)
+      const [found] = (await call('get_repair_guide', args)).content.problems
+      expect(Object.hasOwn(found, 'untrusted')).toBe(untrusted !== undefined)
+      expect(found.untrusted).toEqual(untrusted)
     })
   })
 

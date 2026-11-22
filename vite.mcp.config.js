@@ -22,14 +22,23 @@ const copySchema = () => ({
 
 // Replaces `mcp/guideSource.js` with a module holding the same guides as JSON, read once here, so the
 // bundle carries every guide and needs no guides folder at run time. The guides are sorted by code,
-// so the output is the same on every OS.
-const bundleGuides = () => ({
-  name: 'aie-bundle-guides',
-  load: (id) =>
-    path.resolve(id) === path.resolve(GUIDE_SOURCE)
-      ? `export const GUIDES = ${JSON.stringify(readGuides(path.resolve(GUIDES_FOLDER)))}`
-      : null,
-})
+// so the key order is the same on every OS; `.gitattributes` keeps their line endings the same too.
+// A build in which the swap never ran fails, instead of bundling a server that reads a folder it
+// does not have.
+const bundleGuides = () => {
+  let swapped = false
+  return {
+    name: 'aie-bundle-guides',
+    load: (id) => {
+      if (path.resolve(id.split('?')[0]) !== path.resolve(GUIDE_SOURCE)) return null
+      swapped = true
+      return `export const GUIDES = ${JSON.stringify(readGuides(path.resolve(GUIDES_FOLDER)))}`
+    },
+    buildEnd: () => {
+      if (!swapped) throw new Error(`The guides were not bundled: ${GUIDE_SOURCE} was never loaded`)
+    },
+  }
+}
 
 // Bundles the MCP server and every dependency into one self-contained Node file, so the plugin
 // needs no `npm install`. Output is deterministic: one chunk, no sourcemap, no timestamp.

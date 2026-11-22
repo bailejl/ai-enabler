@@ -78,6 +78,7 @@ describe('the bundled server', () => {
       const { client, cleanup } = await startBundle()
       onTestFinished(cleanup)
 
+      expect(CATALOG_CODES.length).toBeGreaterThan(0)
       const served = {}
       for (const code of CATALOG_CODES) {
         const result = await client.callTool({ name: 'get_repair_guide', arguments: { code } })

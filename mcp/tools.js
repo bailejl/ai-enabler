@@ -133,7 +133,9 @@ const listProblems = (session, { gate }) => {
 }
 
 // Pure lookup in the injected guide map. A value that is not a catalog code is refused before any
-// lookup, and is echoed only through `nameLabel` in the message and as sent in `untrusted`. A
+// lookup, and is echoed only through `nameLabel` in the message and as sent in `untrusted`. The
+// string check comes first because `isCatalogCode` coerces its argument, so a one-item list of a
+// code would pass it. A
 // catalog code with no guide is a server fault, so it throws and `execute` answers
 // CMD_INTERNAL_ERROR.
 const getRepairGuide = (session, { code }, { guides }) => {

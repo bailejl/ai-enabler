@@ -186,6 +186,7 @@ describe('the stdio server', () => {
 
     expect(result.isError).toBe(false)
     expect(result.content).toMatchObject({ ok: true, code: 'CONN_LOOP', problems: [] })
+    expect(result.content.guide.length).toBeGreaterThan(0)
     expect(result.content.guide).toBe(
       await readFile(new URL('CONN_LOOP.md', GUIDES_FOLDER), 'utf8'),
     )

@@ -1,2 +1,3 @@
 graphify-out/graph.json merge=graphify
 plugin/** text eol=lf
+src/flow/diagnostics/guides/*.md text eol=lf
