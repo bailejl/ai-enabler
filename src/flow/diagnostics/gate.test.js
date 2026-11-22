@@ -411,4 +411,40 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
       message: expect.stringContaining('uncoded error: after restore'),
     })
   })
+
+  it('fails a test that replaces the implementation of a console spy', () => {
+    expect(
+      outcomes['spyreplaced.fixture.js > fails when console.error gets its own implementation'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining(
+        'console.error spy replaced: use expectDiagnostics or inject a console',
+      ),
+    })
+    expect(
+      outcomes['spyreplaced.fixture.js > fails when console.warn gets its own implementation'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining(
+        'console.warn spy replaced: use expectDiagnostics or inject a console',
+      ),
+    })
+  })
+
+  it('fails a test that restores the spies and installs its own', () => {
+    expect(
+      outcomes['spyreplaced.fixture.js > fails when console.info is restored and spied again'],
+    ).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining(
+        'console.info spy replaced: use expectDiagnostics or inject a console',
+      ),
+    })
+  })
+
+  it('does not fail a test that only reads the gate spy', () => {
+    expect(
+      outcomes['spyreplaced.fixture.js > passes when the test only reads the gate spy'],
+    ).toMatchObject({ status: 'passed' })
+  })
 })

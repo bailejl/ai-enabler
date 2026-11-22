@@ -9,6 +9,7 @@ import {
   reportError,
   resetDiagnostics,
 } from './diagnostics.js'
+import { expectDiagnostics } from '../testHelpers.js'
 import { APP_VERSION } from './version.js'
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -270,18 +271,19 @@ describe('without crypto.randomUUID', () => {
 
 describe('the default sink', () => {
   afterEach(() => {
-    vi.restoreAllMocks()
     resetDiagnostics()
   })
 
   it('writes to the real console with the app version and the dev build', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expectDiagnostics(['FILE_NOT_JSON', 'APP_UNCAUGHT_ERROR'])
     resetDiagnostics()
 
     report(problem('FILE_NOT_JSON'))
     reportError('APP_UNCAUGHT_ERROR', new Error('x'))
 
-    const [firstRecord, secondRecord] = spy.mock.calls.map(([text]) => parseRecord(text))
+    // Without mockImplementation this returns the gate's own spy, so only its calls are read
+    const { calls } = vi.spyOn(console, 'error').mock
+    const [firstRecord, secondRecord] = calls.map(([text]) => parseRecord(text))
     expect(firstRecord).toMatchObject({ code: 'FILE_NOT_JSON', version: APP_VERSION, build: 'dev' })
     expect(secondRecord).toMatchObject({ code: 'APP_UNCAUGHT_ERROR', error: { name: 'Error' } })
   })
