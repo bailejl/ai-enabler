@@ -92,7 +92,7 @@ describe('catalog', () => {
     'status',
     'since',
   ]
-  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_', 'APP_']
+  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_', 'APP_', 'STORE_']
   const SEVERITIES = ['error', 'warning', 'hint']
   const APP_CODES = ['APP_RENDER_FAILED', 'APP_UNCAUGHT_ERROR', 'APP_UNHANDLED_REJECTION']
   const docsAnchor = (code) => `#${code.toLowerCase().replaceAll('_', '-')}`
