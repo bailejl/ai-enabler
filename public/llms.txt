@@ -72,6 +72,7 @@ The server runs over stdio (`npm run mcp`). Every tool takes only the arguments 
 - `discard_changes`: drop the unsaved changes and return to the project as last opened or saved. No arguments.
 - `get_project`: return the open project, with its steps and connections. No arguments.
 - `list_problems`: list the problems in the open project. Arguments: `gate` (optional). With a gate it runs that gate; without one it runs every check.
+- `get_repair_guide`: return the repair guide for a problem code. Arguments: `code` (required).
 
 Rules for every tool:
 

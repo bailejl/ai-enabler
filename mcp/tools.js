@@ -1,5 +1,5 @@
 import { COMMANDS, checkArgs, rejectCommand } from '../src/flow/commands/index.js'
-import { problem } from '../src/flow/diagnostics/problem.js'
+import { isCatalogCode, problem } from '../src/flow/diagnostics/problem.js'
 import { allProblems, isKnownGate, runGate } from '../src/flow/gates/index.js'
 import {
   EMPTY_SESSION,
@@ -31,6 +31,7 @@ const ARGUMENT_SCHEMAS = {
   sourceId: { type: 'string' },
   targetId: { type: 'string' },
   gate: { type: 'string' },
+  code: { type: 'string' },
   pt: COUNT_SCHEMA,
   lt: COUNT_SCHEMA,
   ca: { type: 'number', minimum: 0, maximum: 100 },
@@ -55,6 +56,7 @@ const DESCRIPTIONS = {
   discard_changes: 'Drop the unsaved changes and return to the project as last opened or saved.',
   get_project: 'Return the open project, with its steps and connections.',
   list_problems: 'List problems in the open project, for one gate or, with none, for all checks.',
+  get_repair_guide: 'Return the repair guide for a problem code. Needs no open project.',
 }
 
 const reject = (session, tool, problems) => ({ session, result: rejectCommand(tool, problems) })
@@ -130,6 +132,15 @@ const listProblems = (session, { gate }) => {
   return succeed(session, `${scope}: ${formatCount(problems.length, 'problem')}`, { problems })
 }
 
+// Pure lookup in the injected guide map. Anything but a catalog code with a guide throws, so
+// `execute` answers CMD_INTERNAL_ERROR; refusing a bad code with its own problem is a later step.
+const getRepairGuide = (session, { code }, { guides }) => {
+  if (typeof code !== 'string' || !isCatalogCode(code)) throw new Error('Not a catalog code')
+  const guide = guides[code]
+  if (guide === undefined) throw new Error(`No repair guide for ${code}`)
+  return succeed(session, `Repair guide for ${code}`, { code, guide })
+}
+
 // Every tool: its arguments (the only ones accepted), which of them a schema marks required, whether
 // it needs an open project, and a `run(session, args, deps)` returning `{ session, result, applied? }`.
 // The command tools come from the command table, so a new command always gets its tool.
@@ -155,6 +166,13 @@ const DEFINITIONS = [
   { name: 'discard_changes', args: [], required: [], needsProject: true, run: discardChanges },
   { name: 'get_project', args: [], required: [], needsProject: true, run: getProject },
   { name: 'list_problems', args: ['gate'], required: [], needsProject: true, run: listProblems },
+  {
+    name: 'get_repair_guide',
+    args: ['code'],
+    required: ['code'],
+    needsProject: false,
+    run: getRepairGuide,
+  },
 ]
 
 const inputSchema = ({ args, required }) => ({
@@ -218,9 +236,10 @@ export const toCallResult = ({ isError, content }) => ({
  * `callTool(name, args)` always resolves to `{ isError, content: { ok, problems, total, summary,
  * ... } }`; a bad tool name or bad arguments are problems in the result, not errors. `log(line)` is
  * called once for each applied command, and for nothing else.
- * @param {{ store: object, now: () => Date, newId: () => string, log: (line: string) => void }} deps
+ * `guides` maps each catalog code to its repair guide text.
+ * @param {{ store: object, now: () => Date, newId: () => string, log: (line: string) => void, guides: Record<string, string> }} deps
  */
-export const createToolHost = ({ store, now, newId, log }) => {
+export const createToolHost = ({ store, now, newId, log, guides }) => {
   // The one mutable holder: the session value, replaced (never edited) after each call. Calls are
   // chained, so a call that awaits the store never sees a session another call has since replaced.
   let session = EMPTY_SESSION
@@ -239,7 +258,7 @@ export const createToolHost = ({ store, now, newId, log }) => {
   // result and leaves the session as it was, so one failed call never ends the calls after it.
   const execute = async (name, args) => {
     try {
-      const outcome = await runTool(session, name, args, { store, now, newId })
+      const outcome = await runTool(session, name, args, { store, now, newId, guides })
       session = outcome.session
       if (outcome.applied) writeLog(`${name}: ${escapeControls(outcome.result.summary)}`)
       return toToolResult(outcome.result)

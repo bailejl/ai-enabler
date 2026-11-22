@@ -4,6 +4,7 @@ import { Protocol } from '@modelcontextprotocol/sdk/shared/protocol.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import { GUIDES } from './guideSource.js'
 import { createStore } from './store.js'
 import { SERVER_NAME, TOOLS, createToolHost, toCallResult } from './tools.js'
 
@@ -20,6 +21,7 @@ const host = createToolHost({
   now: () => new Date(),
   newId: () => randomUUID().replaceAll('-', '').slice(0, 12),
   log,
+  guides: GUIDES,
 })
 
 // The host checks every argument itself, so the SDK does no validation of its own.

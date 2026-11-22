@@ -23,6 +23,7 @@ const TOOL_NAMES = [
   'discard_changes',
   'get_project',
   'list_problems',
+  'get_repair_guide',
 ]
 
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.json$/
@@ -79,7 +80,7 @@ const fakeStore = (initial = {}) => {
   }
 }
 
-const makeHost = (initial) => {
+const makeHost = (initial, guides = {}) => {
   const store = fakeStore(initial)
   const lines = []
   let count = 0
@@ -91,16 +92,17 @@ const makeHost = (initial) => {
       return `step-${count}`
     },
     log: (line) => lines.push(line),
+    guides,
   })
   return { store, lines, call: host.callTool }
 }
 
 // A host with "team.json" open: Plan (complete) and Build (no queue).
-const withOpenProject = async (extra = {}) => {
+const withOpenProject = async (extra = {}, guides = {}) => {
   const text = await fileText([step('a', 'Plan', COMPLETE), step('b', 'Build', { pt: 30 })], {
     edges: [{ id: 'e1', source: 'a', target: 'b' }],
   })
-  const harness = makeHost({ 'team.json': text, ...extra })
+  const harness = makeHost({ 'team.json': text, ...extra }, guides)
   const opened = await harness.call('open_project', { name: 'team.json' })
   expect(opened.isError).toBe(false)
   harness.lines.length = 0
@@ -181,6 +183,7 @@ describe('TOOLS', () => {
       discard_changes: [],
       get_project: [],
       list_problems: [],
+      get_repair_guide: ['code'],
     })
     expect(TOOLS.find(({ name }) => name === 'get_project').inputSchema).not.toHaveProperty(
       'required',
@@ -522,6 +525,54 @@ describe('with no open project', () => {
     expect(codes(await call('create_project', { name: 'Demo', path: 'x' }))).toEqual([
       'CMD_ARGUMENT_UNKNOWN',
     ])
+  })
+})
+
+describe('get_repair_guide', () => {
+  const GUIDE = '# CONN_LOOP: A loop\n\n## What it means\nSteps feed each other.\n'
+  const GUIDES = { CONN_LOOP: GUIDE, STEP_NOT_FOUND: '# STEP_NOT_FOUND: Missing\n' }
+
+  it('returns the guide for a catalog code with no project open', async () => {
+    const { call } = makeHost({}, GUIDES)
+    const result = await call('get_repair_guide', { code: 'CONN_LOOP' })
+    expect(result.isError).toBe(false)
+    expect(result.content).toEqual({
+      ok: true,
+      problems: [],
+      total: 0,
+      summary: 'Repair guide for CONN_LOOP',
+      code: 'CONN_LOOP',
+      guide: GUIDE,
+    })
+  })
+
+  it('changes and logs nothing, and save_project still saves the unsaved change', async () => {
+    const { call, lines, store } = await withOpenProject({}, GUIDES)
+    await call('add_step', { name: 'Ship' })
+    lines.length = 0
+    const before = (await call('get_project')).content.project
+
+    const result = await call('get_repair_guide', { code: 'STEP_NOT_FOUND' })
+
+    expect(result.isError).toBe(false)
+    expect((await call('get_project')).content.project).toEqual(before)
+    expect(lines).toEqual([])
+    expect((await call('save_project')).isError).toBe(false)
+    expect(store.writes).toHaveLength(1)
+    expect(JSON.parse(store.writes[0].text).nodes.map(({ data }) => data.label)).toEqual([
+      'Plan',
+      'Build',
+      'Ship',
+    ])
+  })
+
+  it('is an internal error for a catalog code with no entry in the guide map', async () => {
+    const { call, lines } = makeHost({}, { STEP_NOT_FOUND: 'x' })
+    const result = await call('get_repair_guide', { code: 'CONN_LOOP' })
+    expect(result.isError).toBe(true)
+    expect(codes(result)).toEqual(['CMD_INTERNAL_ERROR'])
+    expect(result.content).not.toHaveProperty('guide')
+    expect(lines).toEqual([])
   })
 })
 

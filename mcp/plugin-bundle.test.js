@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, rm } from 'node:fs/promises'
+import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,9 +6,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { describe, expect, it, onTestFinished } from 'vitest'
+import { CATALOG_CODES } from '../src/flow/diagnostics/problem.js'
 import { TOOLS } from './tools.js'
 
 const BUNDLE = fileURLToPath(new URL('../plugin/server/aie-mcp.js', import.meta.url))
+const GUIDES_FOLDER = new URL('../src/flow/diagnostics/guides/', import.meta.url)
 
 // Each test spawns a Node child over stdio, so it gets more than vitest's 5s default.
 const SPAWN_TIMEOUT_MS = 20_000
@@ -66,6 +68,32 @@ describe('the bundled server', () => {
 
       expect(result.isError).toBe(true)
       expect(JSON.parse(result.content[0].text).problems.length).toBeGreaterThan(0)
+    },
+    SPAWN_TIMEOUT_MS,
+  )
+
+  it(
+    'serves for every catalog code the same guide text as its source file',
+    async () => {
+      const { client, cleanup } = await startBundle()
+      onTestFinished(cleanup)
+
+      const served = {}
+      for (const code of CATALOG_CODES) {
+        const result = await client.callTool({ name: 'get_repair_guide', arguments: { code } })
+        expect(result.isError, code).toBe(false)
+        served[code] = result.structuredContent.guide
+      }
+
+      const expected = Object.fromEntries(
+        await Promise.all(
+          CATALOG_CODES.map(async (code) => [
+            code,
+            await readFile(new URL(`${code}.md`, GUIDES_FOLDER), 'utf8'),
+          ]),
+        ),
+      )
+      expect(served).toEqual(expected)
     },
     SPAWN_TIMEOUT_MS,
   )

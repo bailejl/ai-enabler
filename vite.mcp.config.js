@@ -1,8 +1,11 @@
 import { copyFileSync, mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { readGuides } from './src/flow/diagnostics/readGuides.js'
 
 const SCHEMA_SOURCE = 'public/schema/project-0.1.0.json'
+const GUIDES_FOLDER = 'src/flow/diagnostics/guides'
+const GUIDE_SOURCE = 'mcp/guideSource.js'
 
 // Copies the JSON Schema next to the server folder, so `plugin/schema/` and `plugin/server/` stay
 // a pair wherever the build writes them. The schema folder is emptied first, so a schema from an
@@ -17,12 +20,23 @@ const copySchema = () => ({
   },
 })
 
+// Replaces `mcp/guideSource.js` with a module holding the same guides as JSON, read once here, so the
+// bundle carries every guide and needs no guides folder at run time. The guides are sorted by code,
+// so the output is the same on every OS.
+const bundleGuides = () => ({
+  name: 'aie-bundle-guides',
+  load: (id) =>
+    path.resolve(id) === path.resolve(GUIDE_SOURCE)
+      ? `export const GUIDES = ${JSON.stringify(readGuides(path.resolve(GUIDES_FOLDER)))}`
+      : null,
+})
+
 // Bundles the MCP server and every dependency into one self-contained Node file, so the plugin
 // needs no `npm install`. Output is deterministic: one chunk, no sourcemap, no timestamp.
 export default defineConfig({
   configFile: false,
   publicDir: false,
-  plugins: [copySchema()],
+  plugins: [bundleGuides(), copySchema()],
   ssr: { noExternal: true, target: 'node' },
   build: {
     ssr: 'mcp/server.js',
