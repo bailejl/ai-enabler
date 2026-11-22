@@ -23,12 +23,12 @@ A test gate makes the contract hold: unit and e2e tests fail when anything write
 
 - `src/flow/diagnostics/record.js` (pure): `toRecord(problem, context)` builds a record from a problem and a context (`version`, `session`, `platform`, `build`, `time`). It copies only allow-listed keys. It is the only place that builds a record.
 - `src/flow/diagnostics/rateLimit.js` (pure): a per-code limiter as a plain value. `admit(state, code, now)` returns `{ state, emit, suppressed }`. No timers.
-- `src/shell/diagnostics.js` (thin sink): holds the session context and limiter state, and writes admitted records to the console. It exposes `report(problem)` and `reportError(code, error)`. It is the only module in `src/` that calls `console.error`, `console.warn` or `console.info`.
-- `src/shell/ErrorBoundary.jsx`: React 19 has no function-component error boundary, so this is the one allowed class component (**Q**). The lint exception for classes and `this` is scoped to this one file in the ESLint and oxlint configs. It reports `APP_RENDER_FAILED` and renders the fallback.
+- `src/shell/diagnostics.js` (thin sink): holds the session context and limiter state, and writes admitted records to the console. It exposes `report(problem)` and `reportError(code, error)`. Production `src/` code writes to the console only through this module. `src/testHelpers.js`, test files and the gate self-test fixtures may also call `console.*` (matches `eslint.config.js`).
+- `src/shell/ErrorBoundary.jsx`: React 19 has no function-component error boundary, so this is the one allowed class component (**Q**; see [Catching rendering errors with an error boundary](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary), which lists class components only). The lint exception for classes and `this` is scoped to this one file in the ESLint config only. It reports `APP_RENDER_FAILED` and renders the fallback.
 - `src/main.jsx`: wraps `<App />` in the boundary, and adds `error` and `unhandledrejection` listeners that report `APP_UNCAUGHT_ERROR` and `APP_UNHANDLED_REJECTION`.
 - Call site: the import flow reports each problem of a rejected import. `problem()` stays pure and does not log; callers report.
 - Version: Vite `define` injects `__APP_VERSION__` from `package.json` at build and test time. The client bundle does not import `package.json`.
-- Gates: a Vitest setup file (`vitest.config.js` `setupFiles`) and a shared Playwright fixture (`e2e/fixtures.js`, which every spec imports in place of `@playwright/test`). Each provides a per-test `expectDiagnostics([...codes])`.
+- Gates: a Vitest setup file (`vitest.config.js` `setupFiles`) and a shared Playwright fixture (`e2e/fixtures.js`, which every spec imports in place of `@playwright/test`). The Vitest gate provides `expectDiagnostics([...codes])` (`src/testHelpers.js`); the Playwright fixture provides `diagnostics.expect([...codes])`.
 
 **Record shape** (one JSON string per console call, single line)
 
@@ -76,7 +76,7 @@ A test gate makes the contract hold: unit and e2e tests fail when anything write
 13. **Severities and new catalog codes.** Catalog severities are `error`, `warning` or `hint` (MSG-02, **Q**); the catalog test rejects any other value. `APP_RENDER_FAILED`, `APP_UNCAUGHT_ERROR` and `APP_UNHANDLED_REJECTION` exist in `catalog.json` with every catalog field, severity `error`, and a docs anchor. Pass: catalog tests, updated for the three severities.
 14. **App version.** `package.json` `version` is set to the agreed first version `0.1.0` (**Q**), and the client reads it only through `__APP_VERSION__`. Pass: unit test that `__APP_VERSION__` equals `package.json` `version`; the built bundle does not contain the `devDependencies` key.
 15. **Changelog.** `CHANGELOG.md` exists in Keep a Changelog format, with an `Unreleased` section and a section for the current version listing what has shipped (Pages deploy, the AI contract with the MCP server, and diagnostics). Pass: a `scripts/` unit test fails when `CHANGELOG.md` has no `## [<package.json version>]` heading.
-16. **Only the sink writes to the console.** No file in `src/` other than `src/shell/diagnostics.js` calls `console.*`. Pass: a lint rule (`no-console` with that one file excepted) in oxlint or ESLint.
+16. **Only the sink writes to the console.** Production `src/` code writes to the console only through `src/shell/diagnostics.js`; `src/testHelpers.js`, test files and gate self-test fixtures are also allowed. Pass: an ESLint `no-console` rule with those files excepted (`npm run lint:deep`).
 17. **One class exception.** The no-classes and no-`this` lint rules stay on for every file except `src/shell/ErrorBoundary.jsx`. Pass: `npm run lint` and `npm run lint:deep` pass, and the configs name only that file in the exception.
 
 ## Glossary

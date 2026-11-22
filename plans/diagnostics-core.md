@@ -25,7 +25,7 @@ Make the browser app write one coded, single-line JSON record to the console for
 - [ ] AC7 Crash records. Check (e2e, dev): a forced render crash writes exactly one `APP_RENDER_FAILED` record and no other console message of level error or warning; a forced uncaught `Error` writes exactly one `APP_UNCAUGHT_ERROR` record whose `error` has `name`, `message` and `stack`, and no other console error; a forced rejection with a string reason writes exactly one `APP_UNHANDLED_REJECTION` record with `error.name` `NonError`. Check (unit, `record.test.js`): for `build: "prod"`, `error` has exactly one key, `name`
 - [ ] AC8 `report` and `reportError` throw on a code not in the catalog and write nothing
 - [ ] AC9 The Vitest gate fails a test, printing one line per problem: for an uncoded `console.error` or `console.warn` call, `uncoded error: <text>` or `uncoded warn: <text>` (the console method name); for a record whose code the test did not declare (any severity), `unexpected <code> (<severity>): <catalog fix>`; for a record whose code is not in the catalog, `unknown code <code>`; for a declared code never written, `expected <code> was not seen`
-- [ ] AC10 E2E gate. The Playwright gate applies the AC9 rules and failure lines to browser console messages. Page errors follow one of two pass rules, and `e2e/gate.spec.js` has a test that asserts which one Chromium shows: Rule A, when no page error is raised after the app's handler calls `preventDefault()`: any page error fails with `page error: <message>`. Rule B, when a page error is still raised: each record of a declared `APP_UNCAUGHT_ERROR` or `APP_UNHANDLED_REJECTION` covers one page error, and an uncovered page error fails with `page error: <message>`. Check (`scripts/e2e-imports.test.js`): no `e2e/*.js` file except `e2e/fixtures.js` imports `test` from `@playwright/test`, statically (`import { test } from`, including `test as x`) or through `import()`; importing `expect` or other Playwright helpers directly stays allowed; synthetic texts with a static and a dynamic `test` import are reported, and one importing only `expect` is not
+- [ ] AC10 E2E gate. The Playwright gate applies the AC9 rules and failure lines to browser console messages. Page errors follow Rule A: any page error fails with `page error: <message>`. The Step 7.1 spike found that Chromium raises no page error after the app's handler calls `preventDefault()`, and `e2e/gate.spec.js` keeps a test that asserts it. Rule B (each record of a declared `APP_UNCAUGHT_ERROR` or `APP_UNHANDLED_REJECTION` covers one page error) is dropped. Check (`scripts/e2e-imports.test.js`): no `e2e/*.js` file except `e2e/fixtures.js` imports `test` from `@playwright/test`, statically (`import { test } from`, including `test as x`) or through `import()`; importing `expect` or other Playwright helpers directly stays allowed; synthetic texts with a static and a dynamic `test` import are reported, and one importing only `expect` is not
 - [ ] AC11 No global suppression: the gate code reads no option, environment variable or file that lets a code or console text pass without a per-test declaration. Check (unit): `checkDiagnostics` throws on any key other than `entries`, `pageErrors` and `expected`; the e2e fixture's `diagnostics` object has exactly one key, `expect`; and the texts of the gate code, which is `src/flow/diagnostics/gate.js`, `src/testHelpers.js`, `vitest.setup.js` and `e2e/fixtures.js`, contain no `process.env`, no `import.meta.env` and no import of `node:fs`
 - [ ] AC12 Gates in CI. Check (unit): `vitest.config.js` `test.setupFiles` includes `vitest.setup.js`; `package.json` `scripts.test` is `vitest run` and `scripts["test:e2e"]` is `playwright test`; every `e2e/*.spec.js` gets `test` from `./fixtures.js` (AC10); and `.github/workflows/ci.yml` runs on `pull_request` and runs `npm test` and `npm run test:e2e`
 - [ ] AC13 Catalog fields. Check (unit, `problem.test.js`): every entry's `severity` is `error`, `warning` or `hint`; `APP_RENDER_FAILED`, `APP_UNCAUGHT_ERROR` and `APP_UNHANDLED_REJECTION` each have non-empty `code` (equal to the key), `title`, `summary`, `message` and `fix`, `severity: "error"`, `owner: "app"`, `status: "active"`, `since: "0.1.0"`, and `docs` equal to `#` plus the code in lower case with `_` replaced by `-` (for example `#app-render-failed`)
@@ -222,7 +222,7 @@ Feature: Per-code rate limits
 #### Step 3.1: Admit or drop by code within a sliding minute
 
 **Complexity**: standard
-**IMPLEMENT**: `admit(state, code, now)` returns `{ state, emit, suppressed }`. State is a frozen map of code → `{ times, dropped }` (times of emitted records only). `RATE_LIMIT = 5`, `RATE_WINDOW_MS = 60_000`; a time is in the window when `now - time < RATE_WINDOW_MS`.
+**IMPLEMENT**: `admit(state, code, now)` returns `{ state, emit, suppressed }`. State is a frozen map of code → `{ times, suppressed }` (times of emitted records only; `suppressed` is the count of records not emitted since the last emitted one). `MAX_RECORDS_PER_WINDOW = 5`, `RATE_WINDOW_MS = 60_000`; a time is in the window when `now - time < RATE_WINDOW_MS`.
 **TEST**: `rateLimit.test.js`: each scenario with injected times.
 **REFACTOR**: Keep pruning of old times in one helper.
 **Files**: `src/flow/diagnostics/rateLimit.js`, `src/flow/diagnostics/rateLimit.test.js`
@@ -424,8 +424,8 @@ Feature: Unit tests fail on uncoded or unexpected diagnostics
 #### Step 6.1: Pure gate check
 
 **Complexity**: standard
-**IMPLEMENT**: `checkDiagnostics({ entries, pageErrors = [], expected })` takes console entries (`{ level, text }`), page errors and expected codes; returns failure lines for uncoded error/warn entries, records with unexpected codes (any severity, with severity and catalog fix, or "not in the catalog"), expected codes never seen, and page errors not paired (rule in Step 7.1). The function has no allow-list parameter.
-**TEST**: `gate.test.js`: each scenario as a pure case asserting the exact AC9 failure line, plus the pairing cases from Slice 7, plus an AC11 test that `checkDiagnostics` accepts only `entries`, `pageErrors` and `expected` and throws on any other key, and that the gate files' texts have no `process.env`, `import.meta.env` or `node:fs` import.
+**IMPLEMENT**: `checkDiagnostics({ entries, pageErrors = [], expected })` takes console entries (`{ level, text }`), page errors and expected codes; returns failure lines for uncoded error/warn entries, records with unexpected codes (any severity, with severity and catalog fix, or "not in the catalog"), expected codes never seen, and page errors (every page error fails; the Step 7.1 spike chose Rule A, so there is no pairing). The function has no allow-list parameter.
+**TEST**: `gate.test.js`: each scenario as a pure case asserting the exact AC9 failure line, plus a case that every page error fails (the pairing cases were dropped with Rule B), plus an AC11 test that `checkDiagnostics` accepts only `entries`, `pageErrors` and `expected` and throws on any other key, and that the gate files' texts have no `process.env`, `import.meta.env` or `node:fs` import.
 **REFACTOR**: Format each failure line in one function shared by both gates.
 **Files**: `src/flow/diagnostics/gate.js`, `src/flow/diagnostics/gate.test.js`
 **Covers**: AC9, AC10, AC11
@@ -443,7 +443,7 @@ Feature: Unit tests fail on uncoded or unexpected diagnostics
 #### Step 6.3: Wire the gate into every Vitest test
 
 **Complexity**: complex
-**IMPLEMENT**: `src/testHelpers.js` holds the per-test state and exports `expectDiagnostics(codes)`. `vitest.setup.js` imports it, spies on `console.error`, `console.warn` and `console.info` in `beforeEach`, calls `resetDiagnostics()`, and fails in `afterEach` with `checkDiagnostics` lines. `vitest.config.js` adds `setupFiles`, and its coverage excludes `vitest.setup.js`, `vitest.selftest.config.js` and `src/flow/diagnostics/gate-selftest/**`; `stryker.config.mjs` excludes the same fixtures from mutation. `globalHandlers.js` and `devCrash.js` stay under mutation. Self-test fixtures are `src/flow/diagnostics/gate-selftest/*.fixture.js`, outside the main `include`; `vitest.selftest.config.js` includes only them and uses the same `setupFiles`. If a test calls `vi.restoreAllMocks()`, the setup re-spies in its next `beforeEach`.
+**IMPLEMENT**: `src/testHelpers.js` holds the per-test state and exports `expectDiagnostics(codes)`. `vitest.setup.js` imports it, assigns capture functions to `console.error`, `console.warn` and `console.info` in `beforeEach` (plain assignment, not `vi.spyOn`, so `vi.restoreAllMocks()` cannot unhook them), calls `resetDiagnostics()`, and fails in `afterEach` with `checkDiagnostics` lines. `vitest.config.js` adds `setupFiles`, and its coverage excludes `vitest.setup.js`, `vitest.selftest.config.js` and `src/flow/diagnostics/gate-selftest/**`; `stryker.config.mjs` excludes the same fixtures from mutation. `globalHandlers.js` and `devCrash.js` stay under mutation. Self-test fixtures are `src/flow/diagnostics/gate-selftest/*.fixture.js`, outside the main `include`; `vitest.selftest.config.js` includes only them and uses the same `setupFiles`. A test that restores a console spy of its own puts the capture back, which passes; any other replacement left in `console.error`, `console.warn` or `console.info` at the end of the test fails it with `console.<level> spy replaced: use expectDiagnostics or inject a console`. `src/testHelpers.js` also exports `capturedConsoleCalls(level)`, so a test can read what the gate captured.
 **TEST**: `gate.test.js` spawns `vitest run --config vitest.selftest.config.js --reporter=json` once and asserts per-fixture pass/fail and the failure text for each scenario. Full suite green with the gate on.
 **REFACTOR**: The setup file holds no decision logic.
 **Files**: `src/testHelpers.js`, `vitest.setup.js`, `vitest.config.js`, `stryker.config.mjs`, `vitest.selftest.config.js`, `src/flow/diagnostics/gate-selftest/*`, `src/flow/diagnostics/gate.test.js`
@@ -472,7 +472,8 @@ Feature: E2E tests fail on uncoded or unexpected diagnostics
     When the user imports a file that is not JSON
     Then the test fails, naming FILE_NOT_JSON and its fix line
 
-  Scenario: A page error paired with an expected crash code passes
+  # Dropped: the Step 7.1 spike chose Rule A (Chromium raises no page error after preventDefault), so no page error is ever paired with an expected crash code. Rule B is dropped with this scenario.
+  Scenario: A page error paired with an expected crash code passes (dropped)
     # Still passes if: one expected record covers two page errors of the same kind
     Given a test that declares APP_UNCAUGHT_ERROR as expected
     When the page throws an uncaught error and the app records it
@@ -501,8 +502,8 @@ Feature: E2E tests fail on uncoded or unexpected diagnostics
 #### Step 7.1: Shared fixture with the gate
 
 **Complexity**: complex
-**IMPLEMENT**: `e2e/fixtures.js` extends Playwright `test` with an auto fixture that attaches `e2e/console.js` to `page`, a `diagnostics.expect(codes)` fixture, and an after-test `checkDiagnostics` call. Pairing rule: each page error is covered by one record of an expected `APP_UNCAUGHT_ERROR` or `APP_UNHANDLED_REJECTION`; each such record covers at most one page error. Re-exports `expect`. First spike whether Chromium still raises `pageerror` after the app's handler calls `preventDefault()`: if it does not, drop the pairing rule and keep AC10's strict "any page error fails"; if it does, keep the pairing and record it as a spec deviation in Risks. Confirm early that Playwright loads `catalog.json` through `gate.js` with `with { type: 'json' }`.
-**TEST**: `e2e/gate.spec.js`: a test asserting whether Chromium raises a page error after `preventDefault()` (Rule A or B of AC10); pass cases normally; fail cases with `test.fail()`. Page errors are raised with `page.evaluate` and a timer, and `APP_` records are written with `page.evaluate` too, so this slice does not need Slice 8.
+**IMPLEMENT**: `e2e/fixtures.js` extends Playwright `test` with an auto fixture that attaches `e2e/console.js` to `page`, a `diagnostics.expect(codes)` fixture, and an after-test `checkDiagnostics` call. Re-exports `expect`. The spike on whether Chromium still raises `pageerror` after the app's handler calls `preventDefault()` chose Rule A: it does not, so the pairing rule (Rule B: each page error covered by one record of an expected `APP_UNCAUGHT_ERROR` or `APP_UNHANDLED_REJECTION`) is dropped and AC10's strict "any page error fails" stays. Confirm early that Playwright loads `catalog.json` through `gate.js` with `with { type: 'json' }`.
+**TEST**: `e2e/gate.spec.js`: a test asserting that Chromium raises no page error after `preventDefault()` (Rule A of AC10); pass cases normally; fail cases run in a child Playwright run of `playwright.selftest.config.js` (`e2e/gate-wiring.selftest.js`), whose JSON report shows the gate failed them, because `test.fail()` passes on any failure and the fixture skips the gate once a test has failed. Page errors are raised with `page.evaluate` and a timer, and `APP_` records are written with `page.evaluate` too, so this slice does not need Slice 8.
 **REFACTOR**: One collector; no per-spec setup.
 **Files**: `e2e/fixtures.js`, `e2e/console.js`, `e2e/gate.spec.js`
 **Covers**: AC10, AC11
@@ -593,7 +594,7 @@ Feature: Crashes are coded and never blank
     # Still passes if: a console call inside a template literal goes undetected
     Then a console call in a src file other than the sink fails lint
     And a console call in the sink or in a test file passes lint
-    And a class in src/shell/ErrorBoundary.jsx passes lint
+    And a class declaration and this in src/shell/ErrorBoundary.jsx pass lint, while a class expression there is still flagged
     And a class or this in any other src file fails lint
 ```
 
@@ -602,8 +603,8 @@ Feature: Crashes are coded and never blank
 #### Step 8.1: Dev-only crash event
 
 **Complexity**: standard
-**IMPLEMENT**: `devCrash.js` exports `DEV_CRASH_EVENT` (`aie-dev-crash`) and pure `crashKind(detail)` returning `render | error | rejection | null`. `main.jsx`, only under `import.meta.env.DEV`, listens for the event: `render` sets state that makes a child throw on its next render, `error` throws in a timer, `rejection` rejects with a string. The event works on a loaded map, so an import can come first.
-**TEST**: `devCrash.test.js` for `crashKind`. `e2e/pages.spec.js`: dispatching `DEV_CRASH_EVENT` (imported from `devCrash.js`) in the production build leaves the canvas visible and writes no `APP_` record; the same dispatch in dev crashes (covered in `crash.spec.js`).
+**IMPLEMENT**: `devCrash.js` exports `DEV_CRASH_EVENT` (`aie-dev-crash`) and a frozen `CRASH_KIND = { render, error, rejection }` and pure `parseCrashKind(detail)` returning `render | error | rejection | null`. `src/shell/DevCrashTrigger.jsx` (default export, rendered by `main.jsx` only under `import.meta.env.DEV`) listens for the event: `render` sets state that makes a child throw on its next render, `error` throws in a timer, `rejection` rejects with a string. The event works on a loaded map, so an import can come first.
+**TEST**: `devCrash.test.js` for `parseCrashKind`. `e2e/pages.spec.js`: dispatching `DEV_CRASH_EVENT` (imported from `devCrash.js`) in the production build leaves the canvas visible and writes no `APP_` record; the same dispatch in dev crashes (covered in `crash.spec.js`).
 **REFACTOR**: Keep the hook out of `App.jsx`.
 **Files**: `src/shell/devCrash.js`, `src/shell/devCrash.test.js`, `src/main.jsx`, `e2e/pages.spec.js`
 **Covers**: AC6, AC7
@@ -690,7 +691,7 @@ graph TD
 - A crash that recurs on load (not possible today, since nothing persists) would loop through Reload. The crash line tells the user to report the code. E1 adds storage and should revisit this.
 - Slice 7 touches every e2e file. Other branches editing e2e files during the PR will conflict; land promptly.
 - Gate self-tests spawn one child Vitest run, adding a few seconds to `npm test`.
-- Step 7.1's page-error pairing rule (if the spike keeps it) refines AC10's "any page error fails"; note it in the PR's decisions.
+- Step 7.1's spike chose Rule A (Chromium raises no page error after `preventDefault()`), so the page-error pairing rule (Rule B) is dropped and AC10's "any page error fails" stands unchanged; there is no spec deviation to record.
 - The `reportError` path from `onUncaughtError` and `onRecoverableError` has no e2e test (a boundary catches every render error, and the app has no hydration); it is covered by code review only.
 
 ## Plan Review Summary
@@ -698,7 +699,7 @@ graph TD
 Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance, Design, UX, Strategic, Parallelization.
 
 - **Resolved blocker**: Slice 8 - React 19 default root error logging writes uncoded console output (root options added in Step 8.3).
-- **Resolved blocker**: Slice 7 - page errors from coded crashes had no gate rule (pairing rule and spike in Step 7.1).
+- **Resolved blocker**: Slice 7 - page errors from coded crashes had no gate rule (the Step 7.1 spike chose Rule A, so no pairing rule was needed).
 - **Resolved blocker**: Slice 8 - the no-map-content crash scenario could not set up its map (dev crash event after import, Step 8.1).
 - **Resolved blocker**: Slice 6 - depended on Slice 5's `resetDiagnostics` while in the same wave (now `Depends-on: 2, 5`).
 - Warnings applied: UX crash-screen copy, `<main>` landmark, own theme tokens, 320 px layout; `suppressed` slot and `KNOWN_FIELDS` drift test; catalog injection for severity routing; distinct codes in the multi-problem fixture; lint rules proven by an ESLint `lintText` test; bundle checks for `devDependencies` and the crash event; changelog content under `[0.1.0]`; noise-discovery steps with a stop condition; coverage and Stryker exclusions for gate fixtures.
