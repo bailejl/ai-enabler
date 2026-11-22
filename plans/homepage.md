@@ -1010,8 +1010,8 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 3
 
-- [ ] Slice 2: rename_project
-  - [ ] Step 2.1: The rename_project command and tool
+- [x] Slice 2: rename_project
+  - [x] Step 2.1: The rename_project command and tool
 - [ ] Slice 3: Open and save from the browser store
   - [ ] Step 3.1: IndexedDB adapter, adapter choice and provider
   - [ ] Step 3.2: Seed e2e projects while the starter still exists
