@@ -28,7 +28,7 @@ const missingStepProblem = (nodes, stepId) => {
 }
 
 // Finds the step a command names: `{ step, index }`, or `{ problems }` in the shape `apply` returns.
-const requireStep = (project, stepId) =>
+const findStepOrProblems = (project, stepId) =>
   findStep(project.nodes, stepId) ?? { problems: [missingStepProblem(project.nodes, stepId)] }
 
 const changeStep = (project, step, data) => ({
@@ -53,7 +53,7 @@ const addStep = (project, { name, ...metrics }, { newId }) => {
 }
 
 const updateStep = (project, { stepId, name }) => {
-  const found = requireStep(project, stepId)
+  const found = findStepOrProblems(project, stepId)
   const { step, index } = found
   const named = step
     ? nameProblems(name, stepDisplayName(step, index), {
@@ -71,7 +71,7 @@ const updateStep = (project, { stepId, name }) => {
 
 // An explicit undefined means "not given": it must not clear a metric or print as "pt=undefined".
 const setStepMetrics = (project, { stepId, ...args }) => {
-  const found = requireStep(project, stepId)
+  const found = findStepOrProblems(project, stepId)
   if (found.problems) return found
   const { step, index } = found
   const given = Object.entries(args).filter(([, value]) => value !== undefined)
@@ -83,7 +83,7 @@ const setStepMetrics = (project, { stepId, ...args }) => {
 }
 
 const removeStep = (project, { stepId }) => {
-  const found = requireStep(project, stepId)
+  const found = findStepOrProblems(project, stepId)
   if (found.problems) return found
   const { step, index } = found
   const edges = project.edges.filter(

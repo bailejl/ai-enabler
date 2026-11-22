@@ -12,6 +12,7 @@ import {
   hasUnsavedChanges,
   markSaved,
   openInto,
+  planSave,
   toSaveFile,
 } from './session.js'
 
@@ -288,6 +289,61 @@ describe('checkCanSwitch', () => {
     expect(message.indexOf('save_project')).toBeGreaterThan(-1)
     expect(message.indexOf('save_project')).toBeLessThan(message.indexOf('discard_changes'))
     expect(fix.indexOf('save_project')).toBeLessThan(fix.indexOf('discard_changes'))
+  })
+})
+
+describe('planSave', () => {
+  it('needs a name for a project that was never saved', async () => {
+    const created = applyToSession(
+      EMPTY_SESSION,
+      { name: 'create_project', args: { name: 'A' } },
+      deps(),
+    )
+    expect(planSave(created.session, undefined)).toEqual({
+      ok: false,
+      problems: [problem('FILE_NAME_REQUIRED')],
+    })
+    expect(planSave(created.session, null).ok).toBe(false)
+  })
+
+  it('saves a never-saved project as a new file under the name given', async () => {
+    const created = applyToSession(
+      EMPTY_SESSION,
+      { name: 'create_project', args: { name: 'A' } },
+      deps(),
+    )
+    expect(planSave(created.session, 'a.json')).toEqual({
+      ok: true,
+      name: 'a.json',
+      mustBeNew: true,
+    })
+  })
+
+  it.each([undefined, null])(
+    'overwrites the file the session came from when the name is %s',
+    async (name) => {
+      expect(planSave(await opened(), name)).toEqual({
+        ok: true,
+        name: 'team.json',
+        mustBeNew: false,
+      })
+    },
+  )
+
+  it('overwrites the session file when it is named again', async () => {
+    expect(planSave(await opened(), 'team.json')).toEqual({
+      ok: true,
+      name: 'team.json',
+      mustBeNew: false,
+    })
+  })
+
+  it('saves under any other name as a new file', async () => {
+    expect(planSave(await opened(), 'copy.json')).toEqual({
+      ok: true,
+      name: 'copy.json',
+      mustBeNew: true,
+    })
   })
 })
 

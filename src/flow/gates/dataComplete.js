@@ -28,5 +28,5 @@ const stepProblems = (node, index) => {
  * @param {{ nodes: object[] }} project the in-memory project the commands work on
  * @returns {object[]} problems
  */
-export const dataComplete = (project) =>
+export const dataCompleteProblems = (project) =>
   project.nodes.length === 0 ? [problem('GATE_PROJECT_EMPTY')] : project.nodes.flatMap(stepProblems)

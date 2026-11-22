@@ -1053,31 +1053,31 @@ graph TD
   - [x] Step 1.1: Collect every rule failure in two phases
   - [x] Step 1.2: Import pipeline carries problems
   - [x] Step 1.3: The import status lists every problem
-- [ ] Slice 2: Deterministic auto-layout
+- [x] Slice 2: Deterministic auto-layout
   - [x] Step 2.1: Layered left-to-right layout
 
 #### Wave 2
 
-- [ ] Slice 3: Schema 0.1.0 and the AI mark
+- [x] Slice 3: Schema 0.1.0 and the AI mark
   - [x] Step 3.1: Release schema 0.1.0 with an optional mark
   - [x] Step 3.2: Show the AI notice on import
   - [x] Step 3.3: The app's export drops the mark and keeps positions
-- [ ] Slice 4: Pure command layer
+- [x] Slice 4: Pure command layer
   - [x] Step 4.1: Command result, argument checks and create project
   - [x] Step 4.2: Step commands
   - [x] Step 4.3: Connection commands
-- [ ] Slice 5: Gate checks
+- [x] Slice 5: Gate checks
   - [x] Step 5.1: Gate registry and data-complete
 
 #### Wave 3
 
-- [ ] Slice 6: Editing session and projects folder
+- [x] Slice 6: Editing session and projects folder
   - [x] Step 6.1: Pure editing session
   - [x] Step 6.2: Confined projects-folder store and test wiring
 
 #### Wave 4
 
-- [ ] Slice 7: MCP server
+- [x] Slice 7: MCP server
   - [x] Step 7.1: Tool host over the session and store
   - [x] Step 7.2: Stdio server
 

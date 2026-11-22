@@ -14,11 +14,28 @@ const edgeKey = (source, target) => `${source}\u0000${target}`
 // Outgoing connections per step id, in file order. Connections to unknown steps are ignored.
 const indexTargets = (nodes, edges) => {
   const ids = new Set(nodes.map((node) => node.id))
-  const targets = new Map(nodes.map((node) => [node.id, []]))
-  edges
-    .filter((e) => ids.has(e.source) && ids.has(e.target))
-    .forEach((e) => targets.get(e.source).push(e.target))
-  return targets
+  const known = edges.filter((e) => ids.has(e.source) && ids.has(e.target))
+  const bySource = Map.groupBy(known, (e) => e.source)
+  return new Map(nodes.map(({ id }) => [id, (bySource.get(id) ?? []).map((e) => e.target)]))
+}
+
+// One step of the walk, from the step on top of the stack: leave it when it has no connection
+// left, otherwise follow its next one. A connection back to a step still on the path closes a loop.
+const advanceWalk = ({ stack, onPath, done, backEdges }, targets) => {
+  const frame = stack[stack.length - 1]
+  const target = targets.get(frame.id)[frame.next]
+  if (target === undefined) {
+    stack.pop()
+    onPath.delete(frame.id)
+    done.add(frame.id)
+    return
+  }
+  frame.next += 1
+  if (onPath.has(target)) backEdges.add(edgeKey(frame.id, target))
+  else if (!done.has(target)) {
+    onPath.add(target)
+    stack.push({ id: target, next: 0 })
+  }
 }
 
 // Connections that close a loop: found by a depth-first walk from each step in file order, an
@@ -29,24 +46,8 @@ const findBackEdges = (nodes, targets) => {
   const done = new Set()
   nodes.forEach(({ id: root }) => {
     if (done.has(root)) return
-    const onPath = new Set([root])
-    const stack = [{ id: root, next: 0 }]
-    while (stack.length > 0) {
-      const frame = stack[stack.length - 1]
-      const target = targets.get(frame.id)[frame.next]
-      if (target === undefined) {
-        stack.pop()
-        onPath.delete(frame.id)
-        done.add(frame.id)
-      } else {
-        frame.next += 1
-        if (onPath.has(target)) backEdges.add(edgeKey(frame.id, target))
-        else if (!done.has(target)) {
-          onPath.add(target)
-          stack.push({ id: target, next: 0 })
-        }
-      }
-    }
+    const walk = { stack: [{ id: root, next: 0 }], onPath: new Set([root]), done, backEdges }
+    while (walk.stack.length > 0) advanceWalk(walk, targets)
   })
   return backEdges
 }

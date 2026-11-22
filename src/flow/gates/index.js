@@ -2,13 +2,22 @@ import { problem } from '../diagnostics/problem.js'
 import { isObject } from '../schema/primitives.js'
 import { validateProjectFile } from '../schema/validate.js'
 import { nameLabel } from '../text.js'
-import { dataComplete } from './dataComplete.js'
+import { dataCompleteProblems } from './dataComplete.js'
 
 // The gate table: each id maps to one pure function `(project) => problems[]`. A new gate is added
 // by registering it here. Ids are the gate names MCP callers send.
 export const GATES = {
-  'data-complete': dataComplete,
+  'data-complete': dataCompleteProblems,
 }
+
+/**
+ * True when `gateId` is the id of a gate in the registry. Only a string can be an id: another
+ * value, such as an array that would turn into one, is not.
+ * @param {unknown} gateId
+ * @param {Record<string, unknown>} registry
+ */
+export const isKnownGate = (gateId, registry = GATES) =>
+  typeof gateId === 'string' && Object.hasOwn(registry, gateId)
 
 const unknownGate = (gateId, registry) =>
   problem('GATE_UNKNOWN', {
@@ -25,7 +34,7 @@ const unknownGate = (gateId, registry) =>
  * @returns {{ ok: boolean, problems: object[] }}
  */
 export const runGate = (project, gateId, registry = GATES) => {
-  if (typeof gateId !== 'string' || !Object.hasOwn(registry, gateId)) {
+  if (!isKnownGate(gateId, registry)) {
     return { ok: false, problems: [unknownGate(gateId, registry)] }
   }
   if (!isObject(project)) return { ok: false, problems: [problem('CMD_NO_PROJECT')] }

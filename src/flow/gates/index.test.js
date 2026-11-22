@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { validateProjectFile } from '../schema/validate.js'
 import { MAX_ECHOED_TEXT } from '../text.js'
-import { GATES, allProblems, runGate } from './index.js'
+import { GATES, allProblems, isKnownGate, runGate } from './index.js'
 
 const project = { project: { id: 'p-1', name: 'Checkout' }, nodes: [], edges: [] }
 const registry = { alpha: () => [], beta: () => [] }
@@ -17,6 +17,25 @@ describe('GATES', () => {
   it('registers data-complete', () => {
     expect(Object.keys(GATES)).toEqual(['data-complete'])
   })
+})
+
+describe('isKnownGate', () => {
+  it('is true for a registered id and false for an id that is not', () => {
+    expect(isKnownGate('alpha', registry)).toBe(true)
+    expect(isKnownGate('nope', registry)).toBe(false)
+  })
+
+  it('checks the default registry when none is given', () => {
+    expect(isKnownGate('data-complete')).toBe(true)
+    expect(isKnownGate('alpha')).toBe(false)
+  })
+
+  it.each([['alpha'], 7, null, undefined, { toString: () => 'alpha' }, 'toString', '__proto__'])(
+    'is false for %j',
+    (gateId) => {
+      expect(isKnownGate(gateId, registry)).toBe(false)
+    },
+  )
 })
 
 describe('runGate', () => {

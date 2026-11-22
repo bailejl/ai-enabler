@@ -85,7 +85,21 @@ const startServer = async ({ files = {} } = {}) => {
   child.stderr.on('data', (chunk) => {
     stderr += chunk
   })
-  const closed = new Promise((resolve) => child.on('close', resolve))
+  // A server that exits or fails to start fails every call still waiting, and any later one, with
+  // its exit code and what it wrote to stderr, so a crash fails fast instead of timing out.
+  let exitError
+  const failPending = (reason) => {
+    exitError = new Error(`The server ${reason}. stderr: ${stderr}`)
+    pending.forEach(({ reject }) => reject(exitError))
+    pending.clear()
+  }
+  child.on('error', (error) => failPending(`failed: ${error.message}`))
+  const closed = new Promise((resolve) =>
+    child.on('close', (code, signal) => {
+      failPending(`exited with code ${code} (signal ${signal})`)
+      resolve()
+    }),
+  )
 
   cleanups.push(async () => {
     child.kill('SIGKILL')
@@ -97,6 +111,7 @@ const startServer = async ({ files = {} } = {}) => {
 
   const request = (method, params) =>
     new Promise((resolve, reject) => {
+      if (exitError) return reject(exitError)
       const id = nextId++
       pending.set(id, { resolve, reject })
       send({ jsonrpc: '2.0', id, method, params })

@@ -91,8 +91,9 @@ export const createStore = (startDir) => {
   // The text goes to a temp file in the same folder first, so a failed write never leaves a
   // half-written project. The name starts with a dot, which NAME_PATTERN never accepts, so the
   // temp file can never be addressed as a project. An overwrite renames it over the target; a new
-  // project links it to the target, which fails atomically if the name is taken. The temp file is
-  // always removed (it is already gone after a rename).
+  // project links it to the target, which fails atomically if the name is taken, and then removes the
+  // temp name at once so the target ends with one link. The temp file is always removed (it is
+  // already gone after a rename or that unlink).
   const write = async (name, text, { mustBeNew = false } = {}) => {
     let temp
     try {
@@ -117,6 +118,18 @@ export const createStore = (startDir) => {
       }
       if (mustBeNew) {
         await fsp.link(temp, target)
+        // The target has two names until the temp one is gone, and a file with two names reads as
+        // hard-linked. Drop it now. If that fails, remove the target too rather than leave a file
+        // that every later read and write would refuse.
+        try {
+          await fsp.unlink(temp)
+          temp = undefined
+        } catch {
+          await fsp.unlink(target).catch(() => {})
+          // Stryker disable next-line StringLiteral: a wrong code makes fail() throw, and the catch
+          // below turns that into the same FILE_SAVE_FAILED
+          return fail('FILE_SAVE_FAILED', name)
+        }
       } else {
         await fsp.rename(temp, target)
       }

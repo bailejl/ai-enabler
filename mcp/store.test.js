@@ -570,6 +570,42 @@ describe('write', () => {
     expect((await lstat(path.join(folder, 'fresh.json'))).nlink).toBe(1)
   })
 
+  it('removes the temp name as soon as a new project is linked, leaving one link', async () => {
+    const realLink = fsp.link
+    const events = []
+    vi.spyOn(fsp, 'link').mockImplementation(async (...args) => {
+      await realLink(...args)
+      events.push(`link nlink=${(await lstat(args[1])).nlink}`)
+    })
+    const realUnlink = fsp.unlink
+    vi.spyOn(fsp, 'unlink').mockImplementation(async (file) => {
+      events.push(`unlink ${path.basename(file).startsWith('.') ? 'temp' : 'target'}`)
+      return realUnlink(file)
+    })
+    await createStore(startDir).write('fresh.json', 'new', { mustBeNew: true })
+    expect(events).toEqual(['link nlink=2', 'unlink temp'])
+    expect((await lstat(path.join(folder, 'fresh.json'))).nlink).toBe(1)
+  })
+
+  it('removes the new project it linked when the temp name cannot be removed', async () => {
+    const realUnlink = fsp.unlink
+    const unlink = vi.spyOn(fsp, 'unlink').mockImplementation(async (file) => {
+      if (path.basename(file).startsWith('.')) throw new Error('io error')
+      return realUnlink(file)
+    })
+    const result = await createStore(startDir).write('fresh.json', 'new', { mustBeNew: true })
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+    expect(unlink.mock.calls.map(([file]) => path.basename(file))).toContain('fresh.json')
+    vi.restoreAllMocks()
+    expect((await readdir(folder)).filter((file) => file === 'fresh.json')).toEqual([])
+  })
+
+  it('still reports the failed save when the linked project cannot be removed either', async () => {
+    vi.spyOn(fsp, 'unlink').mockRejectedValue(new Error('io error'))
+    const result = await createStore(startDir).write('fresh.json', 'new', { mustBeNew: true })
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_SAVE_FAILED'])
+  })
+
   it('writes to a temp file that is created exclusively, under a name no project can have', async () => {
     const open = vi.spyOn(fsp, 'open')
     await createStore(startDir).write('team.json', 'x')

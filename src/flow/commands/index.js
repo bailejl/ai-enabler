@@ -35,6 +35,15 @@ const unknownCommand = (name) =>
     untrusted: { command: name },
   })
 
+// The message names this many unknown arguments; the rest are counted, and `untrusted` lists all.
+const MAX_LISTED_ARGUMENTS = 10
+
+const listArguments = (names) => {
+  const listed = names.slice(0, MAX_LISTED_ARGUMENTS).map(shorten).join(', ')
+  const rest = names.length - MAX_LISTED_ARGUMENTS
+  return rest > 0 ? `${listed}, and ${rest} more` : listed
+}
+
 // The problems with the args a tool was sent: not an object, or an argument the entry does not list.
 export const checkArgs = (name, entry, args) => {
   if (!isObject(args)) return [problem('CMD_ARGUMENTS_INVALID', { params: { command: name } })]
@@ -44,7 +53,7 @@ export const checkArgs = (name, entry, args) => {
     problem('CMD_ARGUMENT_UNKNOWN', {
       params: {
         command: name,
-        arguments: unknown.map(shorten).join(', '),
+        arguments: listArguments(unknown),
         accepted: entry.args.join(', ') || 'none',
       },
       untrusted: { arguments: unknown },

@@ -79,6 +79,19 @@ export const discard = (session) => {
 }
 
 /**
+ * Where a save goes. No name (undefined or null) means the file the session came from; a project
+ * never saved has none, so it needs a name. Only the session's own file may be overwritten: any
+ * other name must be a new file.
+ * @param {string|null|undefined} name
+ * @returns {{ ok: true, name: string, mustBeNew: boolean } | { ok: false, problems: object[] }}
+ */
+export const planSave = (session, name) => {
+  const target = name ?? session.name
+  if (target === null) return { ok: false, problems: [problem('FILE_NAME_REQUIRED')] }
+  return { ok: true, name: target, mustBeNew: target !== session.name }
+}
+
+/**
  * Builds the file to write: the project laid out left to right, at schema 0.1.0, exported at `now`
  * and marked as changed by `tool`. The mark goes in before the hash, so the hash covers it. The
  * session is not changed; pass the result to markSaved once the file is written. `from` is the

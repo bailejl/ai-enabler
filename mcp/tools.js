@@ -1,12 +1,14 @@
 import { COMMANDS, checkArgs, rejectCommand } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
-import { GATES, allProblems, runGate } from '../src/flow/gates/index.js'
+import { allProblems, isKnownGate, runGate } from '../src/flow/gates/index.js'
 import {
   EMPTY_SESSION,
   applyToSession,
+  checkCanSwitch,
   discard,
   markSaved,
   openInto,
+  planSave,
   toSaveFile,
 } from '../src/flow/session.js'
 import { serializeProjectFile } from '../src/flow/projectFile.js'
@@ -79,6 +81,9 @@ const runCommand =
   }
 
 const openProject = async (session, { name }, { store }) => {
+  // Checked before the read, so a blocked open reports the unsaved changes whatever the file is.
+  const blocked = checkCanSwitch(session)
+  if (blocked.length > 0) return reject(session, 'open_project', blocked)
   const read = await store.read(name)
   if (!read.ok) return reject(session, 'open_project', read.problems)
   const opened = await openInto(session, read.text, name)
@@ -87,16 +92,14 @@ const openProject = async (session, { name }, { store }) => {
   return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`)
 }
 
-// No name (or null) means the file the session came from. Only that file may be overwritten; any
-// other name must be a new file.
 const saveProject = async (session, args, { store, now }) => {
-  const name = args.name ?? session.name
-  if (name === null) return reject(session, 'save_project', [problem('FILE_NAME_REQUIRED')])
+  const plan = planSave(session, args.name)
+  if (!plan.ok) return reject(session, 'save_project', plan.problems)
   const built = await toSaveFile(session, { now: now(), tool: SERVER_NAME })
   const text = serializeProjectFile(built.file)
-  const written = await store.write(name, text, { mustBeNew: name !== session.name })
+  const written = await store.write(plan.name, text, { mustBeNew: plan.mustBeNew })
   if (!written.ok) return reject(session, 'save_project', written.problems)
-  return succeed(markSaved(session, built, name), `Saved ${quoted(name)}`)
+  return succeed(markSaved(session, built, plan.name), `Saved ${quoted(plan.name)}`)
 }
 
 const discardChanges = (session) => {
@@ -113,7 +116,7 @@ const getProject = (session) => {
 }
 
 const listProblems = (session, { gate }) => {
-  if (gate !== undefined && !Object.hasOwn(GATES, gate)) {
+  if (gate !== undefined && !isKnownGate(gate)) {
     return reject(session, 'list_problems', runGate(session.project, gate).problems)
   }
   const problems =

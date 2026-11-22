@@ -98,6 +98,24 @@ describe('applyCommand argument checks', () => {
     expect(result.project).toBe(existing)
   })
 
+  it('lists the first 10 unknown arguments in the message and all of them in untrusted', () => {
+    const keys = Array.from({ length: 1000 }, (_, i) => `k${i}`)
+    const args = Object.fromEntries(keys.map((key) => [key, 1]))
+    const problem = onlyProblem(run(existing, 'create_project', args))
+    expect(problem.message).toBe(
+      `create_project does not accept ${keys.slice(0, 10).join(', ')}, and 990 more. Accepted arguments: name.`,
+    )
+    expect(problem.untrusted).toEqual({ arguments: keys })
+  })
+
+  it('lists exactly 10 unknown arguments without a count of more', () => {
+    const args = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`k${i}`, 1]))
+    const { message } = onlyProblem(run(existing, 'create_project', args))
+    expect(message).toBe(
+      'create_project does not accept k0, k1, k2, k3, k4, k5, k6, k7, k8, k9. Accepted arguments: name.',
+    )
+  })
+
   it('keeps unknown argument names out of code, fix and field', () => {
     const problem = onlyProblem(run(existing, 'create_project', { 'x<script>': 1 }))
     expect(problem).not.toHaveProperty('field')

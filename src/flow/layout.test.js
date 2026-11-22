@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { layoutSteps, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
+import { COLUMN_GAP, layoutSteps, ROW_GAP, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
 
 const step = (id) => ({ id, type: 'step', position: { x: 0, y: 0 }, data: { label: id } })
 const edge = (source, target) => ({ id: `${source}->${target}`, source, target })
@@ -112,6 +112,61 @@ describe('layoutSteps', () => {
     const edges = ids.slice(1).map((id, i) => edge(ids[i], id))
     const laidOut = layoutSteps(ids.map(step), edges)
     expect(at(laidOut, ids[STEP_COUNT - 1]).x).toBeGreaterThan(at(laidOut, ids[0]).x)
+  })
+
+  describe('columns', () => {
+    const COLUMN_PITCH = STEP_CARD_WIDTH + COLUMN_GAP
+    const ROW_PITCH = STEP_ROW_HEIGHT + ROW_GAP
+    const column = (laidOut, id) => at(laidOut, id).x / COLUMN_PITCH
+
+    it('puts each step one column after the last of its sources, whatever the file order', () => {
+      const laidOut = layoutSteps(
+        [step('c'), step('b'), step('a')],
+        [edge('a', 'b'), edge('b', 'c')],
+      )
+      expect(['a', 'b', 'c'].map((id) => column(laidOut, id))).toEqual([0, 1, 2])
+    })
+
+    it('waits for every source before it places a step', () => {
+      const edges = [edge('a', 'b'), edge('a', 'c'), edge('b', 'c'), edge('c', 'd')]
+      const laidOut = layoutSteps([step('d'), step('c'), step('b'), step('a')], edges)
+      expect(['a', 'b', 'c', 'd'].map((id) => column(laidOut, id))).toEqual([0, 1, 2, 3])
+    })
+
+    it('stacks steps of a column from row 0 in file order, and steps with no connection in column 0', () => {
+      const laidOut = layoutSteps([step('a'), step('b'), step('c')], [edge('a', 'c')])
+      expect(laidOut.map((n) => n.position)).toEqual([
+        { x: 0, y: 0 },
+        { x: 0, y: ROW_PITCH },
+        { x: COLUMN_PITCH, y: 0 },
+      ])
+    })
+
+    it('keeps a connection to a step already walked forward, not as a loop', () => {
+      const edges = [edge('a', 'b'), edge('a', 'c'), edge('c', 'b')]
+      const laidOut = layoutSteps([step('a'), step('b'), step('c')], edges)
+      expect(['a', 'c', 'b'].map((id) => column(laidOut, id))).toEqual([0, 1, 2])
+    })
+
+    it('treats the connection back to the first step of a loop as the loop-back', () => {
+      const laidOut = layoutSteps([step('a'), step('b')], [edge('a', 'b'), edge('b', 'a')])
+      expect([column(laidOut, 'a'), column(laidOut, 'b')]).toEqual([0, 1])
+    })
+
+    it('finds a loop-back that is not the first connection of its step', () => {
+      const edges = [edge('a', 'b'), edge('a', 'c'), edge('c', 'a')]
+      const laidOut = layoutSteps([step('a'), step('b'), step('c')], edges)
+      expect(['a', 'b', 'c'].map((id) => column(laidOut, id))).toEqual([0, 1, 1])
+    })
+
+    it('ignores connections to steps that are not in the map', () => {
+      const edges = [edge('a', 'ghost'), edge('ghost', 'b'), edge('a', 'b')]
+      const laidOut = layoutSteps([step('a'), step('b')], edges)
+      expect(laidOut.map((n) => n.position)).toEqual([
+        { x: 0, y: 0 },
+        { x: COLUMN_PITCH, y: 0 },
+      ])
+    })
   })
 
   it('keeps the card width constant in step with --card-width in index.css', () => {

@@ -48,7 +48,7 @@ const fileText = async (nodes, { name = 'Checkout', edges = [] } = {}) =>
 const fakeStore = (initial = {}) => {
   const files = new Map(Object.entries(initial))
   const writes = []
-  const state = { failWrites: false, hold: undefined }
+  const state = { failWrites: false, hold: undefined, onRead: undefined }
   const notAllowed = (name) => ({
     ok: false,
     problems: [
@@ -60,6 +60,7 @@ const fakeStore = (initial = {}) => {
     writes,
     state,
     read: async (name) => {
+      state.onRead?.()
       await state.hold
       if (typeof name !== 'string' || !NAME_PATTERN.test(name)) return notAllowed(name)
       if (!files.has(name)) return { ok: false, problems: [problem('FILE_NOT_FOUND')] }
@@ -283,6 +284,14 @@ describe('bad arguments', () => {
     expect(codes(result)).toEqual(['CMD_ARGUMENT_UNKNOWN'])
   })
 
+  it('says a tool that takes no arguments accepts none', async () => {
+    const { call } = await withOpenProject()
+    const result = await call('get_project', { file: 'a.json' })
+    expect(result.content.problems[0].message).toBe(
+      'get_project does not accept file. Accepted arguments: none.',
+    )
+  })
+
   it('does not apply a command that has an unknown argument', async () => {
     const { call, lines } = await withOpenProject()
     await call('add_step', { name: 'Build', x: 10 })
@@ -404,7 +413,7 @@ describe('list_problems', () => {
     expect(result.content.problems[0].message).toContain('data-complete')
   })
 
-  it.each([null, 5, '', {}, 'toString', '__proto__', 'constructor'])(
+  it.each([null, 5, '', {}, ['data-complete'], [], 'toString', '__proto__', 'constructor'])(
     'rejects the gate %j as unknown',
     async (gate) => {
       const { call } = await withOpenProject()
@@ -644,6 +653,22 @@ describe('open_project', () => {
     expect(result.content.problems[0].message).toContain('discard_changes')
     expect((await call('get_project')).content.project.nodes).toHaveLength(3)
   })
+
+  it.each([
+    ['a file that does not exist', 'missing.json'],
+    ['a file that is not JSON', 'junk.json'],
+  ])('is blocked by unsaved changes before it reads %s', async (_label, name) => {
+    const { call, store } = await withOpenProject({ 'junk.json': 'not json {' })
+    await call('add_step', { name: 'Ship' })
+    let reads = 0
+    store.state.onRead = () => {
+      reads += 1
+    }
+    const result = await call('open_project', { name })
+    expect(codes(result)).toEqual(['CMD_UNSAVED_CHANGES'])
+    expect(result.content.summary).toBe('Rejected open_project: nothing changed (1 problem)')
+    expect(reads).toBe(0)
+  })
 })
 
 describe('unsaved changes', () => {
@@ -807,13 +832,19 @@ describe('serialising calls', () => {
     store.state.hold = new Promise((resolve) => {
       release = resolve
     })
+    // Resolves once the open's read is waiting on the hold, so the second call is queued behind it.
+    const reading = new Promise((resolve) => {
+      store.state.onRead = resolve
+    })
     const opening = call('open_project', { name: 'other.json' })
     let added
     const adding = call('add_step', { name: 'Ship' }).then((result) => {
       added = result
       return result
     })
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await reading
+    // One turn of the event loop lets every ready continuation run, without waiting on a clock.
+    await new Promise((resolve) => setImmediate(resolve))
     expect(added).toBeUndefined()
     release()
     const [opened, addedResult] = await Promise.all([opening, adding])
