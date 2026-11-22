@@ -477,11 +477,11 @@ Plan tier: complex (4 slices, 4 waves, complex steps, new MCP trust surface). Re
 
 #### Wave 1
 
-- [ ] Slice 1: Guide files and the coverage gate
-  - [ ] Step 1.1: Reader, check functions and the FILE_ guides
-  - [ ] Step 1.2: STEP_ and CONN_ guides
-  - [ ] Step 1.3: MARK_, CMD_ and GATE_ guides; coverage and orphan checks on
-  - [ ] Step 1.4: Real names and destructive repairs
+- [x] Slice 1: Guide files and the coverage gate
+  - [x] Step 1.1: Reader, check functions and the FILE_ guides
+  - [x] Step 1.2: STEP_ and CONN_ guides
+  - [x] Step 1.3: MARK_, CMD_ and GATE_ guides; coverage and orphan checks on
+  - [x] Step 1.4: Real names and destructive repairs
 
 #### Wave 2
 
