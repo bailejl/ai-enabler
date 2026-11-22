@@ -24,6 +24,7 @@
     "test:e2e:gate": "playwright test --reporter=dot",
     "test:gate:guides": "vitest run --reporter=verbose src/flow/diagnostics mcp/guides.test.js",
     "test:gate:repair-tool": "vitest run --reporter=verbose mcp/tools.test.js mcp/server.test.js mcp/plugin-bundle.test.js mcp/docs.test.js",
+    "test:gate:skills": "vitest run --reporter=verbose mcp/plugin-manifest.test.js",
     "test:gate:deploy": "vitest run --reporter=verbose scripts/deploy-workflow.test.js scripts/readme.test.js",
     "test:gate:routes": "vitest run --reporter=verbose src/shell/routes.test.js",
     "test:e2e:gate:routes": "playwright test --reporter=list --project=chromium e2e/routes.spec.js",
