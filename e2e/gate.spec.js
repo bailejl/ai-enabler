@@ -77,11 +77,12 @@ const pageErrorsFrom = async (browser, { kind, handled }) => {
 }
 
 // A spare page in the test's context with its own collector, outside the test's gate, so a test
-// can read the gate's verdict on it. `expected` is the codes this page's run declares.
-const spareGatePage = async (context, expected = []) => {
+// can read the gate's verdict on it. `expected` is the codes this page's run declares. `url` is
+// `about:blank` for a page that must not run the app, whose global handlers would catch an error.
+const spareGatePage = async (context, expected = [], url = '/') => {
   const page = await context.newPage()
   const ledger = { ...collectConsole(page), expected }
-  await page.goto('/')
+  await page.goto(url)
   return { page, ledger }
 }
 
@@ -181,7 +182,7 @@ test.describe('the diagnostics gate reports', () => {
   })
 
   test('an uncaught error nothing handled, with its text', async ({ context }) => {
-    const { page, ledger } = await spareGatePage(context)
+    const { page, ledger } = await spareGatePage(context, [], 'about:blank')
 
     await raise(page, { kind: 'error' })
     await expect.poll(() => ledger.pageErrors.length).toBeGreaterThan(0)

@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './shell/ErrorBoundary.jsx'
 import { DEV_CRASH_EVENT, crashKind } from './shell/devCrash.js'
 import { reportError } from './shell/diagnostics.js'
 import { installGlobalHandlers } from './shell/globalHandlers.js'
@@ -31,9 +32,17 @@ function DevCrashTrigger() {
 
 installGlobalHandlers(window, reportError)
 
-createRoot(document.getElementById('root')).render(
+// React writes no console output of its own: the boundary reports a caught render error, and the
+// other two callbacks report what escapes it.
+createRoot(document.getElementById('root'), {
+  onCaughtError: () => {},
+  onUncaughtError: (error) => reportError('APP_RENDER_FAILED', error),
+  onRecoverableError: (error) => reportError('APP_UNCAUGHT_ERROR', error),
+}).render(
   <StrictMode>
-    <App />
-    {import.meta.env.DEV && <DevCrashTrigger />}
+    <ErrorBoundary>
+      <App />
+      {import.meta.env.DEV && <DevCrashTrigger />}
+    </ErrorBoundary>
   </StrictMode>,
 )
