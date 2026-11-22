@@ -3,6 +3,7 @@ import { validateProjectFile } from './validate.js'
 import { isCatalogCode } from '../diagnostics/problem.js'
 import { initialNodes, initialEdges } from '../initialFlow.js'
 import { STEP_DATA_FIELDS } from '../step.js'
+import { validMark } from './testHelpers.js'
 
 const step = (id, label, index) => ({
   id,
@@ -143,8 +144,6 @@ describe('validateProjectFile: whole file', () => {
     expect(problemsOf(withProject({ id: ' ' }))).toEqual([])
   })
 })
-
-const validMark = () => ({ tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' })
 
 const withMark = (modifiedBy, file = validFile()) => ({ ...file, modifiedBy })
 

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bailejl.github.io/ai-enabler/schema/project-0.1.0.json",
+  "title": "AI Enabler project file, schema 0.1.0",
+  "description": "A value stream map saved by AI Enabler. This schema cannot express every rule the app checks: connections that form a loop, repeated step or connection ids, and connections whose source or target is not a step in the file are rejected by the app only. Fields not listed here are allowed and ignored.",
+  "type": "object",
+  "required": ["schemaVersion", "project", "nodes", "edges"],
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "contentHash": {
+      "description": "sha256- and the lowercase hex SHA-256 of the file's canonical JSON without this field. A missing or wrong hash makes the app show a changed-outside notice.",
+      "type": "string",
+      "pattern": "^sha256-[0-9a-f]{64}$"
+    },
+    "exportedAt": {
+      "description": "When the file was written.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "modifiedBy": {
+      "description": "Set by AI tools that change the file; absent in a file exported by the app.",
+      "type": "object",
+      "required": ["tool", "at"],
+      "properties": {
+        "tool": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,40}$" },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "description": "Not blank.", "type": "string", "pattern": "\\S" }
+      }
+    },
+    "nodes": {
+      "description": "The steps. Step and box mean the same thing.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "position", "data"],
+        "properties": {
+          "id": { "description": "Unique among steps.", "type": "string" },
+          "type": { "const": "step" },
+          "position": {
+            "type": "object",
+            "required": ["x", "y"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            }
+          },
+          "data": {
+            "type": "object",
+            "required": ["label"],
+            "properties": {
+              "label": { "description": "The step's name.", "type": "string" },
+              "pt": {
+                "description": "Process time in whole minutes.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "lt": {
+                "description": "Lead time in whole minutes.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "ca": {
+                "description": "Percent complete and accurate, 0 to 100.",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "queue": {
+                "description": "Number of items waiting at the step.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "batch": {
+                "description": "Number of items the step processes together.",
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "description": "The connections between steps.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target"],
+        "properties": {
+          "id": { "description": "Unique among connections.", "type": "string", "minLength": 1 },
+          "source": {
+            "description": "The id of the step the connection leaves.",
+            "type": "string"
+          },
+          "target": { "description": "The id of the step the connection enters.", "type": "string" }
+        }
+      }
+    }
+  }
+}
