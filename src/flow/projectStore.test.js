@@ -159,6 +159,15 @@ describe('project store', () => {
     },
   )
 
+  it('reports a save whose file cannot be built as a failed write, and keeps working', async () => {
+    const store = createProjectStore(createMemoryStoreAdapter())
+    // A node with no position makes toProjectFile throw, as a missing crypto.subtle would.
+    const broken = { project: { id: 'p1', name: 'Checkout' }, nodes: [null], edges: [] }
+    const failed = await store.save(broken)
+    expect(failed.problems.map(({ code }) => code)).toEqual(['STORE_WRITE_FAILED'])
+    expect((await store.save(memoryProject('p1', 'Checkout'))).ok).toBe(true)
+  })
+
   it('keeps the project name in untrusted for a refused save', async () => {
     const store = createProjectStore(
       withFaults(createMemoryStoreAdapter(), { call: 'put', fails: [1] }),

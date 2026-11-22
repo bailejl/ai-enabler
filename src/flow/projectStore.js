@@ -64,11 +64,12 @@ export const createProjectStore = (adapter, { now = () => new Date() } = {}) => 
     const changedAt = now()
     const { id, name } = memoryProject.project
     return enqueue(id, async () => {
-      const text = serializeProjectFile(
-        await withContentHash(toProjectFile({ ...memoryProject, now: changedAt })),
-      )
       const modifiedAt = changedAt.toISOString()
       try {
+        // Hashing needs crypto.subtle, which an insecure origin lacks, so it fails like a write.
+        const text = serializeProjectFile(
+          await withContentHash(toProjectFile({ ...memoryProject, now: changedAt })),
+        )
         await adapter.put({ id, name, modifiedAt }, text)
         return succeed({ modifiedAt })
       } catch {
