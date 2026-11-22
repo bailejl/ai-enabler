@@ -5,6 +5,7 @@ import projectSchema from '../../../public/schema/project-0.1.0.json'
 import { initialEdges, initialNodes } from '../initialFlow.js'
 import { createStarterProject } from '../project.js'
 import { toProjectFile, withContentHash } from '../projectFile.js'
+import { STEP_DATA_FIELDS } from '../step.js'
 import { markWith, PUBLISHED_SCHEMA_URL } from './testHelpers.js'
 import { validateProjectFile } from './validate.js'
 
@@ -44,6 +45,12 @@ describe('the project JSON Schema, 0.1.0', () => {
       $id: PUBLISHED_SCHEMA_URL,
       properties: { schemaVersion: { const: '0.1.0' } },
     })
+  })
+
+  it('describes exactly the step data fields the app knows, STEP_DATA_FIELDS', () => {
+    expect(
+      Object.keys(projectSchema.properties.nodes.items.properties.data.properties).toSorted(),
+    ).toEqual(STEP_DATA_FIELDS.toSorted())
   })
 
   it.each(Object.entries(upgradedFixtures))('accepts the upgraded fixture %s', (_name, file) => {

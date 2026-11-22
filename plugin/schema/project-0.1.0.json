@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bailejl.github.io/ai-enabler/schema/project-0.1.0.json",
   "title": "AI Enabler project file, schema 0.1.0",
-  "description": "A value stream map saved by AI Enabler. This schema cannot express every rule the app checks: connections that form a loop, repeated step or connection ids, and connections whose source or target is not a step in the file are rejected by the app only. Fields not listed here are allowed and ignored.",
+  "description": "A value stream map saved by AI Enabler. This schema cannot express every rule the app checks: connections that form a loop, repeated step or connection ids, connections whose source or target is not a step in the file, connections from a step to itself, and a second connection with the same source and target are rejected by the app only. Fields not listed here are allowed and ignored.",
   "type": "object",
   "required": ["schemaVersion", "project", "nodes", "edges"],
   "properties": {
@@ -80,12 +80,12 @@
                 "type": "string"
               },
               "pt": {
-                "description": "Process time in whole minutes.",
+                "description": "Process time in whole minutes of working time (8-hour day: 1 day = 480, 1 week = 2400).",
                 "type": "integer",
                 "minimum": 0
               },
               "lt": {
-                "description": "Lead time in whole minutes.",
+                "description": "Lead time in whole minutes of working time (8-hour day: 1 day = 480, 1 week = 2400).",
                 "type": "integer",
                 "minimum": 0
               },

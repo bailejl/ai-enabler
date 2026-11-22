@@ -43,7 +43,7 @@ export default [
     },
   },
   {
-    // mcp/ may use the pure flow logic and nothing else from src/ (React, the app shell)
+    // mcp/ may use the pure flow logic and nothing else from src/, and never React or the app shell
     files: ['mcp/**/*.js'],
     rules: {
       'no-restricted-imports': [
@@ -53,6 +53,10 @@ export default [
             {
               regex: '(^|/)src/(?!flow/)',
               message: 'mcp/ may import from src/flow/ only.',
+            },
+            {
+              group: ['react', 'react/*', 'react-dom', 'react-dom/*', '@xyflow/*'],
+              message: 'mcp/ must not import React or the app shell.',
             },
           ],
         },
