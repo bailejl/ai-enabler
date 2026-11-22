@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { contentHash } from './contentHash.js'
 import { parseImport } from './importFile.js'
-import { fromProjectFile } from './importFlow.js'
 import {
   projectFileName,
   serializeProjectFile,
@@ -177,7 +176,7 @@ describe('exporting an AI-marked project the user edited', () => {
   it('writes the current schema, drops the mark and keeps the moved position', async () => {
     const imported = await parseImport(markedFixtureText)
     expect(imported.file.modifiedBy).toBeDefined()
-    const { nodes, edges } = fromProjectFile(imported.file)
+    const { nodes, edges } = toMemoryProject(imported.file)
     const moved = nodes.map((node) => (node.id === 'build' ? { ...node, position: MOVED } : node))
     const exported = toProjectFile({
       project: imported.file.project,
@@ -234,5 +233,14 @@ describe('toMemoryProject', () => {
       ],
       edges: [{ id: 'e1', source: 'a', target: 'b' }],
     })
+  })
+
+  it('names every node a step, whatever type it carried', () => {
+    const [node] = toMemoryProject({
+      project: { id: 'p1', name: 'Delivery' },
+      nodes: [{ id: 'idea', type: 'note', position: { x: 0, y: 0 }, data: { label: 'Idea' } }],
+      edges: [],
+    }).nodes
+    expect(node.type).toBe('step')
   })
 })

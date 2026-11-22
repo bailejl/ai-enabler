@@ -14,6 +14,8 @@ export const EMPTY_MAP_MESSAGE =
 export const fixturePath = (name) => path.join(FIXTURES_DIR, name)
 export const readFixture = (name) => JSON.parse(readFileSync(fixturePath(name), 'utf8'))
 
+export const EXPORT_BUTTON_NAME = 'Export project (JSON)'
+
 export const metricRegion = (page) => page.getByRole('region', { name: 'Metrics' })
 export const importStatus = (page) => page.getByRole('region', { name: 'Import status' })
 export const confirmDialog = (page) => page.getByRole('dialog')
@@ -75,6 +77,10 @@ export const deleteAllSteps = async (page) => {
   }
 }
 
+// Waits for a dev-only hook's listener, which attaches in an effect after the first paint.
+export const waitForDevHook = (page, readyAttribute) =>
+  page.locator(`html[${readyAttribute}]`).waitFor({ state: 'attached' })
+
 export const appShell = (page) => page.locator('.shell')
 const currentHash = (page) => page.evaluate(() => window.location.hash)
 // Polls, because the app rewrites a non-canonical hash in an effect after the first render.
@@ -82,3 +88,17 @@ export const expectHash = (page, hash) => expect.poll(() => currentHash(page)).t
 export const expectStarterSteps = (page) => expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 export const expectRoute = (page, name) =>
   expect(appShell(page)).toHaveAttribute('data-route', name)
+
+export const readDownloadedJson = async (download) => {
+  const stream = await download.createReadStream()
+  const chunks = []
+  for await (const chunk of stream) chunks.push(chunk)
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+}
+
+// Clicks Export and returns the downloaded project file, parsed.
+export const exportProjectFile = async (page) => {
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: EXPORT_BUTTON_NAME }).click()
+  return readDownloadedJson(await downloadPromise)
+}

@@ -3,7 +3,7 @@ import { findStep, STEP_DATA_FIELDS, STEP_TYPE, stepDisplayName } from '../step.
 import { formatCount, hasText, quoted, shorten } from '../text.js'
 import { stepRef, validStepsList, validStepsText } from './stepNames.js'
 
-// A new step starts at the origin. Commands never accept positions; layout places steps on save.
+// A new step starts at the origin. MCP commands never accept positions; layout places steps on save.
 const START_POSITION = Object.freeze({ x: 0, y: 0 })
 
 // Every data field except the title: the ones set_step_metrics accepts and add_step takes along.
@@ -97,9 +97,25 @@ const removeStep = (project, { stepId }) => {
   }
 }
 
+// The coordinates are not checked here: the validator rejects a position that is not two finite
+// numbers (STEP_POSITION_MISSING), so a bad move never reaches the project.
+const moveStep = (project, { stepId, x, y }) => {
+  const found = findStepOrProblems(project, stepId)
+  if (found.problems) return found
+  const { step, index } = found
+  return {
+    project: {
+      ...project,
+      nodes: project.nodes.map((node) => (node === step ? { ...node, position: { x, y } } : node)),
+    },
+    summary: () => `Moved step ${stepRef(step, index)}`,
+  }
+}
+
 export const STEP_COMMANDS = {
   add_step: { args: ['name', ...METRIC_FIELDS], apply: addStep },
   update_step: { args: ['stepId', 'name'], apply: updateStep },
   set_step_metrics: { args: ['stepId', ...METRIC_FIELDS], apply: setStepMetrics },
   remove_step: { args: ['stepId'], apply: removeStep },
+  move_step: { args: ['stepId', 'x', 'y'], uiOnly: true, apply: moveStep },
 }

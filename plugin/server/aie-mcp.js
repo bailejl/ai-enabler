@@ -17156,6 +17156,24 @@ var removeStep = (project, { stepId }) => {
 		summary: () => `Removed step ${stepRef(step, index)}; ${formatCount(removed, "connection")} ${removed === 1 ? "was" : "were"} removed`
 	};
 };
+var moveStep = (project, { stepId, x, y }) => {
+	const found = findStepOrProblems(project, stepId);
+	if (found.problems) return found;
+	const { step, index } = found;
+	return {
+		project: {
+			...project,
+			nodes: project.nodes.map((node) => node === step ? {
+				...node,
+				position: {
+					x,
+					y
+				}
+			} : node)
+		},
+		summary: () => `Moved step ${stepRef(step, index)}`
+	};
+};
 // src/flow/commands/index.js
 var COMMANDS = {
 	create_project: {
@@ -17190,13 +17208,26 @@ var COMMANDS = {
 		args: ["stepId"],
 		apply: removeStep
 	},
+	move_step: {
+		args: [
+			"stepId",
+			"x",
+			"y"
+		],
+		uiOnly: true,
+		apply: moveStep
+	},
 	...CONNECTION_COMMANDS
 };
 var COMMAND_NAMES = Object.keys(COMMANDS);
-var unknownCommand = (name) => problem("CMD_UNKNOWN", {
+/**
+* The CMD_UNKNOWN problem for `name`. The message lists `offeredNames` as the commands on offer:
+* every command by default, or the ones a caller allows.
+*/
+var unknownCommand = (name, offeredNames = COMMAND_NAMES) => problem("CMD_UNKNOWN", {
 	params: {
 		command: nameLabel(name),
-		commands: COMMAND_NAMES.join(", ")
+		commands: offeredNames.join(", ")
 	},
 	untrusted: { command: name }
 });
@@ -17224,6 +17255,8 @@ var checkArgs = (name, entry, args) => {
 * caller can guard the open project first. False for anything else, including a malformed command.
 */
 var replacesProject = (command) => typeof command?.name === "string" && Object.hasOwn(COMMANDS, command.name) && COMMANDS[command.name].replacesProject === true;
+COMMAND_NAMES.filter((name) => !replacesProject({ name }));
+var isToolEntry = ([, command]) => !command.uiOnly;
 /**
 * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
 * @param {string} name The command name; shown cut short and never as part of the problems.
@@ -17240,7 +17273,9 @@ var rejectCommand = (name, problems) => ({
 * `project` object it was given, so nothing changes.
 * @param {object|null} project
 * @param {{ name: string, args?: object }} command
-* @param {{ newId: () => string }} context newId is injected so ids are deterministic in tests.
+* @param {{ newId: () => string, commandNames?: string[] }} context newId is injected so ids are
+*   deterministic in tests. `commandNames` limits the commands a caller allows: any other name is
+*   rejected as unknown, and the problem lists these names.
 * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, created?: string }}
 */
 var applyCommand = (project, command, context) => {
@@ -17249,7 +17284,8 @@ var applyCommand = (project, command, context) => {
 		...rejectCommand(name, problems),
 		project
 	});
-	if (typeof name !== "string" || !Object.hasOwn(COMMANDS, name)) return reject([unknownCommand(name)]);
+	const allowed = context?.commandNames;
+	if (typeof name !== "string" || !Object.hasOwn(COMMANDS, name) || allowed && !allowed.includes(name)) return reject([unknownCommand(name, allowed)]);
 	const entry = COMMANDS[name];
 	if (entry.needsProject !== false && !isObject(project)) return reject([problem("CMD_NO_PROJECT")]);
 	const argProblems = checkArgs(name, entry, args);
@@ -17713,7 +17749,7 @@ var openInto = async (session, text, name) => {
 /**
 * Applies one command to the session's project. A rejected command, including a create_project
 * that unsaved changes block, returns the same session, so it never makes the session unsaved.
-* Commands never move existing steps; layout runs on save.
+* MCP commands never move existing steps; layout runs on save.
 * @param {{ newId: () => string }} deps
 * @returns {{ ok: boolean, session: object, problems: object[], summary: string, created?: string }}
 */
@@ -17965,7 +18001,7 @@ var getRepairGuide = (session, { code }, { guides }) => {
 	});
 };
 var DEFINITIONS = [
-	...Object.entries(COMMANDS).map(([name, { args }]) => ({
+	...Object.entries(COMMANDS).filter(isToolEntry).map(([name, { args }]) => ({
 		name,
 		args,
 		required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),

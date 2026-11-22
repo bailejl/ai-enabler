@@ -8,13 +8,13 @@ import {
   openStarterView,
   readFixture,
   replaceQuestion,
+  waitForDevHook,
 } from './views.js'
 
 // Runs in the "chromium" project, against the dev server, where the dev crash event exists.
 
-// Waits for the listener, which attaches in an effect after the first paint.
 const forceCrash = async (page, kind) => {
-  await page.locator(`html[${DEV_CRASH_READY_ATTRIBUTE}]`).waitFor({ state: 'attached' })
+  await waitForDevHook(page, DEV_CRASH_READY_ATTRIBUTE)
   await page.evaluate(
     ([eventName, detail]) => window.dispatchEvent(new CustomEvent(eventName, { detail })),
     [DEV_CRASH_EVENT, kind],
