@@ -46,7 +46,7 @@ A rejected command changes nothing. It is announced in the live region and its p
 **Dependencies**
 
 - E13 PR3 (merged): parity test, `llms.txt`, plugin bundle.
-- D1 (merged in #51): `report(problem)`, the Vitest and Playwright gates with `expectDiagnostics`, `KNOWN_FIELDS`.
+- D1 (merged in #51): `report(problem)`, the Vitest gate `expectDiagnostics` and the Playwright fixture `diagnostics.expect` (e2e/fixtures.js), `KNOWN_FIELDS`.
 - Merge before E1, E3a and E3b.
 
 ## Acceptance Criteria

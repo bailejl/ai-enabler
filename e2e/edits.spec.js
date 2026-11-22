@@ -121,11 +121,11 @@ test('a map replaced by import is the project: a later connection keeps its step
   const canvas = await settledBox(page.getByRole('main'))
   for (const card of await cards(page).all()) {
     const box = await settledBox(card)
-    const title = await card.getAttribute('data-id')
-    expect(box.x, `${title} left`).toBeGreaterThanOrEqual(canvas.x)
-    expect(box.y, `${title} top`).toBeGreaterThanOrEqual(canvas.y)
-    expect(box.x + box.width, `${title} right`).toBeLessThanOrEqual(canvas.x + canvas.width)
-    expect(box.y + box.height, `${title} bottom`).toBeLessThanOrEqual(canvas.y + canvas.height)
+    const stepId = await card.getAttribute('data-id')
+    expect(box.x, `${stepId} left`).toBeGreaterThanOrEqual(canvas.x)
+    expect(box.y, `${stepId} top`).toBeGreaterThanOrEqual(canvas.y)
+    expect(box.x + box.width, `${stepId} right`).toBeLessThanOrEqual(canvas.x + canvas.width)
+    expect(box.y + box.height, `${stepId} bottom`).toBeLessThanOrEqual(canvas.y + canvas.height)
   }
 })
 

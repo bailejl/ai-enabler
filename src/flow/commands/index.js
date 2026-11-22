@@ -31,12 +31,12 @@ export const COMMANDS = {
 const COMMAND_NAMES = Object.keys(COMMANDS)
 
 /**
- * The CMD_UNKNOWN problem for `name`. The message lists `names` as the commands on offer: every
- * command by default, or the ones a caller allows.
+ * The CMD_UNKNOWN problem for `name`. The message lists `offeredNames` as the commands on offer:
+ * every command by default, or the ones a caller allows.
  */
-export const unknownCommand = (name, names = COMMAND_NAMES) =>
+export const unknownCommand = (name, offeredNames = COMMAND_NAMES) =>
   problem('CMD_UNKNOWN', {
-    params: { command: nameLabel(name), commands: names.join(', ') },
+    params: { command: nameLabel(name), commands: offeredNames.join(', ') },
     untrusted: { command: name },
   })
 
@@ -75,6 +75,9 @@ export const replacesProject = (command) =>
   Object.hasOwn(COMMANDS, command.name) &&
   COMMANDS[command.name].replacesProject === true
 
+// The commands an edit may hold: all but the ones that replace the project (those belong to import).
+export const EDIT_COMMAND_NAMES = COMMAND_NAMES.filter((name) => !replacesProject({ name }))
+
 // Whether a `[name, command]` entry of COMMANDS is an MCP tool: the ones flagged `uiOnly` serve the
 // app alone.
 export const isToolEntry = ([, command]) => !command.uiOnly
@@ -96,14 +99,21 @@ export const rejectCommand = (name, problems) => ({
  * `project` object it was given, so nothing changes.
  * @param {object|null} project
  * @param {{ name: string, args?: object }} command
- * @param {{ newId: () => string }} context newId is injected so ids are deterministic in tests.
+ * @param {{ newId: () => string, commandNames?: string[] }} context newId is injected so ids are
+ *   deterministic in tests. `commandNames` limits the commands a caller allows: any other name is
+ *   rejected as unknown, and the problem lists these names.
  * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, created?: string }}
  */
 export const applyCommand = (project, command, context) => {
   const { name, args = {} } = command ?? {}
   const reject = (problems) => ({ ...rejectCommand(name, problems), project })
-  if (typeof name !== 'string' || !Object.hasOwn(COMMANDS, name)) {
-    return reject([unknownCommand(name)])
+  const allowed = context?.commandNames
+  if (
+    typeof name !== 'string' ||
+    !Object.hasOwn(COMMANDS, name) ||
+    (allowed && !allowed.includes(name))
+  ) {
+    return reject([unknownCommand(name, allowed)])
   }
   const entry = COMMANDS[name]
   if (entry.needsProject !== false && !isObject(project)) {
@@ -132,7 +142,7 @@ export const applyCommand = (project, command, context) => {
  * empty list is accepted and changes nothing.
  * @param {object|null} project
  * @param {{ name: string, args?: object }[]} commands
- * @param {{ newId: () => string }} context
+ * @param {{ newId: () => string, commandNames?: string[] }} context See applyCommand.
  * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, changed: boolean }}
  *   `summary` joins the summaries of the applied commands with "; ", or is the rejected command's.
  */

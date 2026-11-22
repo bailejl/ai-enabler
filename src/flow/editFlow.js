@@ -1,5 +1,5 @@
 import { syncCanvas } from './canvas.js'
-import { COMMANDS, applyCommands, replacesProject, unknownCommand } from './commands/index.js'
+import { EDIT_COMMAND_NAMES, applyCommands } from './commands/index.js'
 import { toRejection } from './problemsView.js'
 
 export const EDIT_EVENT = Object.freeze({
@@ -10,11 +10,6 @@ export const EDIT_EVENT = Object.freeze({
 })
 
 export const INITIAL_EDIT_STATE = Object.freeze({ rejection: null, focusReturn: null })
-
-// The commands an edit may hold: all but the ones that replace the project.
-const EDIT_COMMAND_NAMES = Object.entries(COMMANDS)
-  .filter(([, command]) => !command.replacesProject)
-  .map(([name]) => name)
 
 /**
  * Runs one edit (a list of commands) as a whole and redraws the canvas from the result. The
@@ -30,15 +25,7 @@ const EDIT_COMMAND_NAMES = Object.entries(COMMANDS)
  *   changed: boolean, problems: object[], shouldMoveFocus: boolean }}
  */
 export const runEdit = ({ project, canvas }, commands, context) => {
-  const replacing = commands.find(replacesProject)
-  const result = replacing
-    ? {
-        ok: false,
-        project,
-        changed: false,
-        problems: [unknownCommand(replacing.name, EDIT_COMMAND_NAMES)],
-      }
-    : applyCommands(project, commands, context)
+  const result = applyCommands(project, commands, { ...context, commandNames: EDIT_COMMAND_NAMES })
   return {
     project: result.project,
     canvas: syncCanvas(canvas, result.project),

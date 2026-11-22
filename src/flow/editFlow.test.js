@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { moveEdit, deleteEdit, syncCanvas } from './canvas.js'
 import { EDIT_EVENT, INITIAL_EDIT_STATE, reduceEdit, runEdit, toEditEvent } from './editFlow.js'
 import { createStarterMemoryProject } from './project.js'
-import { toProblemsView } from './problemsView.js'
+import { IMPORT_ERROR, describeImportStatus } from './importFlow.js'
 
 const context = { newId: () => 'new-id' }
 const PROJECT = createStarterMemoryProject({ newId: () => 'project-id' })
@@ -105,26 +105,38 @@ describe('runEdit', () => {
     expect(nodeById(result.canvas, 'idea').position).toEqual(positionOf('idea'))
   })
 
-  it('rejects an edit that holds a command replacing the project, as an unknown command', () => {
-    const edit = startingEdit()
-    const commands = [
-      { name: 'move_step', args: { stepId: 'build', x: 1, y: 1 } },
-      { name: 'create_project', args: { name: 'Other' } },
-    ]
-    const dragged = {
-      ...edit.canvas,
-      nodes: edit.canvas.nodes.map((n) =>
-        n.id === 'build' ? { ...n, position: { x: 999, y: 999 } } : n,
-      ),
+  describe('an unknown command in an edit', () => {
+    const dragged = () => {
+      const edit = startingEdit()
+      return {
+        ...edit.canvas,
+        nodes: edit.canvas.nodes.map((n) =>
+          n.id === 'build' ? { ...n, position: { x: 999, y: 999 } } : n,
+        ),
+      }
     }
-    const result = runEdit({ project: PROJECT, canvas: dragged }, commands, context)
-    expect(result).toMatchObject({ ok: false, changed: false, shouldMoveFocus: false })
-    expect(result.problems.map((p) => p.code)).toEqual(['CMD_UNKNOWN'])
-    const listed = result.problems[0].message.split('The commands are: ')[1].replace(/\.$/, '')
-    expect(listed.split(', ')).toContain('move_step')
-    expect(listed.split(', ')).not.toContain('create_project')
-    expect(result.project).toBe(PROJECT)
-    expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
+    const listedIn = (message) => {
+      expect(message).toContain('The commands are: ')
+      return message.split('The commands are: ')[1].replace(/\.$/, '').split(', ')
+    }
+
+    it.each([
+      ['an unknown name', { name: 'fly', args: {} }],
+      [
+        'create_project, which replaces the project',
+        { name: 'create_project', args: { name: 'O' } },
+      ],
+    ])('rejects %s as CMD_UNKNOWN and lists only the edit commands', (_label, unknown) => {
+      const commands = [{ name: 'move_step', args: { stepId: 'build', x: 1, y: 1 } }, unknown]
+      const result = runEdit({ project: PROJECT, canvas: dragged() }, commands, context)
+      expect(result).toMatchObject({ ok: false, changed: false, shouldMoveFocus: false })
+      expect(result.problems.map((p) => p.code)).toEqual(['CMD_UNKNOWN'])
+      const listed = listedIn(result.problems[0].message)
+      expect(listed).toContain('move_step')
+      expect(listed).not.toContain('create_project')
+      expect(result.project).toBe(PROJECT)
+      expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
+    })
   })
 
   it('names a new connection with the injected id', () => {
@@ -180,9 +192,11 @@ describe('reduceEdit', () => {
     expect(state.focusReturn).toBe('a-button')
   })
 
-  it('shows the same problems view an import rejection shows', () => {
+  it('shows the same problems view as an import rejection of the same problems, with only the heading different', () => {
     const { state } = reduceEdit(INITIAL_EDIT_STATE, rejected(two))
-    expect(state.rejection).toEqual(toProblemsView('Edit rejected: 2 problems', two))
+    const importView = describeImportStatus({ type: IMPORT_ERROR, problems: two }).view
+    expect(importView.heading).toBe('Import rejected: 2 problems')
+    expect(state.rejection).toEqual({ ...importView, heading: 'Edit rejected: 2 problems' })
   })
 
   it('replaces a shown rejection with the next, and its focus return', () => {

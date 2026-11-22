@@ -17221,13 +17221,13 @@ var COMMANDS = {
 };
 var COMMAND_NAMES = Object.keys(COMMANDS);
 /**
-* The CMD_UNKNOWN problem for `name`. The message lists `names` as the commands on offer: every
-* command by default, or the ones a caller allows.
+* The CMD_UNKNOWN problem for `name`. The message lists `offeredNames` as the commands on offer:
+* every command by default, or the ones a caller allows.
 */
-var unknownCommand = (name, names = COMMAND_NAMES) => problem("CMD_UNKNOWN", {
+var unknownCommand = (name, offeredNames = COMMAND_NAMES) => problem("CMD_UNKNOWN", {
 	params: {
 		command: nameLabel(name),
-		commands: names.join(", ")
+		commands: offeredNames.join(", ")
 	},
 	untrusted: { command: name }
 });
@@ -17255,6 +17255,7 @@ var checkArgs = (name, entry, args) => {
 * caller can guard the open project first. False for anything else, including a malformed command.
 */
 var replacesProject = (command) => typeof command?.name === "string" && Object.hasOwn(COMMANDS, command.name) && COMMANDS[command.name].replacesProject === true;
+COMMAND_NAMES.filter((name) => !replacesProject({ name }));
 var isToolEntry = ([, command]) => !command.uiOnly;
 /**
 * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
@@ -17272,7 +17273,9 @@ var rejectCommand = (name, problems) => ({
 * `project` object it was given, so nothing changes.
 * @param {object|null} project
 * @param {{ name: string, args?: object }} command
-* @param {{ newId: () => string }} context newId is injected so ids are deterministic in tests.
+* @param {{ newId: () => string, commandNames?: string[] }} context newId is injected so ids are
+*   deterministic in tests. `commandNames` limits the commands a caller allows: any other name is
+*   rejected as unknown, and the problem lists these names.
 * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, created?: string }}
 */
 var applyCommand = (project, command, context) => {
@@ -17281,7 +17284,8 @@ var applyCommand = (project, command, context) => {
 		...rejectCommand(name, problems),
 		project
 	});
-	if (typeof name !== "string" || !Object.hasOwn(COMMANDS, name)) return reject([unknownCommand(name)]);
+	const allowed = context?.commandNames;
+	if (typeof name !== "string" || !Object.hasOwn(COMMANDS, name) || allowed && !allowed.includes(name)) return reject([unknownCommand(name, allowed)]);
 	const entry = COMMANDS[name];
 	if (entry.needsProject !== false && !isObject(project)) return reject([problem("CMD_NO_PROJECT")]);
 	const argProblems = checkArgs(name, entry, args);

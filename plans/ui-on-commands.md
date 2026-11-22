@@ -6,7 +6,7 @@
 **Examination**: not-applicable (plugin recorder bug: it does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-on-commands.md` (AC1–AC15, gate passed 2026-11-22). Row 6 of `plans/mvp-order.md`.
-**Build waited for**: D1 (`feat/diagnostics-core`, merged in #51). Slice 4 uses D1's `report(problem)` sink, its Vitest and Playwright gates (`expectDiagnostics`, `e2e/fixtures.js`) and `CHANGELOG.md`. Slices 1–3 do not need D1 to compile, but every new e2e spec imports D1's fixture, so the whole build starts after D1 merges.
+**Build waited for**: D1 (`feat/diagnostics-core`, merged in #51). Slice 4 uses D1's `report(problem)` sink, the Vitest gate `expectDiagnostics` and the Playwright fixture `diagnostics.expect` (`e2e/fixtures.js`) and `CHANGELOG.md`. Slices 1–3 do not need D1 to compile, but every new e2e spec imports D1's fixture, so the whole build starts after D1 merges.
 
 ## Goal
 
@@ -173,7 +173,7 @@ Feature: UI-only commands and all-or-nothing edits
 ### Slice 2: Shared problems panel
 
 **Depends-on:** none
-**Files:** `src/flow/problemsView.js`, `src/flow/problemsView.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ProblemsPanel.jsx`, `src/shell/ImportStatus.jsx`, `src/index.css`, `src/flow/projectFile.test.js`, `src/shell/contrast.test.js`, `e2e/export-import.spec.js`
+**Files:** `src/flow/problemsView.js`, `src/flow/problemsView.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/ProblemsPanel.jsx`, `src/shell/ImportStatus.jsx`, `src/index.css`, `src/flow/projectFile.test.js`, `src/shell/contrast.test.js`, `e2e/export-import.spec.js`, `e2e/views.js`
 
 **Behavior:**
 
@@ -240,7 +240,7 @@ Feature: Shared problems panel
 ### Slice 3: Canvas edits through commands
 
 **Depends-on:** 1
-**Files:** `src/flow/canvas.js`, `src/flow/canvas.test.js`, `src/flow/editFlow.js`, `src/flow/editFlow.test.js`, `src/flow/project.js`, `src/flow/project.test.js`, `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/useFocusAfterDelete.js`, `src/App.jsx`, `e2e/canvas.js`, `e2e/edits.spec.js`
+**Files:** `src/flow/canvas.js`, `src/flow/canvas.test.js`, `src/flow/editFlow.js`, `src/flow/editFlow.test.js`, `src/flow/project.js`, `src/flow/project.test.js`, `src/shell/useProject.js`, `src/shell/useCanvasEdits.js`, `src/shell/useFocusAfterDelete.js`, `src/App.jsx`, `e2e/canvas.js`, `e2e/edits.spec.js`, `e2e/views.js`
 
 **Behavior:**
 
@@ -369,7 +369,7 @@ Feature: Canvas edits through commands
 ### Slice 4: Rejected edits announced, listed and logged
 
 **Depends-on:** 2, 3
-**Files:** `src/shell/useCanvasEdits.js`, `src/App.jsx`, `src/shell/devCommand.js`, `src/shell/devCommand.test.js`, `src/shell/DevCommandTrigger.jsx`, `src/flow/diagnostics/record.test.js`, `e2e/edit-rejection.spec.js`, `e2e/crash.spec.js`, `e2e/views.js`, `e2e/pages.spec.js`, `CHANGELOG.md`
+**Files:** `src/shell/useCanvasEdits.js`, `src/App.jsx`, `src/shell/devCommand.js`, `src/shell/devCommand.test.js`, `src/shell/DevCommandTrigger.jsx`, `src/flow/diagnostics/record.test.js`, `e2e/edit-rejection.spec.js`, `e2e/crash.spec.js`, `e2e/views.js`, `e2e/console.js`, `e2e/pages.spec.js`, `CHANGELOG.md`
 
 **Behavior:**
 

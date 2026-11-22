@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand, applyCommands, COMMANDS, rejectCommand, replacesProject } from './index.js'
+import {
+  applyCommand,
+  applyCommands,
+  COMMANDS,
+  EDIT_COMMAND_NAMES,
+  rejectCommand,
+  replacesProject,
+  unknownCommand,
+} from './index.js'
 import { MAX_ECHOED_TEXT } from '../text.js'
 import { makeRun, onlyProblem } from './testHelpers.js'
 
@@ -262,6 +270,30 @@ describe('replacesProject', () => {
   })
 })
 
+describe('unknownCommand', () => {
+  const listed = (problem) => problem.message.split('The commands are: ')[1].replace(/\.$/, '')
+
+  it('lists every command by default', () => {
+    const problem = unknownCommand('fly')
+    expect(problem.code).toBe('CMD_UNKNOWN')
+    expect(listed(problem).split(', ')).toEqual(Object.keys(COMMANDS))
+  })
+
+  it('lists the offered names instead when a caller gives them', () => {
+    const problem = unknownCommand('fly', ['move_step', 'connect'])
+    expect(problem.message).toContain('The commands are: ')
+    expect(listed(problem)).toBe('move_step, connect')
+  })
+})
+
+describe('EDIT_COMMAND_NAMES', () => {
+  it('is every command except the ones that replace the project', () => {
+    expect(EDIT_COMMAND_NAMES).toContain('move_step')
+    expect(EDIT_COMMAND_NAMES).not.toContain('create_project')
+    expect(EDIT_COMMAND_NAMES).toEqual(Object.keys(COMMANDS).filter((n) => n !== 'create_project'))
+  })
+})
+
 describe('rejectCommand', () => {
   it('returns the problems and a summary that says nothing changed, and no project', () => {
     const problems = [{ code: 'A' }, { code: 'B' }]
@@ -352,6 +384,48 @@ describe('applyCommands', () => {
     ])
     expect(onlyProblem(result).code).toBe('CMD_UNKNOWN')
     expect(result.project).toBe(line)
+  })
+
+  describe('with context.commandNames', () => {
+    const allowed = ['remove_step', 'add_step']
+    const applyAllowed = (commands) =>
+      applyCommands(line, commands, { newId: counter(), commandNames: allowed })
+
+    it('rejects a real command that is not in the list, and lists the allowed ones', () => {
+      const result = applyAllowed([
+        { name: 'connect', args: { sourceId: 'plan', targetId: 'test' } },
+      ])
+      const problem = onlyProblem(result)
+      expect(problem.code).toBe('CMD_UNKNOWN')
+      expect(problem.message).toContain('The commands are: remove_step, add_step')
+      expect(result.project).toBe(line)
+      expect(result.changed).toBe(false)
+    })
+
+    it('rejects a name that is not a command at all, listing the allowed ones', () => {
+      const problem = onlyProblem(applyAllowed([{ name: 'fly', args: {} }]))
+      expect(problem.code).toBe('CMD_UNKNOWN')
+      expect(problem.message).toContain('The commands are: remove_step, add_step')
+    })
+
+    it('still lets the first rejected command win, whatever the later ones are', () => {
+      const result = applyAllowed([
+        { name: 'remove_step', args: { stepId: 'Nope' } },
+        { name: 'fly', args: {} },
+      ])
+      expect(onlyProblem(result).code).toBe('STEP_NOT_FOUND')
+    })
+
+    it('applies the commands it lists', () => {
+      const result = applyAllowed([{ name: 'remove_step', args: { stepId: 'test' } }])
+      expect(result.ok).toBe(true)
+      expect(result.project.nodes.map(({ id }) => id)).toEqual(['plan', 'build'])
+    })
+  })
+
+  it('lists every command for an unknown name when no commandNames is set', () => {
+    const problem = onlyProblem(apply(line, [{ name: 'fly', args: {} }]))
+    expect(problem.message).toContain('create_project')
   })
 
   it('treats an empty list as an accepted edit that changes nothing', () => {
