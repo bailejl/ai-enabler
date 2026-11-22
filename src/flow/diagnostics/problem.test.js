@@ -92,8 +92,12 @@ describe('catalog', () => {
     'status',
     'since',
   ]
-  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_']
+  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_', 'APP_']
+  const SEVERITIES = ['error', 'warning', 'hint']
+  const APP_CODES = ['APP_RENDER_FAILED', 'APP_UNCAUGHT_ERROR', 'APP_UNHANDLED_REJECTION']
   const entries = Object.entries(catalog)
+  const entriesWithUnknownSeverity = (candidates) =>
+    candidates.filter(([, entry]) => !SEVERITIES.includes(entry.severity))
 
   it.each(entries)('%s has every required field as a non-empty string', (_code, entry) => {
     const missing = REQUIRED_FIELDS.filter(
@@ -122,8 +126,24 @@ describe('catalog', () => {
     expect(new Set(codes).size).toBe(codes.length)
   })
 
-  it('uses error severity for every entry', () => {
-    expect(entries.filter(([, entry]) => entry.severity !== 'error')).toEqual([])
+  it('uses error, warning or hint severity for every entry', () => {
+    expect(entriesWithUnknownSeverity(entries)).toEqual([])
+  })
+
+  it('reports an entry whose severity is not error, warning or hint', () => {
+    const debugEntry = ['FILE_DEBUG', { code: 'FILE_DEBUG', severity: 'debug' }]
+    expect(entriesWithUnknownSeverity([...entries, debugEntry])).toEqual([debugEntry])
+  })
+
+  it.each(APP_CODES)('%s is an active app-owned error since 0.1.0', (code) => {
+    expect(catalog[code]).toMatchObject({
+      code,
+      severity: 'error',
+      owner: 'app',
+      status: 'active',
+      since: '0.1.0',
+      docs: `#${code.toLowerCase().replaceAll('_', '-')}`,
+    })
   })
 
   it('lists exactly the catalog codes in CATALOG_CODES', () => {
