@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand, COMMANDS, rejectCommand, replacesProject } from './index.js'
+import { applyCommand, applyCommands, COMMANDS, rejectCommand, replacesProject } from './index.js'
 import { MAX_ECHOED_TEXT } from '../text.js'
 import { makeRun, onlyProblem } from './testHelpers.js'
 
@@ -272,5 +272,99 @@ describe('rejectCommand', () => {
     const { summary } = rejectCommand('x'.repeat(200), [])
     expect(summary).not.toContain('x'.repeat(MAX_ECHOED_TEXT + 1))
     expect(summary).toMatch(/^Rejected x+.*: nothing changed \(0 problems\)$/)
+  })
+})
+
+describe('applyCommands', () => {
+  const plan = { id: 'plan', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } }
+  const build = { id: 'build', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Build' } }
+  const test = { id: 'test', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Test' } }
+  const edge = (source, target) => ({ id: `${source}-${target}`, source, target })
+  const line = Object.freeze({
+    project: { id: 'p-1', name: 'Delivery' },
+    nodes: [plan, build, test],
+    edges: [edge('plan', 'build'), edge('build', 'test')],
+  })
+  const counter = () => {
+    let count = 0
+    return () => `id-${++count}`
+  }
+  const apply = (project, commands) => applyCommands(project, commands, { newId: counter() })
+
+  it('applies every command in order and returns the last project', () => {
+    const result = apply(line, [
+      { name: 'disconnect', args: { sourceId: 'plan', targetId: 'build' } },
+      { name: 'remove_step', args: { stepId: 'test' } },
+    ])
+    expect(result.ok).toBe(true)
+    expect(result.changed).toBe(true)
+    expect(result.problems).toEqual([])
+    expect(result.project.nodes.map(({ id }) => id)).toEqual(['plan', 'build'])
+    expect(result.project.edges).toEqual([])
+    expect(result.summary).toBe(
+      'Disconnected "Plan" from "Build"; Removed step "Test" (test); 1 connection was removed',
+    )
+    expect(line.nodes).toHaveLength(3)
+    expect(line.edges).toHaveLength(2)
+  })
+
+  it('lets a later command see what an earlier one made', () => {
+    const result = apply(line, [
+      { name: 'add_step', args: { name: 'Ship' } },
+      { name: 'connect', args: { sourceId: 'test', targetId: 'id-1' } },
+    ])
+    expect(result.ok).toBe(true)
+    expect(result.project.nodes.at(-1).id).toBe('id-1')
+    expect(result.project.edges.at(-1)).toMatchObject({ source: 'test', target: 'id-1' })
+  })
+
+  it('gives ids from newId in command order', () => {
+    const result = apply(line, [
+      { name: 'add_step', args: { name: 'A' } },
+      { name: 'add_step', args: { name: 'B' } },
+    ])
+    expect(result.project.nodes.slice(3).map(({ id }) => id)).toEqual(['id-1', 'id-2'])
+  })
+
+  it('stops at the first rejected command: only its problems, the original project, no later run', () => {
+    const result = apply(line, [
+      { name: 'remove_step', args: { stepId: 'build' } },
+      { name: 'remove_step', args: { stepId: 'Nope' } },
+      { name: 'remove_step', args: { stepId: 'Gone' } },
+    ])
+    expect(result.ok).toBe(false)
+    expect(result.changed).toBe(false)
+    expect(result.project).toBe(line)
+    expect(result.problems).toHaveLength(1)
+    expect(result.problems[0].code).toBe('STEP_NOT_FOUND')
+    expect(result.problems[0].untrusted.id).toBe('Nope')
+    expect(result.summary).toBe('Rejected remove_step: nothing changed (1 problem)')
+  })
+
+  it('rejects an unknown command in the middle and keeps the original project', () => {
+    const result = apply(line, [
+      { name: 'remove_step', args: { stepId: 'plan' } },
+      { name: 'fly', args: {} },
+    ])
+    expect(onlyProblem(result).code).toBe('CMD_UNKNOWN')
+    expect(result.project).toBe(line)
+  })
+
+  it('treats an empty list as an accepted edit that changes nothing', () => {
+    const result = apply(line, [])
+    expect(result).toMatchObject({ ok: true, changed: false, problems: [], summary: '' })
+    expect(result.project).toBe(line)
+  })
+
+  it('does not need an open project for an empty list', () => {
+    const result = apply(null, [])
+    expect(result.ok).toBe(true)
+    expect(result.project).toBeNull()
+  })
+
+  it('rejects the first command when no project is open', () => {
+    const result = apply(null, [{ name: 'remove_step', args: { stepId: 'plan' } }])
+    expect(onlyProblem(result).code).toBe('CMD_NO_PROJECT')
+    expect(result.project).toBeNull()
   })
 })

@@ -116,3 +116,34 @@ export const applyCommand = (project, command, context) => {
     ...(change.created === undefined ? {} : { created: change.created }),
   }
 }
+
+/**
+ * Applies a list of commands as one edit: all of them, or none. The first rejected command stops
+ * the edit; the result is then that command's rejection with the original `project` (later
+ * commands would run against a state that will not exist, so their problems would mislead). An
+ * empty list is accepted and changes nothing.
+ * @param {object|null} project
+ * @param {{ name: string, args?: object }[]} commands
+ * @param {{ newId: () => string }} context
+ * @returns {{ ok: boolean, project: object|null, problems: object[], summary: string, changed: boolean }}
+ *   `summary` joins the summaries of the applied commands with "; ", or is the rejected command's.
+ */
+export const applyCommands = (project, commands, context) => {
+  const outcome = commands.reduce(
+    (state, command) => {
+      if (state.rejected) return state
+      const result = applyCommand(state.project, command, context)
+      if (!result.ok) return { ...state, rejected: result }
+      return { project: result.project, summaries: [...state.summaries, result.summary] }
+    },
+    { project, summaries: [], rejected: null },
+  )
+  if (outcome.rejected) return { ...outcome.rejected, project, changed: false }
+  return {
+    ok: true,
+    project: outcome.project,
+    problems: [],
+    summary: outcome.summaries.join('; '),
+    changed: commands.length > 0,
+  }
+}
