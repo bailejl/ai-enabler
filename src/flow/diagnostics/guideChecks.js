@@ -6,7 +6,8 @@
 export const NO_TOOL_MARKER = 'No tool repairs this.'
 
 const REPAIR_HEADING = '## Repair with the tools'
-const SECTION_HEADINGS = ['## What it means', REPAIR_HEADING, '## Ask the user first']
+const ASK_HEADING = '## Ask the user first'
+const SECTION_HEADINGS = ['## What it means', REPAIR_HEADING, ASK_HEADING]
 
 // Substrings, matched in lower case, that send the agent to the project file. Paraphrases are not
 // caught; review does that.
@@ -24,6 +25,19 @@ const FILE_ACCESS_PHRASES = [
 const USER_ADDRESS = 'Tell the user'
 
 const NUMBERED_STEP = '1. '
+
+/** The tools that remove or drop work, so a guide that calls one must ask the user first. */
+export const DESTRUCTIVE_TOOLS = ['remove_step', 'disconnect', 'discard_changes']
+
+// A backticked span is checked by its whole content, and only when it has one of these shapes:
+// snake_case is a tool, camelCase a property, kebab-case a gate and UPPER_SNAKE a catalog code.
+// Any other span (one word, a path, JSON) is not checked.
+const NAME_CLASSES = [
+  { kind: 'tool', shape: /^[a-z]+(_[a-z]+)+$/, list: 'tools' },
+  { kind: 'property', shape: /^[a-z]+([A-Z][a-z]+)+$/, list: 'properties' },
+  { kind: 'gate', shape: /^[a-z]+(-[a-z]+)+$/, list: 'gates' },
+  { kind: 'catalog code', shape: /^[A-Z]+(_[A-Z0-9]+)+$/, list: 'codes' },
+]
 
 const linesOf = (text) => text.split(/\r?\n/)
 
@@ -121,4 +135,37 @@ export const noToolProblems = (code, text) => {
     : [
         `${code}: "${REPAIR_HEADING}" must have "${NO_TOOL_MARKER}" and then a line starting "${USER_ADDRESS}"`,
       ]
+}
+
+const BACKTICKED_SPAN = /`([^`\n]+)`/g
+
+/**
+ * The backticked names in the text that the server does not have. `names` holds the real `tools`,
+ * `properties` (argument, detail and project-file field names), `gates` and `codes` (catalog keys).
+ */
+export const unknownNames = (text, names) =>
+  [...text.matchAll(BACKTICKED_SPAN)].flatMap(([, span]) => {
+    const nameClass = NAME_CLASSES.find(({ shape }) => shape.test(span))
+    return nameClass && !names[nameClass.list].includes(span)
+      ? [`\`${span}\` is not a ${nameClass.kind} the server has`]
+      : []
+  })
+
+const isOnlyNone = (lines) => {
+  const written = lines.map((line) => line.trim()).filter((line) => line !== '')
+  return written.length === 1 && written[0] === 'None.'
+}
+
+/**
+ * The destructive tools a repair calls when "Ask the user first" is only `None.`: removing or
+ * dropping work needs a question for the user.
+ */
+export const unaskedDestructive = (text) => {
+  const found = sections(text)
+  const repair = found.find(({ heading }) => heading === REPAIR_HEADING).body.join('\n')
+  const ask = found.find(({ heading }) => heading === ASK_HEADING).body
+  if (!isOnlyNone(ask)) return []
+  return DESTRUCTIVE_TOOLS.filter((tool) => new RegExp(`\\b${tool}\\b`).test(repair)).map(
+    (tool) => `the repair calls \`${tool}\` but "${ASK_HEADING}" is only None.`,
+  )
 }

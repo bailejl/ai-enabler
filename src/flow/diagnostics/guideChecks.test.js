@@ -5,6 +5,8 @@ import {
   noToolProblems,
   orphanGuides,
   shapeProblems,
+  unaskedDestructive,
+  unknownNames,
 } from './guideChecks.js'
 
 const TITLE = 'Connection forms a loop'
@@ -240,5 +242,113 @@ describe('noToolProblems', () => {
 
   it('does not count the marker in another section', () => {
     expect(check(guide({ ask: NO_TOOL }))).toHaveLength(1)
+  })
+})
+
+describe('unknownNames', () => {
+  const NAMES = {
+    tools: ['get_project', 'set_step_metrics'],
+    properties: ['stepId', 'edgeId'],
+    gates: ['data-complete'],
+    codes: ['CONN_LOOP'],
+  }
+  const check = (text) => unknownNames(text, NAMES)
+
+  it('passes spans that name a real tool, property, gate and code', () => {
+    const text = 'Call `get_project` with `stepId` for gate `data-complete` after `CONN_LOOP`.'
+
+    expect(check(text)).toEqual([])
+  })
+
+  it.each([
+    ['a tool', 'fix_everything'],
+    ['a property', 'stepName'],
+    ['a gate', 'all-good'],
+    ['a code', 'CONN_NOPE'],
+  ])('fails %s that the server does not have, and names it', (_kind, name) => {
+    const problems = check(`Use \`${name}\` here.`)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain(name)
+  })
+
+  it('names every unknown span in the text', () => {
+    const problems = check('Call `fix_everything` with `stepName` for `all-good`.')
+
+    expect(problems.join('\n')).toMatch(/fix_everything[\s\S]*stepName[\s\S]*all-good/)
+  })
+
+  it('does not check one-word spans, paths, JSON or file names', () => {
+    const text = 'Set `code`, `data.pt`, `{ "name": "Build" }`, `checkout.json` and `Build_Step`.'
+
+    expect(check(text)).toEqual([])
+  })
+
+  it('does not check a name that is mentioned without backticks', () => {
+    expect(check('Call fix_everything with stepName.')).toEqual([])
+  })
+
+  it('checks each class by its own list, so a tool name is not a property', () => {
+    expect(check('Use `get_project` as `stepId`.')).toEqual([])
+    expect(
+      check('Set `get_project` and `stepId`, but not `stepId_x` or `data_complete`.'),
+    ).toHaveLength(1)
+  })
+
+  it('treats a code made of letters, digits and underscores as a code', () => {
+    expect(unknownNames('`APP_FAIL_2`', { ...NAMES, codes: ['APP_FAIL_2'] })).toEqual([])
+    expect(unknownNames('`APP_FAIL_2`', NAMES)).toHaveLength(1)
+  })
+})
+
+describe('unaskedDestructive', () => {
+  it.each(['remove_step', 'disconnect', 'discard_changes'])(
+    'fails a repair that calls `%s` when "Ask the user first" is only None.',
+    (tool) => {
+      const problems = unaskedDestructive(guide({ repair: `1. Call \`${tool}\`.`, ask: 'None.' }))
+
+      expect(problems).toHaveLength(1)
+      expect(problems[0]).toContain(tool)
+    },
+  )
+
+  it('fails when None. has blank lines or spaces around it', () => {
+    expect(
+      unaskedDestructive(guide({ repair: '1. Call `disconnect`.', ask: '  None.  ' })),
+    ).toHaveLength(1)
+  })
+
+  it('passes a destructive repair with a question for the user', () => {
+    const text = guide({ repair: '1. Call `disconnect`.', ask: 'Which connection to remove?' })
+
+    expect(unaskedDestructive(text)).toEqual([])
+  })
+
+  it('passes a destructive repair when None. is followed by more text', () => {
+    const text = guide({ repair: '1. Call `disconnect`.', ask: 'None.\n\nWhich one?' })
+
+    expect(unaskedDestructive(text)).toEqual([])
+  })
+
+  it('passes a repair that removes nothing, with None.', () => {
+    expect(unaskedDestructive(guide({ repair: '1. Call `get_project`.', ask: 'None.' }))).toEqual(
+      [],
+    )
+  })
+
+  it('passes when the destructive name is only in another section', () => {
+    expect(unaskedDestructive(guide({ meaning: 'A `disconnect` call.', ask: 'None.' }))).toEqual([])
+  })
+
+  it('does not match a longer word that contains the name', () => {
+    expect(unaskedDestructive(guide({ repair: '1. It disconnected.', ask: 'None.' }))).toEqual([])
+  })
+
+  it('names each destructive tool the repair calls', () => {
+    const repair = '1. Call `disconnect`.\n2. Then `remove_step`.'
+
+    expect(unaskedDestructive(guide({ repair, ask: 'None.' })).join('\n')).toMatch(
+      /disconnect[\s\S]*remove_step|remove_step[\s\S]*disconnect/,
+    )
   })
 })
