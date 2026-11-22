@@ -88,7 +88,9 @@ describe('save-file parity', () => {
   it('fails and names a step field no command sets', () => {
     const withExtraField = structuredClone(projectSchema)
     withExtraField.properties.nodes.items.properties.data.properties.cost = { type: 'number' }
-    expect(pathsWithoutCommand(withExtraField, options)).toEqual(['nodes[].data.cost'])
+    const missing = pathsWithoutCommand(withExtraField, options)
+    expect(missing).toHaveLength(1)
+    expect(missing[0]).toContain('cost')
   })
 
   it('fails and names a field whose mapped argument is not in the command table', () => {

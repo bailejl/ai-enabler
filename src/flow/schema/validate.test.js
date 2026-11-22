@@ -3,7 +3,7 @@ import { validateProjectFile } from './validate.js'
 import { isCatalogCode } from '../diagnostics/problem.js'
 import { initialNodes, initialEdges } from '../initialFlow.js'
 import { STEP_DATA_FIELDS } from '../step.js'
-import { validMark } from './testHelpers.js'
+import { markWith, validMark } from './testHelpers.js'
 
 const step = (id, label, index) => ({
   id,
@@ -155,10 +155,10 @@ describe('validateProjectFile: the modifiedBy mark', () => {
   it.each([
     ['a mark from aie-mcp', validMark()],
     ['a mark from another tool', { tool: 'other-tool', at: '2026-11-20T09:30:00Z' }],
-    ['a time with an offset', { tool: 'aie-mcp', at: '2026-11-20T09:30:00+02:00' }],
-    ['a time with fractional seconds', { tool: 'aie-mcp', at: '2026-11-20T09:30:00.5Z' }],
-    ['a leap day', { tool: 'aie-mcp', at: '2024-02-29T09:30:00Z' }],
-    ['the last second of the day', { tool: 'aie-mcp', at: '2026-12-31T23:59:59Z' }],
+    ['a time with an offset', markWith({ at: '2026-11-20T09:30:00+02:00' })],
+    ['a time with fractional seconds', markWith({ at: '2026-11-20T09:30:00.5Z' })],
+    ['a leap day', markWith({ at: '2024-02-29T09:30:00Z' })],
+    ['the last second of the day', markWith({ at: '2026-12-31T23:59:59Z' })],
     ['extra keys', { ...validMark(), extra: 1 }],
   ])('accepts %s', (_label, mark) => {
     expect(problemsOf(withMark(mark))).toEqual([])
@@ -166,72 +166,32 @@ describe('validateProjectFile: the modifiedBy mark', () => {
 
   it.each([
     ['no time', { tool: 'aie-mcp' }, 'MARK_TIME_INVALID', 'modifiedBy.at'],
-    ['the time "soon"', { tool: 'aie-mcp', at: 'soon' }, 'MARK_TIME_INVALID', 'modifiedBy.at'],
-    ['an empty time', { tool: 'aie-mcp', at: '' }, 'MARK_TIME_INVALID', 'modifiedBy.at'],
-    [
-      'a numeric time',
-      { tool: 'aie-mcp', at: 1763631000000 },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    [
-      'a date with no time',
-      { tool: 'aie-mcp', at: '2026-11-20' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
+    ['the time "soon"', markWith({ at: 'soon' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['an empty time', markWith({ at: '' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['a numeric time', markWith({ at: 1763631000000 }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['a date with no time', markWith({ at: '2026-11-20' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
     [
       'a time with no zone',
-      { tool: 'aie-mcp', at: '2026-11-20T09:30:00' },
+      markWith({ at: '2026-11-20T09:30:00' }),
       'MARK_TIME_INVALID',
       'modifiedBy.at',
     ],
-    [
-      'month 13',
-      { tool: 'aie-mcp', at: '2026-13-20T09:30:00Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    [
-      'February 30',
-      { tool: 'aie-mcp', at: '2026-02-30T00:00:00Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
+    ['month 13', markWith({ at: '2026-13-20T09:30:00Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['February 30', markWith({ at: '2026-02-30T00:00:00Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
     [
       'February 29 in a year that is not a leap year',
-      { tool: 'aie-mcp', at: '2026-02-29T00:00:00Z' },
+      markWith({ at: '2026-02-29T00:00:00Z' }),
       'MARK_TIME_INVALID',
       'modifiedBy.at',
     ],
-    [
-      'April 31',
-      { tool: 'aie-mcp', at: '2026-04-31T00:00:00Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    [
-      'hour 24',
-      { tool: 'aie-mcp', at: '2026-11-20T24:00:00Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    [
-      'minute 60',
-      { tool: 'aie-mcp', at: '2026-11-20T09:60:00Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    [
-      'second 60',
-      { tool: 'aie-mcp', at: '2026-11-20T09:30:60Z' },
-      'MARK_TIME_INVALID',
-      'modifiedBy.at',
-    ],
-    ['an empty tool', { tool: '', at: validMark().at }, 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
+    ['April 31', markWith({ at: '2026-04-31T00:00:00Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['hour 24', markWith({ at: '2026-11-20T24:00:00Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['minute 60', markWith({ at: '2026-11-20T09:60:00Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['second 60', markWith({ at: '2026-11-20T09:30:60Z' }), 'MARK_TIME_INVALID', 'modifiedBy.at'],
+    ['an empty tool', markWith({ tool: '' }), 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
     ['no tool', { at: validMark().at }, 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
-    ['a numeric tool', { tool: 7, at: validMark().at }, 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
-    ['a null tool', { tool: null, at: validMark().at }, 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
+    ['a numeric tool', markWith({ tool: 7 }), 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
+    ['a null tool', markWith({ tool: null }), 'MARK_TOOL_INVALID', 'modifiedBy.tool'],
   ])('reports a mark with %s as one problem naming the bad part', (_label, mark, code, field) => {
     expect(onlyProblem(withMark(mark))).toMatchObject({ code, field, severity: 'error' })
   })
@@ -258,8 +218,8 @@ describe('validateProjectFile: the modifiedBy mark', () => {
 
   it.each([
     ['MARK_NOT_AN_OBJECT', 'modifiedBy', null],
-    ['MARK_TOOL_INVALID', 'modifiedBy.tool', { tool: '', at: validMark().at }],
-    ['MARK_TIME_INVALID', 'modifiedBy.at', { tool: 'aie-mcp', at: 'soon' }],
+    ['MARK_TOOL_INVALID', 'modifiedBy.tool', markWith({ tool: '' })],
+    ['MARK_TIME_INVALID', 'modifiedBy.at', markWith({ at: 'soon' })],
   ])('%s names %s and says removing the modifiedBy field fixes the file', (_code, field, mark) => {
     const { message, fix } = onlyProblem(withMark(mark))
     expect(message).toContain(field)
@@ -269,7 +229,7 @@ describe('validateProjectFile: the modifiedBy mark', () => {
 
   it('keeps a long bad time whole as untrusted text and out of every other field', () => {
     const at = 'x'.repeat(200)
-    const found = onlyProblem(withMark({ tool: 'aie-mcp', at }))
+    const found = onlyProblem(withMark(markWith({ at })))
     expect(found.untrusted).toEqual({ time: at })
     const { message, fix, code, field } = found
     expect(JSON.stringify({ message, fix, code, field })).not.toContain('xxx')
@@ -283,7 +243,7 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     ['a slash', 'aie/mcp'],
     ['a non-ASCII letter', 'aié-mcp'],
   ])('rejects a tool name with %s', (_label, tool) => {
-    const found = onlyProblem(withMark({ tool, at: validMark().at }))
+    const found = onlyProblem(withMark(markWith({ tool })))
     expect(found).toMatchObject({ code: 'MARK_TOOL_INVALID', field: 'modifiedBy.tool' })
     expect(found.untrusted).toEqual({ tool })
     const { message, fix, code, field } = found
@@ -296,19 +256,19 @@ describe('validateProjectFile: the modifiedBy mark', () => {
     ['40 characters', 'a'.repeat(40)],
     ['dots, dashes, underscores and digits', 'My_Tool.v2-1'],
   ])('accepts a tool name of %s', (_label, tool) => {
-    expect(problemsOf(withMark({ tool, at: validMark().at }))).toEqual([])
+    expect(problemsOf(withMark(markWith({ tool })))).toEqual([])
   })
 
   it('carries no untrusted text for a tool that is not text', () => {
-    expect(onlyProblem(withMark({ tool: 7, at: validMark().at }))).not.toHaveProperty('untrusted')
+    expect(onlyProblem(withMark(markWith({ tool: 7 })))).not.toHaveProperty('untrusted')
   })
 
   it('carries no untrusted text for a time that is not text', () => {
-    expect(onlyProblem(withMark({ tool: 'aie-mcp', at: 7 }))).not.toHaveProperty('untrusted')
+    expect(onlyProblem(withMark(markWith({ at: 7 })))).not.toHaveProperty('untrusted')
   })
 
   it('lists a mark problem together with every other problem in the file', () => {
-    const file = withMark({ tool: '', at: validMark().at }, withData(2, { pt: -1 }))
+    const file = withMark(markWith({ tool: '' }), withData(2, { pt: -1 }))
     expect(problemsOf(file).map((p) => p.code)).toEqual(['MARK_TOOL_INVALID', 'STEP_COUNT_INVALID'])
   })
 
@@ -810,8 +770,8 @@ describe('validateProjectFile: messages and codes', () => {
       STEP_COUNT_INVALID: withData(2, { pt: -1 }),
       STEP_PERCENT_INVALID: withData(2, { ca: 101 }),
       MARK_NOT_AN_OBJECT: withMark(null),
-      MARK_TOOL_INVALID: withMark({ tool: '', at: validMark().at }),
-      MARK_TIME_INVALID: withMark({ tool: 'aie-mcp', at: 'soon' }),
+      MARK_TOOL_INVALID: withMark(markWith({ tool: '' })),
+      MARK_TIME_INVALID: withMark(markWith({ at: 'soon' })),
       CONN_ID_MISSING: withEdge(2, (edge) => withoutKey(edge, 'id')),
       CONN_ID_DUPLICATE: withEdge(2, (edge) => ({ ...edge, id: 'idea->plan' })),
       CONN_ENDPOINT_MISSING: withEdges(['plan', 'ghost']),

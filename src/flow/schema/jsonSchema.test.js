@@ -5,7 +5,7 @@ import projectSchema from '../../../public/schema/project-0.1.0.json'
 import { initialEdges, initialNodes } from '../initialFlow.js'
 import { createStarterProject } from '../project.js'
 import { toProjectFile, withContentHash } from '../projectFile.js'
-import { validMark } from './testHelpers.js'
+import { markWith, PUBLISHED_SCHEMA_URL } from './testHelpers.js'
 import { validateProjectFile } from './validate.js'
 
 const ajv = addFormats(new Ajv2020({ allErrors: true }))
@@ -35,15 +35,13 @@ const starterExport = () =>
     }),
   )
 
-const markWith = (patch) => ({ ...validMark(), ...patch })
-
 const rejectedBySchema = (file) => !checkSchema(file)
 
 describe('the project JSON Schema, 0.1.0', () => {
   it('declares draft 2020-12, the Pages URL and schemaVersion 0.1.0', () => {
     expect(projectSchema).toMatchObject({
       $schema: 'https://json-schema.org/draft/2020-12/schema',
-      $id: 'https://bailejl.github.io/ai-enabler/schema/project-0.1.0.json',
+      $id: PUBLISHED_SCHEMA_URL,
       properties: { schemaVersion: { const: '0.1.0' } },
     })
   })

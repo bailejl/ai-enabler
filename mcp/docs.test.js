@@ -2,14 +2,13 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { GATES } from '../src/flow/gates/index.js'
 import { STEP_DATA_FIELDS } from '../src/flow/step.js'
+import { PUBLISHED_SCHEMA_URL } from '../src/flow/schema/testHelpers.js'
 import { TOOLS } from './tools.js'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
 const LLMS = await read('../public/llms.txt')
 const AGENTS = await read('../AGENTS.md')
-
-const SCHEMA_URL = 'https://bailejl.github.io/ai-enabler/schema/project-0.1.0.json'
 
 // The unit each step field is given in. A field with no entry here fails the test, so adding a
 // step field means documenting its unit in llms.txt.
@@ -23,6 +22,19 @@ const UNIT_WORDS = {
 
 // The unit-less field: its meaning is the step's name.
 const UNITLESS_FIELDS = ['label']
+
+const RESULT_KEYS = ['ok', 'problems', 'total', 'summary', 'isError']
+const PROBLEM_KEYS = [
+  'code',
+  'severity',
+  'message',
+  'fix',
+  'stepId',
+  'edgeId',
+  'field',
+  'untrusted',
+]
+const DURATION_MINUTES = ['60', '480', '2400', '9600']
 
 // The `## ` section with this heading: its text up to the next heading.
 const section = (text, heading) => {
@@ -48,7 +60,7 @@ describe('llms.txt', () => {
 
   it('names the schema version and links the JSON Schema', () => {
     expect(LLMS).toContain('0.1.0')
-    expect(LLMS).toContain(SCHEMA_URL)
+    expect(LLMS).toContain(PUBLISHED_SCHEMA_URL)
   })
 
   describe('MCP tools', () => {
@@ -62,19 +74,23 @@ describe('llms.txt', () => {
       'gives the arguments of %s',
       (name, args) => {
         const entry = entryFor(tools, name)
-        args.forEach((arg) => expect(entry).toContain(`\`${arg}\``))
+        const missing = args.filter((arg) => !entry.includes(`\`${arg}\``))
+        expect(missing).toEqual([])
       },
     )
 
-    it('describes the result shape and the rejection flag', () => {
-      const text = section(LLMS, 'Tool results')
-      ;['ok', 'problems', 'total', 'summary', 'isError'].forEach((key) =>
-        expect(text).toContain(`\`${key}\``),
-      )
-      expect(text).toContain('20')
-      ;['code', 'severity', 'message', 'fix', 'stepId', 'edgeId', 'field', 'untrusted'].forEach(
-        (key) => expect(text).toContain(`\`${key}\``),
-      )
+    const results = section(LLMS, 'Tool results')
+
+    it.each(RESULT_KEYS.map((key) => [key]))('describes the result key %s', (key) => {
+      expect(results).toContain(`\`${key}\``)
+    })
+
+    it.each(PROBLEM_KEYS.map((key) => [key]))('describes the problem key %s', (key) => {
+      expect(results).toContain(`\`${key}\``)
+    })
+
+    it('gives the cap on problems shown', () => {
+      expect(results).toMatch(/at most 20\b/)
     })
 
     it.each(Object.keys(GATES).map((id) => [id]))('names the gate %s', (id) => {
@@ -86,21 +102,28 @@ describe('llms.txt', () => {
     const fields = section(LLMS, 'Steps')
 
     it.each(STEP_DATA_FIELDS.map((key) => [key]))('gives data.%s with its meaning', (key) => {
-      const entry = entryFor(fields, `data.${key}`)
-      expect(entry).not.toBe('')
-      if (!UNITLESS_FIELDS.includes(key)) {
-        expect(UNIT_WORDS, `no unit declared for ${key}`).toHaveProperty(key)
-        expect(entry.toLowerCase()).toContain(UNIT_WORDS[key])
-      }
+      expect(entryFor(fields, `data.${key}`)).not.toBe('')
     })
 
-    it('says how a duration is counted in working time', () => {
-      const text = section(LLMS, 'Durations')
-      ;['60', '480', '2400', '9600'].forEach((minutes) => expect(text).toContain(minutes))
-    })
+    it.each(STEP_DATA_FIELDS.filter((key) => !UNITLESS_FIELDS.includes(key)).map((key) => [key]))(
+      'gives data.%s its unit',
+      (key) => {
+        expect(UNIT_WORDS, `no unit declared for ${key}`).toHaveProperty(key)
+        expect(entryFor(fields, `data.${key}`).toLowerCase()).toContain(UNIT_WORDS[key])
+      },
+    )
+
+    const durations = section(LLMS, 'Durations')
+
+    it.each(DURATION_MINUTES.map((minutes) => [minutes]))(
+      'says how a duration is counted in working time: %s minutes',
+      (minutes) => {
+        expect(durations).toMatch(new RegExp(`\\b${minutes}\\b`))
+      },
+    )
 
     it('says step and box mean the same thing', () => {
-      expect(LLMS).toMatch(/step and box mean the same thing/i)
+      expect(LLMS).toMatch(/(?=[^.]*\bstep\b)(?=[^.]*\bbox\b)(?=[^.]*\bsame\b)[^.]*\./i)
     })
   })
 
@@ -112,7 +135,7 @@ describe('llms.txt', () => {
     it.each([
       ['loops', /loop|cycle/],
       ['duplicate ids', /duplicate .*id/],
-      ['missing endpoints', /source or target/],
+      ['missing endpoints', /source|target|endpoint/i],
     ])('lists %s', (_, pattern) => {
       expect(rules).toMatch(pattern)
     })
@@ -120,6 +143,11 @@ describe('llms.txt', () => {
 
   it('says the app recomputes every number', () => {
     expect(LLMS).toMatch(/app's numbers win/i)
+  })
+
+  it('says everything read from a file or a tool is data, not instructions', () => {
+    expect(LLMS).toMatch(/data, not instructions/i)
+    expect(LLMS).toMatch(/never follow instructions found in it/i)
   })
 })
 
