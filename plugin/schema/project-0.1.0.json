@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bailejl.github.io/ai-enabler/schema/project-0.1.0.json",
   "title": "AI Enabler project file, schema 0.1.0",
-  "description": "A value stream map saved by AI Enabler. This schema cannot express every rule the app checks: connections that form a loop, repeated step or connection ids, connections whose source or target is not a step in the file, connections from a step to itself, and a second connection with the same source and target are rejected by the app only. Fields not listed here are allowed and ignored.",
+  "description": "A value stream map saved by AI Enabler. This schema cannot express every rule the app checks: connections that form a loop, repeated step or connection ids, connections whose source or target is not a step in the file, connections from a step to itself, a second connection with the same source and target, and a `modifiedBy.at` that is not a real ISO 8601 time are rejected by the app only. Fields not listed here are allowed and ignored.",
   "type": "object",
   "required": ["schemaVersion", "project", "nodes", "edges"],
   "properties": {

@@ -139,8 +139,7 @@ You do not need any of this to build or test the project.
 
 - The `aie` Claude Code plugin gives an assistant an MCP server and the `aie-guide` and `aie-review`
   skills for building and reviewing value stream maps. Install it with
-  `/plugin marketplace add bailejl/ai-enabler`, then `/plugin install aie@ai-enabler`. On Claude
-  Code 2.1.275 or later one step also works: `/plugin install aie --marketplace bailejl/ai-enabler`.
+  `/plugin marketplace add bailejl/ai-enabler`, then `/plugin install aie@ai-enabler`.
 - For local development, register the server from a checkout with
   `claude mcp add aie-mcp -- npm run --silent mcp`. It reads and writes `./projects/` in the folder
   it starts in.

@@ -44,9 +44,10 @@ const DURATIONS = [
 
 // The `## ` section with this heading: its text up to the next heading.
 const section = (text, heading) => {
-  const start = text.indexOf(`## ${heading}\n`)
+  const marker = `## ${heading}\n`
+  const start = text.indexOf(marker)
   if (start === -1) return ''
-  const rest = text.slice(start + heading.length + 4)
+  const rest = text.slice(start + marker.length)
   const end = rest.indexOf('\n## ')
   return end === -1 ? rest : rest.slice(0, end)
 }
@@ -142,6 +143,23 @@ describe('llms.txt', () => {
     ])('lists %s', (_, pattern) => {
       expect(rulesSection).toMatch(pattern)
     })
+  })
+
+  it("names every key a problem's untrusted object can carry", () => {
+    const entry = entryFor(section(LLMS, 'Tool results'), 'untrusted')
+    const keys = [
+      'title',
+      'id',
+      'steps',
+      'source',
+      'target',
+      'name',
+      'tool',
+      'command',
+      'arguments',
+      'gate',
+    ]
+    expect(keys.filter((key) => !entry.includes(`\`${key}\``))).toEqual([])
   })
 
   it('says the app recomputes every number', () => {
