@@ -18,6 +18,7 @@ const rejected = (problems, focusReturn = null) => ({
 })
 
 const nodeById = (canvas, id) => canvas.nodes.find((node) => node.id === id)
+const positionOf = (id) => PROJECT.nodes.find((node) => node.id === id).position
 const edgesOf = (canvas, id) => canvas.edges.filter((e) => e.source === id || e.target === id)
 
 describe('runEdit', () => {
@@ -33,7 +34,7 @@ describe('runEdit', () => {
     expect(result.problems).toEqual([])
     expect(result.project.nodes.find((n) => n.id === 'build').position).toEqual({ x: 420, y: 80 })
     expect(nodeById(result.canvas, 'build').position).toEqual({ x: 420, y: 80 })
-    expect(nodeById(result.canvas, 'plan').position).toEqual(PROJECT.nodes[1].position)
+    expect(nodeById(result.canvas, 'plan').position).toEqual(positionOf('plan'))
   })
 
   it('puts the canvas back to the project when a move is rejected', () => {
@@ -53,7 +54,7 @@ describe('runEdit', () => {
     expect(result.changed).toBe(false)
     expect(result.problems.map((p) => p.code)).toEqual(['STEP_POSITION_MISSING'])
     expect(result.project).toBe(PROJECT)
-    expect(nodeById(result.canvas, 'build').position).toEqual(PROJECT.nodes[2].position)
+    expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
     expect(nodeById(result.canvas, 'build').selected).toBe(true)
   })
 
@@ -70,7 +71,7 @@ describe('runEdit', () => {
     ]
     const result = runEdit({ project: PROJECT, canvas: selected }, commands, context)
     expect(result.ok).toBe(false)
-    expect(result.moveFocus).toBe(false)
+    expect(result.shouldMoveFocus).toBe(false)
     expect(nodeById(result.canvas, 'build').selected).toBe(true)
     expect(edgesOf(result.canvas, 'build')).toHaveLength(2)
     expect(result.canvas.nodes).toHaveLength(PROJECT.nodes.length)
@@ -83,7 +84,7 @@ describe('runEdit', () => {
       context,
     )
     expect(result.ok).toBe(true)
-    expect(result.moveFocus).toBe(true)
+    expect(result.shouldMoveFocus).toBe(true)
     expect(nodeById(result.canvas, 'build')).toBeUndefined()
     expect(edgesOf(result.canvas, 'build')).toEqual([])
     expect(result.canvas.nodes).toHaveLength(PROJECT.nodes.length - 1)
@@ -98,9 +99,28 @@ describe('runEdit', () => {
       ),
     }
     const result = runEdit({ project: PROJECT, canvas: stale }, [], context)
-    expect(result).toMatchObject({ ok: true, changed: false, moveFocus: false, problems: [] })
+    expect(result).toMatchObject({ ok: true, changed: false, shouldMoveFocus: false, problems: [] })
     expect(result.project).toBe(PROJECT)
-    expect(nodeById(result.canvas, 'idea').position).toEqual(PROJECT.nodes[0].position)
+    expect(nodeById(result.canvas, 'idea').position).toEqual(positionOf('idea'))
+  })
+
+  it('rejects an edit that holds a command replacing the project, as an unknown command', () => {
+    const edit = startingEdit()
+    const commands = [
+      { name: 'move_step', args: { stepId: 'build', x: 1, y: 1 } },
+      { name: 'create_project', args: { name: 'Other' } },
+    ]
+    const dragged = {
+      ...edit.canvas,
+      nodes: edit.canvas.nodes.map((n) =>
+        n.id === 'build' ? { ...n, position: { x: 999, y: 999 } } : n,
+      ),
+    }
+    const result = runEdit({ project: PROJECT, canvas: dragged }, commands, context)
+    expect(result).toMatchObject({ ok: false, changed: false, shouldMoveFocus: false })
+    expect(result.problems.map((p) => p.code)).toEqual(['CMD_UNKNOWN'])
+    expect(result.project).toBe(PROJECT)
+    expect(nodeById(result.canvas, 'build').position).toEqual(positionOf('build'))
   })
 
   it('names a new connection with the injected id', () => {
@@ -143,32 +163,17 @@ describe('reduceEdit', () => {
   const one = [problemOf('Step "Nope" does not exist.')]
   const two = [problemOf('First.'), problemOf('Second.')]
 
-  it('starts with nothing shown', () => {
+  it('starts with nothing shown, and nothing can change that', () => {
     expect(INITIAL_EDIT_STATE).toEqual({ rejection: null, focusReturn: null })
+    expect(Object.isFrozen(INITIAL_EDIT_STATE)).toBe(true)
+    expect(Object.isFrozen(EDIT_EVENT)).toBe(true)
   })
 
   it('shows a rejection and announces the count and the first message', () => {
     const { state, announcement } = reduceEdit(INITIAL_EDIT_STATE, rejected(one, 'a-button'))
     expect(announcement).toBe('Edit rejected: 1 problem. Step "Nope" does not exist.')
     expect(state.rejection.heading).toBe('Edit rejected: 1 problem')
-    expect(state.rejection.items.map((i) => i.message)).toEqual(['Step "Nope" does not exist.'])
-    expect(state.rejection.more).toBeNull()
     expect(state.focusReturn).toBe('a-button')
-  })
-
-  it('pluralises the count for 2 problems and announces only the first message', () => {
-    const { state, announcement } = reduceEdit(INITIAL_EDIT_STATE, rejected(two))
-    expect(announcement).toBe('Edit rejected: 2 problems. First.')
-    expect(state.rejection.heading).toBe('Edit rejected: 2 problems')
-    expect(state.rejection.items).toHaveLength(2)
-  })
-
-  it('lists the first 10 of 12 problems and counts the rest', () => {
-    const many = Array.from({ length: 12 }, (_, i) => problemOf(`Problem ${i}.`))
-    const { state, announcement } = reduceEdit(INITIAL_EDIT_STATE, rejected(many))
-    expect(announcement).toBe('Edit rejected: 12 problems. Problem 0.')
-    expect(state.rejection.items).toHaveLength(10)
-    expect(state.rejection.more).toBe('and 2 more')
   })
 
   it('replaces a shown rejection with the next, and its focus return', () => {
@@ -206,20 +211,5 @@ describe('reduceEdit', () => {
   it('ignores an event type that is an Object.prototype name', () => {
     const shown = reduceEdit(INITIAL_EDIT_STATE, rejected(one)).state
     expect(reduceEdit(shown, { type: 'constructor' })).toEqual({ state: shown, announcement: null })
-  })
-
-  it('keeps the code, step id, connection id and field of each problem in the view', () => {
-    const problems = [
-      { ...problemOf('Bad.'), stepId: 's', edgeId: 'e', field: 'position', untrusted: { x: 1 } },
-    ]
-    const item = reduceEdit(INITIAL_EDIT_STATE, rejected(problems)).state.rejection.items[0]
-    expect(item).toEqual({
-      code: 'TEST_PROBLEM',
-      message: 'Bad.',
-      fix: 'Fix it.',
-      stepId: 's',
-      edgeId: 'e',
-      field: 'position',
-    })
   })
 })

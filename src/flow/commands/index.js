@@ -30,7 +30,7 @@ export const COMMANDS = {
 
 const COMMAND_NAMES = Object.keys(COMMANDS)
 
-const unknownCommand = (name) =>
+export const unknownCommand = (name) =>
   problem('CMD_UNKNOWN', {
     params: { command: nameLabel(name), commands: COMMAND_NAMES.join(', ') },
     untrusted: { command: name },
@@ -70,6 +70,10 @@ export const replacesProject = (command) =>
   typeof command?.name === 'string' &&
   Object.hasOwn(COMMANDS, command.name) &&
   COMMANDS[command.name].replacesProject === true
+
+// Whether a `[name, command]` entry of COMMANDS is an MCP tool: the ones flagged `uiOnly` serve the
+// app alone.
+export const isToolCommand = ([, command]) => !command.uiOnly
 
 /**
  * The result of a command that changed nothing: `{ ok: false, problems, summary }`.

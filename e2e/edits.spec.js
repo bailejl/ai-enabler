@@ -19,10 +19,13 @@ import {
   openStarterView,
   readFixture,
   replaceQuestion,
+  STARTER_STEP_COUNT,
 } from './views.js'
 
 const EXPORT_BUTTON_NAME = 'Export project (JSON)'
 const STARTER_EDGE_COUNT = 5
+// Plan to Build and Build to Test go with Build; Idea to Plan is deleted with it.
+const REMOVED_EDGE_COUNT = 3
 const ARROW_STEP = 5
 const DRAG_OFFSET = { x: 60, y: 90 }
 const MULTI_SELECT_KEY = 'ControlOrMeta'
@@ -146,12 +149,12 @@ test('deleting Build with the Idea to Plan connection removes both and moves foc
   await page.keyboard.press('Delete')
 
   await expect(cardByTitle(page, 'Build')).toHaveCount(0)
-  await expect(cards(page)).toHaveCount(5)
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT - 1)
   await expect(edgeBetween(page, 'idea', 'plan')).toHaveCount(0)
-  await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT - 3)
+  await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT - REMOVED_EDGE_COUNT)
   await expect(
     metricRegion(page).locator('.metric', { hasText: 'Steps' }).locator('dd'),
-  ).toHaveText('5')
+  ).toHaveText(String(STARTER_STEP_COUNT - 1))
   await expect(cardByTitle(page, 'Test')).toBeFocused()
   const file = await exportProjectFile(page)
   expect(file.nodes.map(({ id }) => id)).toEqual(['idea', 'plan', 'test', 'deploy', 'production'])

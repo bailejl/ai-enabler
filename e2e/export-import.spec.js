@@ -528,7 +528,7 @@ test.describe('invalid files are rejected with a plain message', () => {
       await expect(status.getByRole('listitem')).toHaveText(
         messages.map((message, index) => listedText(codes[index], message)),
       )
-      await expect(status.getByRole('button', { name: 'Dismiss Import status' })).toBeVisible()
+      await expect(status.getByRole('button', { name: 'Dismiss' })).toBeVisible()
       await expect(confirmDialog(page)).toHaveCount(0)
       await expect(heading).toBeFocused()
       await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
@@ -690,9 +690,7 @@ test('a file the browser cannot read shows the standard error and frees the inpu
   await chooseFile(page, asUpload('{}'))
 
   await expect(importStatus(page)).toContainText(UNREADABLE_MESSAGE)
-  await expect(
-    importStatus(page).getByRole('button', { name: 'Dismiss Import status' }),
-  ).toBeVisible()
+  await expect(importStatus(page).getByRole('button', { name: 'Dismiss' })).toBeVisible()
   await expect(announcer(page)).toHaveText(rejectionAnnouncement([UNREADABLE_MESSAGE]))
   await expect(fileInput(page)).toHaveValue('')
 })
@@ -703,7 +701,7 @@ test('Dismiss removes the error and returns focus to Import', async ({ page, dia
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page).getByRole('heading')).toBeFocused()
 
-  await importStatus(page).getByRole('button', { name: 'Dismiss Import status' }).click()
+  await importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
 
   await expect(importStatus(page)).toHaveCount(0)
   await expect(importButton(page)).toBeFocused()
@@ -752,9 +750,7 @@ test('a successful import clears an earlier error', async ({ page, diagnostics }
   await importAndConfirm(page, fixturePath('different-name.json'), CHECKOUT_QUESTION)
 
   await expect(page.getByText(NOT_JSON_MESSAGE)).toHaveCount(0)
-  await expect(
-    importStatus(page).getByRole('button', { name: 'Dismiss Import status' }),
-  ).toHaveCount(0)
+  await expect(importStatus(page).getByRole('button', { name: 'Dismiss' })).toHaveCount(0)
 })
 
 test('a 100-character project name is truncated and keeps Import and Export in view at 1024px', async ({
@@ -1025,6 +1021,7 @@ test.describe('a file changed by an AI tool', () => {
     await expect(importStatus(page).getByRole('listitem')).toHaveText([
       listedText('MARK_TOOL_INVALID', messageFor('MARK_TOOL_INVALID')),
     ])
+    await expect(importStatus(page)).toContainText('Removing the modifiedBy field fixes the file.')
     await expect(page.getByText(forged)).toHaveCount(0)
     await expect(confirmDialog(page)).toHaveCount(0)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)

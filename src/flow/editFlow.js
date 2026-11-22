@@ -1,5 +1,5 @@
 import { syncCanvas } from './canvas.js'
-import { applyCommands } from './commands/index.js'
+import { applyCommands, replacesProject, unknownCommand } from './commands/index.js'
 import { toProblemsView } from './problemsView.js'
 import { formatCount } from './text.js'
 
@@ -18,22 +18,27 @@ const describeRejection = (problems) => `Edit rejected: ${formatCount(problems.l
  * Runs one edit (a list of commands) as a whole and redraws the canvas from the result. The
  * canvas is always rebuilt from the resulting project, so a rejected edit snaps the view back to
  * the project (a dragged card returns). Focus is asked to move only for an accepted edit that
- * changed something; an empty edit is accepted, changes nothing and does not ask.
+ * changed something; an empty edit is accepted, changes nothing and does not ask. A command that
+ * replaces the project (create_project) belongs to import, so an edit holding one is rejected as
+ * an unknown command and nothing changes.
  * @param {{ project: object, canvas: { nodes: object[], edges: object[] } }} current
  * @param {{ name: string, args?: object }[]} commands
  * @param {{ newId: () => string }} context
  * @returns {{ project: object, canvas: { nodes: object[], edges: object[] }, ok: boolean,
- *   changed: boolean, problems: object[], moveFocus: boolean }}
+ *   changed: boolean, problems: object[], shouldMoveFocus: boolean }}
  */
 export const runEdit = ({ project, canvas }, commands, context) => {
-  const result = applyCommands(project, commands, context)
+  const replacing = commands.find(replacesProject)
+  const result = replacing
+    ? { ok: false, project, changed: false, problems: [unknownCommand(replacing.name)] }
+    : applyCommands(project, commands, context)
   return {
     project: result.project,
     canvas: syncCanvas(canvas, result.project),
     ok: result.ok,
     changed: result.changed,
     problems: result.problems,
-    moveFocus: result.ok && result.changed,
+    shouldMoveFocus: result.ok && result.changed,
   }
 }
 

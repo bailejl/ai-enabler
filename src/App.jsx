@@ -37,7 +37,7 @@ const EMPTY_MAP_MESSAGE =
 function Shell({ routeName }) {
   const { message, announce } = useAnnouncer()
   const importButtonRef = useRef(null)
-  const canvasRef = useRef(null)
+  const canvasElementRef = useRef(null)
   const {
     projectName,
     steps,
@@ -57,7 +57,7 @@ function Shell({ routeName }) {
     confirmImport,
     cancelImport,
     dismissImportError,
-  } = useProject({ announce, importButtonRef, canvasElementRef: canvasRef })
+  } = useProject({ announce, importButtonRef, canvasElementRef })
   const handleExport = useCallback(
     async () => announce(`Exported ${await exportProject()}`),
     [announce, exportProject],
@@ -97,7 +97,7 @@ function Shell({ routeName }) {
       {import.meta.env.DEV && <DevCommandTrigger onCommands={applyEdit} />}
       <HelpMenu />
       <MetricsBar steps={steps} />
-      <main ref={canvasRef} tabIndex={-1} aria-label="Value stream map" className="canvas">
+      <main ref={canvasElementRef} tabIndex={-1} aria-label="Value stream map" className="canvas">
         <h1 className="visually-hidden">ai-enabler value stream map</h1>
         <p role="status" className="canvas__empty">
           {nodes.length === 0 ? EMPTY_MAP_MESSAGE : ''}

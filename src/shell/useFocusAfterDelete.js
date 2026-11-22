@@ -9,15 +9,15 @@ const findStepElement = (canvas, stepId) =>
 // focus goes to a remaining step, or to the canvas when none is left. It moves in an effect after
 // the edit commits. The target is always a step that survives the delete, so it is found whether or
 // not React Flow has redrawn yet.
-export const useFocusAfterDelete = ({ canvasRef }) => {
+export const useFocusAfterDelete = ({ canvasElementRef }) => {
   const [request, setRequest] = useState(null)
   useEffect(() => {
     if (request === null) return
-    const canvas = canvasRef.current
+    const canvas = canvasElementRef.current
     const target =
       request.stepId === null ? canvas : (findStepElement(canvas, request.stepId) ?? canvas)
     target.focus()
-  }, [request, canvasRef])
+  }, [request, canvasElementRef])
   return useCallback(
     ({ nodes, deletedNodes, deletedEdges }) =>
       setRequest({ stepId: pickFocusAfterDelete({ nodes, deletedNodes, deletedEdges }) }),

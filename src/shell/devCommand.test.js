@@ -1,17 +1,17 @@
 import { describe, expect, test } from 'vitest'
-import { DEV_COMMAND_EVENT, DEV_COMMAND_READY_ATTRIBUTE, parseDevCommand } from './devCommand.js'
+import { parseDevCommand } from './devCommand.js'
 
 describe('parseDevCommand', () => {
   test('returns the commands of a valid list, each as name and args', () => {
     const detail = {
       commands: [
-        { name: 'remove_step', args: { id: 'a' } },
+        { name: 'remove_step', args: { stepId: 'a' } },
         { name: 'add_step', args: { name: 'X' }, extra: true },
       ],
     }
 
     expect(parseDevCommand(detail)).toEqual([
-      { name: 'remove_step', args: { id: 'a' } },
+      { name: 'remove_step', args: { stepId: 'a' } },
       { name: 'add_step', args: { name: 'X' } },
     ])
   })
@@ -38,10 +38,5 @@ describe('parseDevCommand', () => {
     ],
   ])('returns null for %s', (_label, detail) => {
     expect(parseDevCommand(detail)).toBeNull()
-  })
-
-  test('names the event and the ready attribute', () => {
-    expect(DEV_COMMAND_EVENT).toBe('aie-dev-command')
-    expect(DEV_COMMAND_READY_ATTRIBUTE).toBe('data-aie-dev-command-ready')
   })
 })

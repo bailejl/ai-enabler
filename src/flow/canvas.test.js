@@ -181,21 +181,14 @@ describe('moveEdit', () => {
     expect(moveEdit([noPosition, noDragging], PROJECT)).toEqual([])
   })
 
-  it('builds none for select, dimensions, remove, add and replace changes', () => {
-    const changes = [
-      { id: 'b', type: 'select', selected: true },
-      {
-        id: 'b',
-        type: 'dimensions',
-        dimensions: { width: 1, height: 1 },
-        position: { x: 9, y: 9 },
-      },
-      { id: 'b', type: 'remove' },
-      { type: 'add', item: step('z', 'Z') },
-      { id: 'b', type: 'replace', item: step('b', 'B', 9, 9) },
-    ]
-    expect(moveEdit(changes, PROJECT)).toEqual([])
-  })
+  // Each carries a position and `dragging: false`, so only its type keeps it from being a move.
+  it.each(['select', 'dimensions', 'remove', 'add', 'replace'])(
+    'builds none for a %s change',
+    (type) => {
+      const change = { id: 'b', type, position: { x: 9, y: 9 }, dragging: false }
+      expect(moveEdit([change], PROJECT)).toEqual([])
+    },
+  )
 
   it('builds the command for an id the project lacks, so the edit is rejected', () => {
     expect(moveEdit([move('nope', 1, 2, false)], PROJECT)).toEqual([

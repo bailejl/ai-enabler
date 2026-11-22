@@ -17186,6 +17186,7 @@ var checkArgs = (name, entry, args) => {
 * caller can guard the open project first. False for anything else, including a malformed command.
 */
 var replacesProject = (command) => typeof command?.name === "string" && Object.hasOwn(COMMANDS, command.name) && COMMANDS[command.name].replacesProject === true;
+var isToolCommand = ([, command]) => !command.uiOnly;
 /**
 * The result of a command that changed nothing: `{ ok: false, problems, summary }`.
 * @param {string} name The command name; shown cut short and never as part of the problems.
@@ -17913,7 +17914,7 @@ var listProblems = (session, { gate }) => {
 	return succeed(session, `${gate === void 0 ? "All checks" : `Gate ${quoted(gate)}`}: ${formatCount(problems.length, "problem")}`, { problems });
 };
 var DEFINITIONS = [
-	...Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly).map(([name, { args }]) => ({
+	...Object.entries(COMMANDS).filter(isToolCommand).map(([name, { args }]) => ({
 		name,
 		args,
 		required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),

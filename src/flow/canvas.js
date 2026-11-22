@@ -48,9 +48,11 @@ export const connectEdit = ({ source, target }) => [
  */
 export const deleteEdit = ({ nodes, edges }) => {
   const removedIds = new Set(nodes.map((node) => node.id))
-  const lone = edges.filter((edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target))
+  const edgesToDisconnect = edges.filter(
+    (edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target),
+  )
   return [
-    ...lone.map((edge) => ({
+    ...edgesToDisconnect.map((edge) => ({
       name: 'disconnect',
       args: { sourceId: edge.source, targetId: edge.target },
     })),
@@ -62,7 +64,7 @@ const isSamePosition = (a, b) => a?.x === b?.x && a?.y === b?.y
 
 // A move is final when it is a position change that is not mid-drag. React Flow sends
 // `dragging: false` for the drop of a drag and for each arrow-key move.
-const isDrop = (change) =>
+const isSettledMove = (change) =>
   change.type === 'position' && change.dragging === false && change.position !== undefined
 
 /**
@@ -73,9 +75,10 @@ const isDrop = (change) =>
  * @param {{ nodes: object[] }} project
  */
 export const moveEdit = (changes, project) => {
+  const settled = changes.filter(isSettledMove)
+  if (settled.length === 0) return []
   const nodes = byId(project.nodes)
-  return changes
-    .filter(isDrop)
+  return settled
     .filter((change) => !isSamePosition(change.position, nodes.get(change.id)?.position))
     .map(({ id, position }) => ({
       name: 'move_step',

@@ -1,7 +1,7 @@
 import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import { COMMANDS } from '../src/flow/commands/index.js'
+import { COMMANDS, isToolCommand } from '../src/flow/commands/index.js'
 import { GATES } from '../src/flow/gates/index.js'
 import { STEP_DATA_FIELDS } from '../src/flow/step.js'
 import { PUBLISHED_SCHEMA_URL } from '../src/flow/schema/testHelpers.js'
@@ -191,7 +191,7 @@ describe('AGENTS.md', () => {
 
 describe('UI-only commands', () => {
   const uiOnlyNames = Object.entries(COMMANDS)
-    .filter(([, { uiOnly }]) => uiOnly)
+    .filter((entry) => !isToolCommand(entry))
     .map(([name]) => name)
 
   it('has at least one, so the checks below are not empty', () => {

@@ -13,7 +13,7 @@ import { useFocusAfterDelete } from './useFocusAfterDelete.js'
 
 const newId = () => crypto.randomUUID()
 const NO_CANVAS = { nodes: [], edges: [] }
-const isViewChange = (change) => change.type !== 'remove'
+const isNotRemoval = (change) => change.type !== 'remove'
 
 // Where Dismiss gives focus back: the element focused when the rejection appeared, if it is still
 // in the page and is not the page itself, else the canvas.
@@ -40,7 +40,7 @@ export const useCanvasEdits = ({
   // The newest canvas, written only where the state is set, so an edit never starts from one a
   // handler captured at render time.
   const latestCanvas = useRef(canvas)
-  const focusAfterDelete = useFocusAfterDelete({ canvasRef: canvasElementRef })
+  const focusAfterDelete = useFocusAfterDelete({ canvasElementRef })
   const [editState, setEditState] = useState(INITIAL_EDIT_STATE)
   // The newest edit state, written only where the state is set, so two edits in one tick both
   // reduce from the result of the first.
@@ -87,6 +87,17 @@ export const useCanvasEdits = ({
     [projectRef, commitProject, setCanvas, dispatchEdit, canvasElementRef],
   )
 
+  // Opens `next` in place of the project: the canvas is drawn afresh from it, and the rejection
+  // shown, which belonged to the map that is gone, is cleared.
+  const replaceProject = useCallback(
+    (next) => {
+      commitProject(next)
+      setCanvas(syncCanvas(NO_CANVAS, next))
+      dispatchEdit({ type: EDIT_EVENT.importReplaced })
+    },
+    [commitProject, setCanvas, dispatchEdit],
+  )
+
   const dismissEditProblems = useCallback(() => {
     const { focusReturn } = latestEditState.current
     dispatchEdit({ type: EDIT_EVENT.dismiss })
@@ -96,7 +107,7 @@ export const useCanvasEdits = ({
   const onNodesChange = useCallback(
     (changes) => {
       const { nodes, edges } = latestCanvas.current
-      setCanvas({ nodes: applyNodeChanges(changes.filter(isViewChange), nodes), edges })
+      setCanvas({ nodes: applyNodeChanges(changes.filter(isNotRemoval), nodes), edges })
       const edit = moveEdit(changes, projectRef.current)
       if (edit.length > 0) applyEdit(edit)
     },
@@ -106,7 +117,7 @@ export const useCanvasEdits = ({
   const onEdgesChange = useCallback(
     (changes) => {
       const { nodes, edges } = latestCanvas.current
-      setCanvas({ nodes, edges: applyEdgeChanges(changes.filter(isViewChange), edges) })
+      setCanvas({ nodes, edges: applyEdgeChanges(changes.filter(isNotRemoval), edges) })
     },
     [setCanvas],
   )
@@ -117,8 +128,10 @@ export const useCanvasEdits = ({
   const onBeforeDelete = useCallback(
     ({ nodes: deletedNodes, edges: deletedEdges }) => {
       const { nodes } = latestCanvas.current
-      const { moveFocus } = applyEdit(deleteEdit({ nodes: deletedNodes, edges: deletedEdges }))
-      if (moveFocus) focusAfterDelete({ nodes, deletedNodes, deletedEdges })
+      const { shouldMoveFocus } = applyEdit(
+        deleteEdit({ nodes: deletedNodes, edges: deletedEdges }),
+      )
+      if (shouldMoveFocus) focusAfterDelete({ nodes, deletedNodes, deletedEdges })
       return false
     },
     [applyEdit, focusAfterDelete],
@@ -127,9 +140,8 @@ export const useCanvasEdits = ({
   return {
     nodes: canvas.nodes,
     edges: canvas.edges,
-    setCanvas,
     applyEdit,
-    dispatchEdit,
+    replaceProject,
     editRejection: editState.rejection,
     editPanelRef,
     dismissEditProblems,

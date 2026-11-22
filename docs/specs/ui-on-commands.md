@@ -31,8 +31,8 @@ A rejected command changes nothing. It is announced in the live region and its p
 - Docs: `public/llms.txt` and `AGENTS.md` keep listing MCP tools only. `CLAUDE.md` gains one convention line: React UI edits go through `src/flow/commands`, and app-only commands are flagged `uiOnly`.
 - `src/flow/problemsView.js` (pure): turns a heading and a problem list into what the surface shows: heading text, listed items (message and fix, at most 10), and an "and N more" line. `importFlow.js` uses it in place of its own list logic.
 - `src/shell/ProblemsPanel.jsx` (thin): renders the view with a Dismiss button. Props choose whether the heading takes focus. `ImportStatus.jsx` renders it for a rejected import.
-- `src/shell/useProject.js`: holds the in-memory project, applies UI edits as commands, keeps selection and measured sizes as React Flow view state, and holds the last rejection for the panel.
-- `src/App.jsx`: wires `onConnect`, `onNodesChange`/`onEdgesChange` removes, and `onNodeDragStop` to commands. `isValidConnection` stays as the drag-time preview; the `connect` command is the authority.
+- `src/shell/useCanvasEdits.js`: holds the canvas (nodes and edges) as React Flow view state (selection and measured sizes stay there), applies UI edits as commands, and holds the last rejection for the panel. `src/shell/useProject.js` owns the in-memory project, the starter and the import flow.
+- `src/App.jsx`: wires `onConnect`, `onBeforeDelete` (returns false; the edit removes) and `onNodesChange`/`onEdgesChange` (a drop change, `dragging: false`, becomes `move_step`; there is no `onNodeDragStop`) to commands. `isValidConnection` stays as the drag-time preview; the `connect` command is the authority.
 - D1 sink: each problem of a rejected command goes to `report(problem)` from `src/shell/diagnostics.js`.
 - Dev-only hook: in dev builds only, a test can send a command to the open project, so e2e tests can drive a rejection that today's UI cannot cause. It follows the pattern of D1's dev-only crash hook and is absent from production builds. **Q 2026-11-22**
 
@@ -40,7 +40,7 @@ A rejected command changes nothing. It is announced in the live region and its p
 
 - Follow `CLAUDE.md`: functional ES modules, logic in `src/flow/` with colocated Vitest tests, thin React.
 - Commands stay pure and never accept React Flow fields (`selected`, `measured`, `dragging`). Only allow-listed node and edge fields enter the project, as import does today.
-- A move is applied once, on drag stop, not on every drag frame.
+- A move is applied once, on the drop change (`dragging: false`), not on every drag frame; each arrow-key press is one move.
 - PRs that touch `src/flow` or `mcp/` merge one at a time (bundle rule in `plans/mvp-order.md`).
 
 **Dependencies**

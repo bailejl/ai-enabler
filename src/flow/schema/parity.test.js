@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { COMMANDS } from '../commands/index.js'
+import { COMMANDS, isToolCommand } from '../commands/index.js'
 import projectSchema from '../../../public/schema/project-0.1.0.json'
 
-// AC23: every writable field in the save-file JSON Schema can be set by some command.
 // Only MCP commands count: a UI-only command (flagged `uiOnly`) is not a tool, so a client cannot
 // use it to set a field.
-const MCP_COMMANDS = Object.fromEntries(
-  Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly),
-)
+const MCP_COMMANDS = Object.fromEntries(Object.entries(COMMANDS).filter(isToolCommand))
 
 // True when the "command.argument" reference names an argument of a command in `commands`.
 const hasArgument = (commands, ref) => {
@@ -68,6 +65,7 @@ const MAPPING = {
 
 const options = { exempt: EXEMPT, mapping: MAPPING, commands: MCP_COMMANDS }
 
+// AC23: every writable field in the save-file JSON Schema can be set by some command.
 describe('save-file parity', () => {
   it('has a command argument for every writable path in the JSON Schema', () => {
     expect(pathsWithoutCommand(projectSchema, options)).toEqual([])

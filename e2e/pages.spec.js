@@ -138,7 +138,7 @@ test('the dev command event does nothing in production', async ({ page, capture 
     ([eventName]) =>
       window.dispatchEvent(
         new CustomEvent(eventName, {
-          detail: { commands: [{ name: 'remove_step', args: { id: 'nope' } }] },
+          detail: { commands: [{ name: 'remove_step', args: { stepId: 'nope' } }] },
         }),
       ),
     [DEV_COMMAND_EVENT],

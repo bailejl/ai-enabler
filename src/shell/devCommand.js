@@ -1,7 +1,7 @@
 import { replacesProject } from '../flow/commands/index.js'
 
-// The dev-only command event. `App.jsx` listens for it only in dev, so e2e tests can send an edit
-// to the loaded map. It is dispatched with
+// The dev-only command event. `DevCommandTrigger.jsx` listens for it, and `App.jsx` renders that
+// only in dev, so e2e tests can send an edit to the loaded map. It is dispatched with
 // `new CustomEvent(DEV_COMMAND_EVENT, { detail: { commands: [{ name, args }] } })`.
 
 export const DEV_COMMAND_EVENT = 'aie-dev-command'

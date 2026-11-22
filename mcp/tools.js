@@ -1,4 +1,4 @@
-import { COMMANDS, checkArgs, rejectCommand } from '../src/flow/commands/index.js'
+import { COMMANDS, checkArgs, isToolCommand, rejectCommand } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { allProblems, isKnownGate, runGate } from '../src/flow/gates/index.js'
 import {
@@ -137,7 +137,7 @@ const listProblems = (session, { gate }) => {
 const DEFINITIONS = [
   // applyCommand checks for an open project itself, with the same problem.
   ...Object.entries(COMMANDS)
-    .filter(([, { uiOnly }]) => !uiOnly)
+    .filter(isToolCommand)
     .map(([name, { args }]) => ({
       name,
       args,

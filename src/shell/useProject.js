@@ -8,13 +8,10 @@ import {
   reduceImport,
 } from '../flow/importFlow.js'
 import { parseImport, unreadableImport } from '../flow/importFile.js'
-import { syncCanvas } from '../flow/canvas.js'
-import { EDIT_EVENT } from '../flow/editFlow.js'
 import { createStarterMemoryProject } from '../flow/project.js'
 import {
   projectFileName,
   serializeProjectFile,
-  toMemoryProject,
   toProjectFile,
   withContentHash,
 } from '../flow/projectFile.js'
@@ -91,8 +88,6 @@ const useImportFlow = ({ projectRef, applyReplacement, announce, returnFocusRef 
   return { importState, importFile, confirmImport, cancelImport, dismissImportError }
 }
 
-const NO_CANVAS = { nodes: [], edges: [] }
-
 // The one in-memory project (`{ project, nodes, edges }`) and the canvas drawn from it. Export,
 // the metrics and the canvas all read it; the canvas edits and import's replacement write it.
 export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
@@ -111,20 +106,16 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     canvasElementRef,
     announce,
   })
-  const { setCanvas, dispatchEdit } = canvasEdits
+  const { replaceProject } = canvasEdits
   const { fitView } = useReactFlow()
   // Fitting must wait for React Flow to hold the replaced nodes, so a replacement only asks for it.
   const [fitRequestCount, setFitRequestCount] = useState(0)
   const applyReplacement = useCallback(
     (replacement) => {
-      const next = toMemoryProject(replacement)
-      commitProject(next)
-      setCanvas(syncCanvas(NO_CANVAS, next))
-      // The map an edit rejection refers to is gone.
-      dispatchEdit({ type: EDIT_EVENT.importReplaced })
+      replaceProject(replacement)
       setFitRequestCount((count) => count + 1)
     },
-    [commitProject, setCanvas, dispatchEdit],
+    [replaceProject],
   )
   useEffect(() => {
     if (fitRequestCount > 0) fitView()

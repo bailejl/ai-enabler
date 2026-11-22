@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import { COMMANDS } from '../src/flow/commands/index.js'
+import { COMMANDS, isToolCommand } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
@@ -107,7 +107,7 @@ const withOpenProject = async (extra = {}) => {
   return harness
 }
 
-const MCP_COMMANDS = Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly)
+const MCP_COMMANDS = Object.entries(COMMANDS).filter(isToolCommand)
 const UI_ONLY_COMMANDS = Object.entries(COMMANDS).filter(([, { uiOnly }]) => uiOnly)
 
 const codes = (result) => result.content.problems.map(({ code }) => code)

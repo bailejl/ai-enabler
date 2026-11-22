@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { DEV_COMMAND_EVENT, DEV_COMMAND_READY_ATTRIBUTE } from '../src/shell/devCommand.js'
 import { scan } from './axe.js'
-import { cardByTitle, cards, connect } from './canvas.js'
+import { cardByTitle, cards, connect, edgeBetween } from './canvas.js'
 import { recordsIn, waitForRecords } from './console.js'
 import {
   asUpload,
@@ -41,8 +41,16 @@ const sendEdit = async (page, commands) => {
   )
 }
 
-// A timer round trip, so an edit sent before it has been handled and rendered when it returns.
-const settle = (page) => page.evaluate(() => new Promise((resolve) => setTimeout(resolve)))
+// Dispatches one event per entry of `batches` in a single task, so the page handles them with no
+// render in between.
+const sendEditsTogether = async (page, batches) => {
+  await waitForDevHook(page, DEV_COMMAND_READY_ATTRIBUTE)
+  await page.evaluate(
+    ([eventName, details]) =>
+      details.forEach((detail) => window.dispatchEvent(new CustomEvent(eventName, { detail }))),
+    [DEV_COMMAND_EVENT, batches.map((commands) => ({ commands }))],
+  )
+}
 
 // Records the text of the live region after every change, so a clear and a set both count.
 const recordLiveRegionTexts = async (page) => {
@@ -68,8 +76,7 @@ const tabTo = async (page, locator, key) => {
   throw new Error(`${key} did not reach the element in ${MAX_TAB_PRESSES} presses`)
 }
 
-const dismissButton = (page) =>
-  editPanel(page).getByRole('button', { name: 'Dismiss Edit problems' })
+const dismissButton = (page) => editPanel(page).getByRole('button', { name: 'Dismiss' })
 
 test.beforeEach(async ({ page }) => {
   await openStarterView(page)
@@ -317,19 +324,33 @@ test('an unknown command is rejected by the command layer and listed', async ({
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 })
 
-test.describe('the dev command hook refuses', () => {
-  for (const [label, commands] of [
-    ['no commands', []],
-    ['a create_project command', [{ name: 'create_project', args: { name: 'Other' } }]],
-  ]) {
-    test(label, async ({ page, capture }) => {
-      await sendEdit(page, commands)
-      await settle(page)
+test('two edits sent in one task both apply', async ({ page }) => {
+  await sendEditsTogether(page, [
+    [{ name: 'connect', args: { sourceId: 'idea', targetId: 'build' } }],
+    [{ name: 'connect', args: { sourceId: 'plan', targetId: 'test' } }],
+  ])
 
-      await expect(editPanel(page)).toHaveCount(0)
-      await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
-      await expect(page.getByText('Other', { exact: true })).toHaveCount(0)
-      expect(recordsIn(capture.messages)).toEqual([])
-    })
-  }
+  await expect(edgeBetween(page, 'idea', 'build')).toHaveCount(1)
+  await expect(edgeBetween(page, 'plan', 'test')).toHaveCount(1)
+})
+
+// A refused send leaves no trace to wait for, so a rejected edit sent after it marks the point
+// where the earlier one has been handled: its panel and its record are all there should be.
+test('the dev command hook refuses a create_project command', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  diagnostics.expect(['STEP_NOT_FOUND'])
+
+  await sendEdit(page, [{ name: 'create_project', args: { name: 'Other' } }])
+  await sendEdit(page, REMOVE_UNKNOWN_STEP)
+
+  await expect(
+    editPanel(page).getByRole('heading', { name: 'Edit rejected: 1 problem' }),
+  ).toBeVisible()
+  await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+  await expect(page.getByText('Other', { exact: true })).toHaveCount(0)
+  const records = await waitForRecords(page, capture.messages, 1)
+  expect(records.map(({ record }) => record.code)).toEqual(['STEP_NOT_FOUND'])
 })
