@@ -171,8 +171,9 @@ describe('KNOWN_FIELDS', () => {
     { name: 'connect', args: { sourceId: 1, targetId: 2 } },
     { name: 'connect', args: { sourceId: 'missing', targetId: 'b' } },
   ]
-  // create_project sets no `field` of its own: a blank name is caught by the validator inputs.
-  const commandsWithoutField = ['create_project']
+  // create_project and rename_project set no `field` of their own: a blank name is caught by the
+  // validator inputs.
+  const commandsWithoutField = ['create_project', 'rename_project']
 
   const fieldsOf = (problems) => problems.map((found) => found.field).filter(Boolean)
   const collected = [

@@ -44,6 +44,7 @@ const REQUIRED_COMMAND_ARGUMENTS = ['name', 'stepId', 'sourceId', 'targetId']
 
 const DESCRIPTIONS = {
   create_project: 'Start a new empty project with the given name. Blocked by unsaved changes.',
+  rename_project: 'Rename the open project.',
   add_step: 'Add a step with a name and optional metrics. Returns the new step id as "created".',
   update_step: 'Rename a step.',
   remove_step: 'Remove a step and every connection to it.',

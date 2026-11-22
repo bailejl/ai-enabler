@@ -29,7 +29,7 @@ Each entry in `nodes` is one step.
 
 - `id`: a string, unique among steps. The server makes it when you call `add_step` and returns it as `created`.
 - `type`: `step` when present.
-- `position`: `{ x, y }`, numbers. A hand-edited file needs `position` with numeric `x` and `y` on every step; any values work, because the server lays steps out again when it saves. Commands take no positions.
+- `position`: `{ x, y }`, numbers. A hand-edited file needs `position` with numeric `x` and `y` on every step; when the server saves, it lays out only the steps still at `{ x: 0, y: 0 }` and keeps every other position. Commands take no positions; a step you add starts at `{ x: 0, y: 0 }`.
 - `data.label`: the step's name, a string.
 - `data.pt`: process time, the time the work itself takes, in whole minutes of working time (integer, 0 or more). See "Durations".
 - `data.lt`: lead time, the elapsed time an item spends at the step from arrival to departure, waiting included, in whole minutes of working time (integer, 0 or more). See "Durations".
@@ -63,6 +63,7 @@ Each entry in `edges` is one connection, which flow follows from `source` to `ta
 The server runs over stdio (`npm run mcp`). Every tool takes only the arguments listed; any other argument rejects the call. Metrics are optional unless marked.
 
 - `create_project`: start a new empty project. Arguments: `name` (required). Blocked while the open project has unsaved changes.
+- `rename_project`: rename the open project. Arguments: `name` (required, not blank).
 - `add_step`: add a step. Arguments: `name` (required), `pt`, `lt`, `ca`, `queue`, `batch`. Returns the new step id as `created`.
 - `update_step`: rename a step. Arguments: `stepId` (required), `name` (required).
 - `remove_step`: remove a step and every connection to or from it. Arguments: `stepId` (required).
@@ -81,7 +82,7 @@ Rules for every tool:
 - Save is explicit. Nothing reaches disk until `save_project`. Use `discard_changes` to undo unsaved work.
 - Files are confined to `./projects`, resolved from the server's working directory when it starts. A name is a plain file name only: it ends in `.json`, has no path, starts with a letter or digit, and otherwise uses letters, digits, dots, dashes and underscores. A name with a separator or `..`, or one that resolves outside the folder, is rejected.
 - A command that would leave the project invalid is rejected and changes nothing.
-- The server lays steps out left to right each time it saves. Positions you see before a save are not final.
+- When it saves, the server lays out only the steps still at `{ x: 0, y: 0 }`, left to right and clear of the other steps; every other position is kept.
 
 ## Tool results
 

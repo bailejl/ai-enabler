@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `rename_project` command and MCP tool.
+
 ### Changed
+
+- An MCP save lays out only the steps still at the start position (0, 0) and keeps the steps the user moved.
 
 - Edits run through the command layer; rejected edits and import problems are listed with their fixes; connections drawn in the app get UUID ids (import still accepts any id).
 

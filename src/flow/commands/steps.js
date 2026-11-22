@@ -1,10 +1,11 @@
 import { problem } from '../diagnostics/problem.js'
+import { START_POSITION } from '../layout.js'
 import { findStep, STEP_DATA_FIELDS, STEP_TYPE, stepDisplayName } from '../step.js'
 import { formatCount, hasText, quoted, shorten } from '../text.js'
 import { stepRef, validStepsList, validStepsText } from './stepNames.js'
 
-// A new step starts at the origin. MCP commands never accept positions; layout places steps on save.
-const START_POSITION = Object.freeze({ x: 0, y: 0 })
+// A new step starts at the origin. MCP commands never accept positions; an MCP save lays out the
+// steps still there.
 
 // Every data field except the title: the ones set_step_metrics accepts and add_step takes along.
 const METRIC_FIELDS = STEP_DATA_FIELDS.filter((field) => field !== 'label')

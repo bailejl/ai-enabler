@@ -17111,11 +17111,168 @@ var CONNECTION_COMMANDS = {
 		apply: disconnect
 	}
 };
-// src/flow/commands/steps.js
+var COLUMN_PITCH = 200;
+var ROW_PITCH = 264;
+var edgeKey = (source, target) => `${source}\u0000${target}`;
+var indexTargets = (nodes, edges) => {
+	const ids = new Set(nodes.map((node) => node.id));
+	const known = edges.filter((e) => ids.has(e.source) && ids.has(e.target));
+	const bySource = Map.groupBy(known, (e) => e.source);
+	return new Map(nodes.map(({ id }) => [id, (bySource.get(id) ?? []).map((e) => e.target)]));
+};
+var advanceWalk = ({ stack, onPath, done, backEdges }, targets) => {
+	const frame = stack[stack.length - 1];
+	const target = targets.get(frame.id)[frame.next];
+	if (target === void 0) {
+		stack.pop();
+		onPath.delete(frame.id);
+		done.add(frame.id);
+		return;
+	}
+	frame.next += 1;
+	if (onPath.has(target)) backEdges.add(edgeKey(frame.id, target));
+	else if (!done.has(target)) {
+		onPath.add(target);
+		stack.push({
+			id: target,
+			next: 0
+		});
+	}
+};
+var findBackEdges = (nodes, targets) => {
+	const backEdges = /* @__PURE__ */ new Set();
+	const done = /* @__PURE__ */ new Set();
+	nodes.forEach(({ id: root }) => {
+		if (done.has(root)) return;
+		const walk = {
+			stack: [{
+				id: root,
+				next: 0
+			}],
+			onPath: /* @__PURE__ */ new Set([root]),
+			done,
+			backEdges
+		};
+		while (walk.stack.length > 0) advanceWalk(walk, targets);
+	});
+	return backEdges;
+};
+/**
+* Column of each step: the longest path from a source, ignoring the connections that close a
+* loop. Computed in topological order over the remaining connections.
+*
+* @returns {Map<string, number>} step id to column index
+*/
+var assignColumns = (nodes, edges) => {
+	const targets = indexTargets(nodes, edges);
+	const backEdges = findBackEdges(nodes, targets);
+	const forward = new Map(nodes.map(({ id }) => [id, targets.get(id).filter((target) => !backEdges.has(edgeKey(id, target)))]));
+	const incoming = new Map(nodes.map(({ id }) => [id, 0]));
+	forward.forEach((list) => list.forEach((t) => incoming.set(t, incoming.get(t) + 1)));
+	const columns = new Map(nodes.map(({ id }) => [id, 0]));
+	const ready = nodes.map(({ id }) => id).filter((id) => incoming.get(id) === 0);
+	for (let i = 0; i < ready.length; i += 1) {
+		const id = ready[i];
+		forward.get(id).forEach((target) => {
+			columns.set(target, Math.max(columns.get(target), columns.get(id) + 1));
+			incoming.set(target, incoming.get(target) - 1);
+			if (incoming.get(target) === 0) ready.push(target);
+		});
+	}
+	return columns;
+};
+/**
+* Stack the steps of each column top to bottom in file order.
+*
+* @returns {{ x: number, y: number }[]} one position per node, in node order
+*/
+var placeRows = (nodes, columns) => {
+	const rowsUsed = /* @__PURE__ */ new Map();
+	return nodes.map((node) => {
+		const column = columns.get(node.id);
+		const row = rowsUsed.get(column) ?? 0;
+		rowsUsed.set(column, row + 1);
+		return {
+			x: column * COLUMN_PITCH,
+			y: row * ROW_PITCH
+		};
+	});
+};
+/**
+* Lay steps out left to right so every connection points forward, except a connection that closes
+* a loop.
+*
+* @param {{ id: string }[]} nodes in file order
+* @param {{ source: string, target: string }[]} edges
+* @returns {object[]} new nodes with a position; inputs are not mutated
+*/
+var layoutSteps = (nodes, edges) => {
+	const positions = placeRows(nodes, assignColumns(nodes, edges));
+	return nodes.map((node, i) => ({
+		...node,
+		position: positions[i]
+	}));
+};
+/** Where a step starts before anyone places it: the origin. */
 var START_POSITION = Object.freeze({
 	x: 0,
 	y: 0
 });
+/** True when the step is still at the start position, so no one has placed it. */
+var isUnplaced = ({ position }) => position?.x === START_POSITION.x && position?.y === START_POSITION.y;
+var UNPLACED_LAYOUT_ORIGIN = Object.freeze({
+	x: 56,
+	y: 24
+});
+var cardsOverlap = (a, b) => Math.abs(a.x - b.x) < 144 && Math.abs(a.y - b.y) < 240;
+var firstFreeBelow = (slot, taken) => {
+	const isFree = (y) => !taken.some((position) => cardsOverlap({
+		x: slot.x,
+		y
+	}, position));
+	let y = slot.y;
+	while (!isFree(y)) y += ROW_PITCH;
+	return {
+		x: slot.x,
+		y
+	};
+};
+/**
+* Lays out only the steps still at the start position and keeps every other step where the user
+* put it. Each unplaced step takes the column and row layoutSteps gives it, offset by
+* UNPLACED_LAYOUT_ORIGIN, moved down a row at a time until it overlaps no other step.
+*
+* @param {{ id: string, position: { x: number, y: number } }[]} nodes in file order
+* @param {{ source: string, target: string }[]} edges
+* @returns {object[]} new nodes; inputs are not mutated
+*/
+var layoutUnplacedSteps = (nodes, edges) => {
+	const laidOut = layoutSteps(nodes, edges);
+	const placedPositions = nodes.filter((node) => !isUnplaced(node)).map((node) => node.position);
+	const { result } = nodes.reduce(({ result: done, taken }, node, i) => {
+		if (!isUnplaced(node)) return {
+			result: [...done, node],
+			taken
+		};
+		const { x, y } = laidOut[i].position;
+		const position = firstFreeBelow({
+			x: x + UNPLACED_LAYOUT_ORIGIN.x,
+			y: y + UNPLACED_LAYOUT_ORIGIN.y
+		}, taken);
+		return {
+			result: [...done, {
+				...node,
+				position
+			}],
+			taken: [...taken, position]
+		};
+	}, {
+		result: [],
+		taken: placedPositions
+	});
+	return result;
+};
+// src/flow/commands/steps.js
 var METRIC_FIELDS = STEP_DATA_FIELDS.filter((field) => field !== "label");
 var nameProblems = (name, subject, refs = {}) => hasText(name) ? [] : [problem("STEP_NAME_EMPTY", {
 	params: { step: subject },
@@ -17242,6 +17399,19 @@ var COMMANDS = {
 				edges: []
 			},
 			summary: () => `Created project ${quoted(name)}`
+		})
+	},
+	rename_project: {
+		args: ["name"],
+		apply: (project, { name }) => ({
+			project: {
+				...project,
+				project: {
+					...project.project,
+					name
+				}
+			},
+			summary: () => `Renamed project to ${quoted(name)}`
 		})
 	},
 	add_step: {
@@ -17599,109 +17769,6 @@ var parseImport = async (text, { registry = REGISTRY, current = CURRENT_SCHEMA_V
 		return unreadableImport();
 	}
 };
-// src/flow/layout.js
-var COLUMN_PITCH = 200;
-var ROW_PITCH = 264;
-var edgeKey = (source, target) => `${source}\u0000${target}`;
-var indexTargets = (nodes, edges) => {
-	const ids = new Set(nodes.map((node) => node.id));
-	const known = edges.filter((e) => ids.has(e.source) && ids.has(e.target));
-	const bySource = Map.groupBy(known, (e) => e.source);
-	return new Map(nodes.map(({ id }) => [id, (bySource.get(id) ?? []).map((e) => e.target)]));
-};
-var advanceWalk = ({ stack, onPath, done, backEdges }, targets) => {
-	const frame = stack[stack.length - 1];
-	const target = targets.get(frame.id)[frame.next];
-	if (target === void 0) {
-		stack.pop();
-		onPath.delete(frame.id);
-		done.add(frame.id);
-		return;
-	}
-	frame.next += 1;
-	if (onPath.has(target)) backEdges.add(edgeKey(frame.id, target));
-	else if (!done.has(target)) {
-		onPath.add(target);
-		stack.push({
-			id: target,
-			next: 0
-		});
-	}
-};
-var findBackEdges = (nodes, targets) => {
-	const backEdges = /* @__PURE__ */ new Set();
-	const done = /* @__PURE__ */ new Set();
-	nodes.forEach(({ id: root }) => {
-		if (done.has(root)) return;
-		const walk = {
-			stack: [{
-				id: root,
-				next: 0
-			}],
-			onPath: /* @__PURE__ */ new Set([root]),
-			done,
-			backEdges
-		};
-		while (walk.stack.length > 0) advanceWalk(walk, targets);
-	});
-	return backEdges;
-};
-/**
-* Column of each step: the longest path from a source, ignoring the connections that close a
-* loop. Computed in topological order over the remaining connections.
-*
-* @returns {Map<string, number>} step id to column index
-*/
-var assignColumns = (nodes, edges) => {
-	const targets = indexTargets(nodes, edges);
-	const backEdges = findBackEdges(nodes, targets);
-	const forward = new Map(nodes.map(({ id }) => [id, targets.get(id).filter((target) => !backEdges.has(edgeKey(id, target)))]));
-	const incoming = new Map(nodes.map(({ id }) => [id, 0]));
-	forward.forEach((list) => list.forEach((t) => incoming.set(t, incoming.get(t) + 1)));
-	const columns = new Map(nodes.map(({ id }) => [id, 0]));
-	const ready = nodes.map(({ id }) => id).filter((id) => incoming.get(id) === 0);
-	for (let i = 0; i < ready.length; i += 1) {
-		const id = ready[i];
-		forward.get(id).forEach((target) => {
-			columns.set(target, Math.max(columns.get(target), columns.get(id) + 1));
-			incoming.set(target, incoming.get(target) - 1);
-			if (incoming.get(target) === 0) ready.push(target);
-		});
-	}
-	return columns;
-};
-/**
-* Stack the steps of each column top to bottom in file order.
-*
-* @returns {{ x: number, y: number }[]} one position per node, in node order
-*/
-var placeRows = (nodes, columns) => {
-	const rowsUsed = /* @__PURE__ */ new Map();
-	return nodes.map((node) => {
-		const column = columns.get(node.id);
-		const row = rowsUsed.get(column) ?? 0;
-		rowsUsed.set(column, row + 1);
-		return {
-			x: column * COLUMN_PITCH,
-			y: row * ROW_PITCH
-		};
-	});
-};
-/**
-* Lay steps out left to right so every connection points forward, except a connection that closes
-* a loop.
-*
-* @param {{ id: string }[]} nodes in file order
-* @param {{ source: string, target: string }[]} edges
-* @returns {object[]} new nodes with a position; inputs are not mutated
-*/
-var layoutSteps = (nodes, edges) => {
-	const positions = placeRows(nodes, assignColumns(nodes, edges));
-	return nodes.map((node, i) => ({
-		...node,
-		position: positions[i]
-	}));
-};
 // src/flow/projectFile.js
 var JSON_INDENT = 2;
 var PROJECT_FIELDS = ["id", "name"];
@@ -17869,7 +17936,7 @@ var planSave = (session, name) => {
 	};
 };
 /**
-* Builds the file to write: the project laid out left to right, at schema 0.1.0, exported at `now`
+* Builds the file to write: steps still at the start position laid out left to right (placed steps keep their position), at schema 0.1.0, exported at `now`
 * and marked as changed by `tool`. The mark goes in before the hash, so the hash covers it. The
 * session is not changed; pass the result to markSaved once the file is written. `from` is the
 * project the file was built from.
@@ -17887,7 +17954,7 @@ var toSaveFile = async (session, { now, tool }) => {
 		file: await withContentHash({
 			...toProjectFile({
 				project,
-				nodes: layoutSteps(nodes, edges),
+				nodes: layoutUnplacedSteps(nodes, edges),
 				edges,
 				now
 			}),
@@ -17962,6 +18029,7 @@ var REQUIRED_COMMAND_ARGUMENTS = [
 ];
 var DESCRIPTIONS = {
 	create_project: "Start a new empty project with the given name. Blocked by unsaved changes.",
+	rename_project: "Rename the open project.",
 	add_step: "Add a step with a name and optional metrics. Returns the new step id as \"created\".",
 	update_step: "Rename a step.",
 	remove_step: "Remove a step and every connection to it.",
