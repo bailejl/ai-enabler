@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { GATES } from '../src/flow/gates/index.js'
@@ -66,7 +67,7 @@ describe('llms.txt', () => {
   })
 
   it('names the schema version and links the JSON Schema', () => {
-    expect(LLMS).toContain('0.1.0')
+    expect(LLMS).toContain(`schema version ${CURRENT_SCHEMA_VERSION}`)
     expect(LLMS).toContain(PUBLISHED_SCHEMA_URL)
   })
 

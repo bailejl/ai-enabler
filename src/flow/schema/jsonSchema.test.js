@@ -6,7 +6,7 @@ import { initialEdges, initialNodes } from '../initialFlow.js'
 import { createStarterProject } from '../project.js'
 import { toProjectFile, withContentHash } from '../projectFile.js'
 import { STEP_DATA_FIELDS } from '../step.js'
-import { markWith, PUBLISHED_SCHEMA_URL } from './testHelpers.js'
+import { validMarkWith, PUBLISHED_SCHEMA_URL } from './testHelpers.js'
 import { validateProjectFile } from './validate.js'
 
 const ajv = addFormats(new Ajv2020({ allErrors: true }))
@@ -97,14 +97,17 @@ describe('the JSON Schema and the validator agree on field rules', () => {
     ['a blank project name', withEdit((f) => (f.project.name = '  '))],
     ['a step with no y', withEdit((f) => delete f.nodes[0].position.y)],
     ['a step of type box', withEdit((f) => (f.nodes[0].type = 'box'))],
-    ['an AI mark tool with a space', withEdit((f) => (f.modifiedBy = markWith({ tool: 'a b' })))],
+    [
+      'an AI mark tool with a space',
+      withEdit((f) => (f.modifiedBy = validMarkWith({ tool: 'a b' }))),
+    ],
     [
       'an AI mark tool of 41 characters',
-      withEdit((f) => (f.modifiedBy = markWith({ tool: 'a'.repeat(41) }))),
+      withEdit((f) => (f.modifiedBy = validMarkWith({ tool: 'a'.repeat(41) }))),
     ],
     [
       'an AI mark time with no zone',
-      withEdit((f) => (f.modifiedBy = markWith({ at: '2026-11-20T09:30:00' }))),
+      withEdit((f) => (f.modifiedBy = validMarkWith({ at: '2026-11-20T09:30:00' }))),
     ],
     ['a connection with no id', withEdit((f) => delete f.edges[0].id)],
   ])('rejects %s', (_defect, file) => {
@@ -124,11 +127,11 @@ describe('the JSON Schema and the validator agree on field rules', () => {
     ['a step with no metrics', withEdit((f) => (f.nodes[0].data = { label: 'Idea' }))],
     [
       'a mark tool of 40 characters',
-      withEdit((f) => (f.modifiedBy = markWith({ tool: 'a'.repeat(40) }))),
+      withEdit((f) => (f.modifiedBy = validMarkWith({ tool: 'a'.repeat(40) }))),
     ],
     [
       'a mark time with an offset',
-      withEdit((f) => (f.modifiedBy = markWith({ at: '2026-11-20T09:30:00+02:00' }))),
+      withEdit((f) => (f.modifiedBy = validMarkWith({ at: '2026-11-20T09:30:00+02:00' }))),
     ],
     ['a whitespace-only project id', withEdit((f) => (f.project.id = ' '))],
     ['a content hash that is not sha256', withEdit((f) => (f.contentHash = 'md5-abc'))],
