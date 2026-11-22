@@ -1,51 +1,62 @@
-// Seeds and reads the app's browser project store from a test. It runs in the page against the
-// Vite dev server, importing the app's own IndexedDB adapter, so it writes the layout the app
-// reads (src/flow/storeLayout.js) and the app needs no test seam. The page must be on the app.
+// Seeds and reads the app's browser project store from a test, in the page, with the layout the
+// app reads (src/flow/storeLayout.js), so the app needs no test seam. It uses the browser's own
+// IndexedDB API, so it works on the dev server and on the production preview alike. The page must
+// be on the app's origin.
 
 import { expect } from '@playwright/test'
 import { STORE_LAYOUT } from '../src/flow/storeLayout.js'
 
-const ADAPTER_MODULE = '/src/shell/indexedDbAdapter.js'
+// Runs in the page: one store operation, `seed`, `read` or `index`, on the app's database.
+const storeOperation = async ({ layout, operation, value }) => {
+  const settle = (target, done) =>
+    new Promise((resolve, reject) => {
+      target[done] = () => resolve(target.result)
+      target.onerror = () => reject(target.error)
+    })
+  const opening = indexedDB.open(layout.database, layout.version)
+  opening.onupgradeneeded = () => {
+    opening.result.createObjectStore(layout.indexStore, { keyPath: 'id' })
+    opening.result.createObjectStore(layout.filesStore)
+  }
+  const db = await settle(opening, 'onsuccess')
+  try {
+    const stores = [layout.indexStore, layout.filesStore]
+    if (operation === 'seed') {
+      const transaction = db.transaction(stores, 'readwrite')
+      value.forEach(({ text, ...entry }) => {
+        transaction.objectStore(layout.indexStore).put(entry)
+        transaction.objectStore(layout.filesStore).put(text, entry.id)
+      })
+      await settle(transaction, 'oncomplete')
+      return null
+    }
+    const transaction = db.transaction(stores)
+    if (operation === 'read') {
+      return (
+        (await settle(transaction.objectStore(layout.filesStore).get(value), 'onsuccess')) ?? null
+      )
+    }
+    const entries = await settle(transaction.objectStore(layout.indexStore).getAll(), 'onsuccess')
+    return entries.sort((left, right) => left.id.localeCompare(right.id))
+  } finally {
+    db.close()
+  }
+}
 
-// Runs `action(adapter, value)` in the page with an adapter over the app's database.
-const withAdapter = (page, action, value) =>
-  page.evaluate(
-    async ({ modulePath, source, arg }) => {
-      const { createIndexedDbAdapter, openProjectsDatabase } = await import(modulePath)
-      const db = await openProjectsDatabase(indexedDB)
-      try {
-        // The action arrives as source text, the only way a function crosses into the page.
-        const run = new Function(`return (${source})`)()
-        return await run(createIndexedDbAdapter(db), arg)
-      } finally {
-        db.close()
-      }
-    },
-    { modulePath: ADAPTER_MODULE, source: action.toString(), arg: value },
-  )
+const inStore = (page, operation, value = null) =>
+  page.evaluate(storeOperation, { layout: STORE_LAYOUT, operation, value })
 
 /**
  * Stores each record `{ id, name, modifiedAt, text }` as the app would. `text` may be any string,
  * so a corrupt record seeds the same way as a valid one.
  */
-export const seedProjects = (page, records) =>
-  withAdapter(
-    page,
-    async (adapter, list) => {
-      for (const { text, ...entry } of list) await adapter.put(entry, text)
-    },
-    records,
-  )
+export const seedProjects = (page, records) => inStore(page, 'seed', records)
 
 /** The stored text of project `id`, or null when it is not stored. */
-export const readStored = (page, id) =>
-  withAdapter(page, async (adapter, key) => (await adapter.getFile(key)) ?? null, id)
+export const readStored = (page, id) => inStore(page, 'read', id)
 
 /** Every index entry `{ id, name, modifiedAt }`, sorted by id. */
-export const readIndex = (page) =>
-  withAdapter(page, async (adapter) =>
-    (await adapter.listIndex()).sort((left, right) => left.id.localeCompare(right.id)),
-  )
+export const readIndex = (page) => inStore(page, 'index')
 
 /**
  * Waits until the stored file of project `id`, parsed, makes `predicate` true, so a test reloads

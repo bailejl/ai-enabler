@@ -3,6 +3,7 @@ import path from 'node:path'
 import { expect } from '@playwright/test'
 import { STEP_TYPE } from '../src/flow/step.js'
 import { cards } from './canvas.js'
+import { seedProjects } from './store.js'
 
 const FIXTURES_DIR = path.join(import.meta.dirname, 'fixtures')
 const HELP_SECTION_COUNT = 3
@@ -20,8 +21,31 @@ export const metricRegion = (page) => page.getByRole('region', { name: 'Metrics'
 export const importStatus = (page) => page.getByRole('region', { name: 'Import status' })
 export const confirmDialog = (page) => page.getByRole('dialog')
 
+// The six starter steps as a saved project, seeded into the browser store for tests that start
+// from a full map.
+export const STARTER_FIXTURE = 'starter.ai-enabler.json'
+export const STARTER_ID = 'starter'
+export const STARTER_MODIFIED_AT = '2026-11-22T10:00:00.000Z'
+
+/** The record that seeds `fixture` as a saved project: `{ id, name, modifiedAt, text }`. */
+export const fixtureRecord = (fixture, modifiedAt = STARTER_MODIFIED_AT) => {
+  const text = readFileSync(fixturePath(fixture), 'utf8')
+  const { id, name } = JSON.parse(text).project
+  return { id, name, modifiedAt, text }
+}
+
+/**
+ * Seeds the starter project and opens its link. `base` is the app's path: `/` on the dev server,
+ * the Pages base on the preview.
+ */
+export const openStarterProject = async (page, base = '/') => {
+  await page.goto(`${base}#/`)
+  await seedProjects(page, [fixtureRecord(STARTER_FIXTURE)])
+  await page.goto(`${base}#/projects/${STARTER_ID}`)
+}
+
 export const openStarterView = async (page) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 }
 

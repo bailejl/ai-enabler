@@ -1,9 +1,10 @@
 import { test, expect } from './fixtures.js'
 import { cards, settledBox } from './canvas.js'
 import { initialEdges, initialNodes } from '../src/flow/initialFlow.js'
+import { openStarterProject } from './views.js'
 
 test('value stream canvas shows the starter stages and links', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(page).toHaveTitle('Untitled Project · AI Enabler')
   await expect(page.getByRole('main')).toHaveAccessibleName('Value stream map')
   await expect(cards(page)).toHaveCount(initialNodes.length)
@@ -18,7 +19,7 @@ const DRAG_DX = 80
 const DRAG_DY = 120
 
 test('a stage can be dragged without moving its neighbours', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const dragged = nodeByLabel(page, 'Build')
   const neighbour = nodeByLabel(page, 'Plan')
   const before = await settledBox(dragged)
@@ -44,7 +45,7 @@ test('a stage can be dragged without moving its neighbours', async ({ page }) =>
 })
 
 test('two stages can be connected by dragging between handles', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const edges = page.locator('.react-flow__edge')
   await expect(edges).toHaveCount(initialEdges.length)
   const source = nodeByLabel(page, 'Idea').locator('.react-flow__handle-right.source')

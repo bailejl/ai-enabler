@@ -2,19 +2,19 @@
 // tests fail on purpose, so the main config does not match this file and `npm run test:e2e` never
 // runs it directly.
 import { test } from './fixtures.js'
-import { asUpload, chooseFile } from './views.js'
+import { asUpload, chooseFile, openStarterProject } from './views.js'
 
 const NOT_JSON = 'this is not json'
 
 test.describe('the test fixture fails a test', () => {
   test('that wrote an undeclared record', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
 
     await chooseFile(page, asUpload(NOT_JSON))
   })
 
   test('that wrote an uncoded console error', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
 
     await page.evaluate(() => window.console.error('not a record'))
   })

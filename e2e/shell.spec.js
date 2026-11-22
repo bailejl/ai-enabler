@@ -1,8 +1,15 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
-import { databaseNames, readIndex } from './store.js'
-import { openAllHelpSections, STARTER_STEP_COUNT } from './views.js'
+import { databaseNames, readIndex, readStored } from './store.js'
+import {
+  fixtureRecord,
+  openAllHelpSections,
+  openStarterProject,
+  STARTER_FIXTURE,
+  STARTER_ID,
+  STARTER_STEP_COUNT,
+} from './views.js'
 
 const PROJECT_NAME = 'Untitled Project'
 const LONG_PROJECT_NAME_LENGTH = 100
@@ -14,7 +21,7 @@ const expectStarterViewAccessible = async (page) => {
 }
 
 test('the header shows the mark, the brand, a divider, and the project name', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const header = page.getByRole('banner')
   await expect(header.locator('svg.header__mark')).toBeVisible()
   await expect(header.getByText('AI Enabler', { exact: true })).toBeVisible()
@@ -25,12 +32,12 @@ test('the header shows the mark, the brand, a divider, and the project name', as
 })
 
 test('the document title names the project and the app', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(page).toHaveTitle('Untitled Project · AI Enabler')
 })
 
 test('the page has banner, Help navigation, and Value stream map landmarks', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(page.getByRole('banner')).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Help' })).toBeAttached()
   await expect(page.getByRole('main', { name: 'Value stream map' })).toBeVisible()
@@ -38,7 +45,7 @@ test('the page has banner, Help navigation, and Value stream map landmarks', asy
 
 test('a long project name truncates without hiding the brand', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 700 })
-  await page.goto('/')
+  await openStarterProject(page)
   const projectName = page.locator('.header__project')
   await projectName.evaluate((element, length) => {
     element.textContent = 'W'.repeat(length)
@@ -48,8 +55,10 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
   await expect(page.getByText('AI Enabler', { exact: true })).toBeVisible()
 })
 
-test('reloading after deleting Idea restores six steps and stores no project', async ({ page }) => {
-  await page.goto('/')
+test('reloading after deleting Idea restores six steps and stores only the seeded project', async ({
+  page,
+}) => {
+  await openStarterProject(page)
   const steps = cards(page)
   await expect(steps).toHaveCount(STARTER_STEP_COUNT)
   await steps.filter({ hasText: 'Idea' }).click()
@@ -65,11 +74,12 @@ test('reloading after deleting Idea restores six steps and stores no project', a
   }))
   expect(storage).toEqual({ local: 0, session: 0 })
   await expect.poll(() => databaseNames(page)).toEqual(['ai-enabler'])
-  expect(await readIndex(page)).toEqual([])
+  expect((await readIndex(page)).map(({ id }) => id)).toEqual([STARTER_ID])
+  expect(await readStored(page, STARTER_ID)).toBe(fixtureRecord(STARTER_FIXTURE).text)
 })
 
 test('the default view has no accessibility violations', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expectStarterViewAccessible(page)
 })
 
@@ -110,7 +120,7 @@ const helpSection = (page, title) =>
     .filter({ has: page.locator('summary', { hasText: title }) })
 
 test('the three help sections start collapsed', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const nav = helpNav(page)
   await expect(nav.locator('details')).toHaveCount(HELP_SECTIONS.length)
   await expect(nav.locator('details summary')).toHaveText(HELP_SECTIONS)
@@ -119,7 +129,7 @@ test('the three help sections start collapsed', async ({ page }) => {
 
 test.describe('with every help section expanded', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await openAllHelpSections(page)
   })
 

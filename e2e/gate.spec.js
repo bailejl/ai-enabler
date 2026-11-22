@@ -12,6 +12,7 @@ import {
   importAndConfirm,
   openStarterView,
   replaceQuestion,
+  openStarterProject,
 } from './views.js'
 
 const NOT_JSON = 'this is not json'
@@ -111,14 +112,14 @@ test.describe('Chromium page errors after preventDefault (AC10 Rule A)', () => {
 test.describe('the diagnostics gate passes', () => {
   test('an expected record', async ({ page, diagnostics }) => {
     diagnostics.expect(['FILE_NOT_JSON'])
-    await page.goto('/')
+    await openStarterProject(page)
 
     await chooseFile(page, asUpload(NOT_JSON))
   })
 
   test('a handled uncaught error with its expected record', async ({ page, diagnostics }) => {
     diagnostics.expect(['APP_UNCAUGHT_ERROR'])
-    await page.goto('/')
+    await openStarterProject(page)
 
     await raise(page, { kind: 'error', handledText: crashRecordText('APP_UNCAUGHT_ERROR') })
     await settle(page)

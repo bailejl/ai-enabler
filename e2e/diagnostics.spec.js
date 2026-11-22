@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
 import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, waitForRecords, UUID_V4 } from './console.js'
-import { asUpload, chooseFile, importStatus, readFixture } from './views.js'
+import { asUpload, chooseFile, importStatus, readFixture, openStarterProject } from './views.js'
 
 const SECRET = 'SECRET-MARKER'
 
@@ -36,7 +36,7 @@ test('a file that is not JSON writes exactly one coded error record', async ({
 }) => {
   const { messages } = capture
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
 
   const before = Date.now()
   await chooseFile(page, asUpload('this is not json'))
@@ -68,7 +68,7 @@ test('a file with three problems writes three records, again on a second import'
 }) => {
   const { messages } = capture
   diagnostics.expect(THREE_PROBLEM_CODES)
-  await page.goto('/')
+  await openStarterProject(page)
 
   await chooseFile(page, asUpload(threeProblemFile()))
   const afterFirst = await waitForRecords(page, messages, 3)
@@ -90,7 +90,7 @@ test('records in one page load share version and session', async ({
 }) => {
   const { messages } = capture
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, asUpload('this is not json'))
   await waitForRecords(page, messages, 1)
   await dismissStatus(page)
@@ -108,7 +108,7 @@ test('records in one page load share version and session', async ({
 test('a reload starts a new session', async ({ page, capture, diagnostics }) => {
   const { messages } = capture
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, asUpload('this is not json'))
   const [{ record: beforeReload }] = await waitForRecords(page, messages, 1)
 
@@ -127,7 +127,7 @@ test('a step name from the file never reaches the console', async ({
 }) => {
   const { messages, pageErrors } = capture
   diagnostics.expect(['STEP_POSITION_MISSING', 'STEP_COUNT_INVALID'])
-  await page.goto('/')
+  await openStarterProject(page)
 
   await chooseFile(page, asUpload(markerFile()))
 
