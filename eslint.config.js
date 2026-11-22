@@ -3,6 +3,32 @@ import prettier from 'eslint-config-prettier'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 
+const CLASS_EXPRESSION_SELECTOR = {
+  selector: 'ClassExpression',
+  message: 'Use functions and closures instead of classes.',
+}
+
+const MCP_IMPORT_PATTERN = {
+  group: ['**/mcp', '**/mcp/**'],
+  message: 'src/ must not import from mcp/.',
+}
+
+const PACKAGE_JSON_IMPORT_PATTERN = {
+  regex: '(^|/)package\\.json$',
+  message: 'Read the app version from src/shell/version.js, not from package.json.',
+}
+
+const TEST_FILES = ['src/**/*.test.{js,jsx}']
+
+// The only src files that may call console: the sink, the test helpers, tests and the gate
+// self-test fixtures.
+const CONSOLE_ALLOWED_FILES = [
+  'src/shell/diagnostics.js',
+  'src/testHelpers.js',
+  ...TEST_FILES,
+  'src/flow/diagnostics/gate-selftest/*.fixture.js',
+]
+
 export default [
   js.configs.recommended,
   prettier,
@@ -21,10 +47,7 @@ export default [
           selector: 'ClassDeclaration',
           message: 'Use functions and closures instead of classes.',
         },
-        {
-          selector: 'ClassExpression',
-          message: 'Use functions and closures instead of classes.',
-        },
+        CLASS_EXPRESSION_SELECTOR,
         {
           selector: 'ThisExpression',
           message: 'Avoid "this" — use closures and explicit parameters instead.',
@@ -64,18 +87,35 @@ export default [
     },
   },
   {
-    // the app never depends on the MCP server
+    // the app never depends on the MCP server, only the diagnostics sink, the test helpers and the
+    // gate self-test fixtures write to the console, and only version.js knows where the app version
+    // comes from
     files: ['src/**/*.{js,jsx}'],
+    ignores: TEST_FILES,
     rules: {
+      'no-console': 'error',
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            { group: ['**/mcp', '**/mcp/**'], message: 'src/ must not import from mcp/.' },
-          ],
-        },
+        { patterns: [MCP_IMPORT_PATTERN, PACKAGE_JSON_IMPORT_PATTERN] },
       ],
     },
+  },
+  {
+    // tests may read package.json, but never import mcp/
+    files: TEST_FILES,
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [MCP_IMPORT_PATTERN] }],
+    },
+  },
+  {
+    files: CONSOLE_ALLOWED_FILES,
+    rules: { 'no-console': 'off' },
+  },
+  {
+    // React error boundaries must be class components: this file may declare a class and use this,
+    // but still not write a class expression
+    files: ['src/shell/ErrorBoundary.jsx'],
+    rules: { 'no-restricted-syntax': ['error', CLASS_EXPRESSION_SELECTOR] },
   },
   {
     ignores: [

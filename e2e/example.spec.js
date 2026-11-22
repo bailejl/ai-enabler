@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { cards, settledBox } from './canvas.js'
 import { initialEdges, initialNodes } from '../src/flow/initialFlow.js'
 

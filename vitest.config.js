@@ -6,6 +6,9 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ['src/**/*.test.{js,jsx}', 'scripts/**/*.test.js', 'mcp/**/*.test.js'],
+      // The diagnostics gate: fails a test on uncoded console output, unexpected or unknown codes,
+      // and declared codes that were never written
+      setupFiles: ['./vitest.setup.js'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json-summary'],
@@ -15,7 +18,13 @@ export default mergeConfig(
           // Test-only helpers shared by colocated tests
           'src/**/testHelpers.js',
           'src/main.jsx',
+          // Dev-only crash trigger; e2e/crash.spec.js covers it, like main.jsx
+          'src/shell/DevCrashTrigger.jsx',
           'src/App.jsx',
+          // The gate's wiring and the fixtures that test it
+          'vitest.setup.js',
+          'vitest.selftest.config.js',
+          'src/flow/diagnostics/gate-selftest/**',
           'scripts/**/*.test.js',
           // CLI wrappers are thin stdin/exit shells covered by spawn tests
           'scripts/**/*-cli.js',

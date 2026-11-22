@@ -19,7 +19,15 @@ const GUIDE_CODES = Object.keys(GUIDES)
 
 // These codes have no tool repair, so their guides say so and tell the user what to do. The three
 // APP_ codes join this list when their guides land.
-const NO_TOOL_CODES = ['FILE_NOT_JSON', 'FILE_NOT_A_PROJECT', 'FILE_UNREADABLE', 'FILE_TOO_LARGE']
+const NO_TOOL_CODES = [
+  'FILE_NOT_JSON',
+  'FILE_NOT_A_PROJECT',
+  'FILE_UNREADABLE',
+  'FILE_TOO_LARGE',
+  'APP_RENDER_FAILED',
+  'APP_UNCAUGHT_ERROR',
+  'APP_UNHANDLED_REJECTION',
+]
 
 const SRC_DIR = fileURLToPath(new URL('../../', import.meta.url))
 

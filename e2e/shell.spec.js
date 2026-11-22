@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
 import { openAllHelpSections, STARTER_STEP_COUNT } from './views.js'
