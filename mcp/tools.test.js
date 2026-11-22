@@ -107,6 +107,9 @@ const withOpenProject = async (extra = {}) => {
   return harness
 }
 
+const MCP_COMMANDS = Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly)
+const UI_ONLY_COMMANDS = Object.entries(COMMANDS).filter(([, { uiOnly }]) => uiOnly)
+
 const codes = (result) => result.content.problems.map(({ code }) => code)
 
 describe('TOOLS', () => {
@@ -128,12 +131,21 @@ describe('TOOLS', () => {
     }
   })
 
-  it('gives each command in the table its tool, with its arguments as the schema properties', () => {
-    for (const [name, { args, uiOnly }] of Object.entries(COMMANDS)) {
-      if (uiOnly) continue
+  it('gives each MCP command its tool, with its arguments as the schema properties', () => {
+    for (const [name, { args }] of MCP_COMMANDS) {
       const tool = TOOLS.find((candidate) => candidate.name === name)
       expect(tool, name).toBeDefined()
       expect(Object.keys(tool.inputSchema.properties), name).toEqual(args)
+    }
+  })
+
+  it('gives no UI-only command a tool', () => {
+    expect(UI_ONLY_COMMANDS.length).toBeGreaterThan(0)
+    for (const [name] of UI_ONLY_COMMANDS) {
+      expect(
+        TOOLS.map((tool) => tool.name),
+        name,
+      ).not.toContain(name)
     }
   })
 
@@ -312,6 +324,22 @@ describe('bad arguments', () => {
         `The tools are: ${TOOLS.map(({ name: tool }) => tool).join(', ')}.`,
       )
     }
+  })
+
+  it('answers a UI-only command with an unknown tool and leaves the project as it was', async () => {
+    const { call, lines } = await withOpenProject()
+    const before = (await call('get_project')).content.project
+    for (const [name] of UI_ONLY_COMMANDS) {
+      const result = await call(name, { stepId: 'a', x: 420, y: 80 })
+      expect(result.isError, name).toBe(true)
+      expect(codes(result), name).toEqual(['CMD_TOOL_UNKNOWN'])
+      const [found] = result.content.problems
+      expect(found.message, name).toContain('The tools are: ')
+      const listed = found.message.split('The tools are: ')[1].replace(/\.$/, '').split(', ')
+      expect(listed, name).not.toContain(name)
+    }
+    expect((await call('get_project')).content.project).toEqual(before)
+    expect(lines).toEqual([])
   })
 
   it('keeps an unknown tool name out of the code, fix and field', async () => {

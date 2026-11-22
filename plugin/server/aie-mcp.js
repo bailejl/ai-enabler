@@ -17091,6 +17091,24 @@ var removeStep = (project, { stepId }) => {
 		summary: () => `Removed step ${stepRef(step, index)}; ${formatCount(removed, "connection")} ${removed === 1 ? "was" : "were"} removed`
 	};
 };
+var moveStep = (project, { stepId, x, y }) => {
+	const found = findStepOrProblems(project, stepId);
+	if (found.problems) return found;
+	const { step, index } = found;
+	return {
+		project: {
+			...project,
+			nodes: project.nodes.map((node) => node === step ? {
+				...node,
+				position: {
+					x,
+					y
+				}
+			} : node)
+		},
+		summary: () => `Moved step ${stepRef(step, index)}`
+	};
+};
 // src/flow/commands/index.js
 var COMMANDS = {
 	create_project: {
@@ -17124,6 +17142,15 @@ var COMMANDS = {
 	remove_step: {
 		args: ["stepId"],
 		apply: removeStep
+	},
+	move_step: {
+		args: [
+			"stepId",
+			"x",
+			"y"
+		],
+		uiOnly: true,
+		apply: moveStep
 	},
 	...CONNECTION_COMMANDS
 };
@@ -17648,7 +17675,7 @@ var openInto = async (session, text, name) => {
 /**
 * Applies one command to the session's project. A rejected command, including a create_project
 * that unsaved changes block, returns the same session, so it never makes the session unsaved.
-* Commands never move existing steps; layout runs on save.
+* MCP commands never move existing steps; layout runs on save.
 * @param {{ newId: () => string }} deps
 * @returns {{ ok: boolean, session: object, problems: object[], summary: string, created?: string }}
 */
@@ -17886,7 +17913,7 @@ var listProblems = (session, { gate }) => {
 	return succeed(session, `${gate === void 0 ? "All checks" : `Gate ${quoted(gate)}`}: ${formatCount(problems.length, "problem")}`, { problems });
 };
 var DEFINITIONS = [
-	...Object.entries(COMMANDS).map(([name, { args }]) => ({
+	...Object.entries(COMMANDS).filter(([, { uiOnly }]) => !uiOnly).map(([name, { args }]) => ({
 		name,
 		args,
 		required: args.filter((arg) => REQUIRED_COMMAND_ARGUMENTS.includes(arg)),
