@@ -17384,8 +17384,9 @@ var unreadableImport = () => fail([problem("FILE_UNREADABLE")]);
 * `edited` says the file changed outside the app since it was exported (it has no matching
 * contentHash); the hash is checked against the file as read, before any upgrade. `changedBy` is
 * present only for an unedited file whose own version is 0.1.0 or later and that carries the AI mark.
+* `fileVersion` is the schemaVersion the file was written at, before any upgrade.
 * Never throws on any file contents; the injected settings are trusted.
-* @returns {Promise<{ ok: true, file: object, edited: boolean,
+* @returns {Promise<{ ok: true, file: object, fileVersion: string, edited: boolean,
 *   changedBy?: { tool: string, at: string } } | { ok: false, problems: object[] }>}
 */
 var parseImport = async (text, { registry = REGISTRY, current = CURRENT_SCHEMA_VERSION, released = RELEASED_SCHEMA_VERSIONS, digest } = {}) => {
@@ -17401,6 +17402,7 @@ var parseImport = async (text, { registry = REGISTRY, current = CURRENT_SCHEMA_V
 		const edited = await isEdited(parsed.file, digest);
 		return {
 			...result,
+			fileVersion: parsed.file.schemaVersion,
 			edited,
 			...honoredMark(parsed.file, result.file, edited)
 		};
@@ -17578,8 +17580,9 @@ var checkCanSwitch = (session) => hasUnsavedChanges(session) ? [problem("CMD_UNS
 /**
 * Opens a file's text as the session, through the app's import pipeline, so the file is upgraded
 * and must be valid. Unsaved changes in `session` block it before the text is parsed. A failure
-* returns the problems and the session it was given.
-* @returns {Promise<{ ok: true, session: object } | { ok: false, session: object, problems: object[] }>}
+* returns the problems and the session it was given. `schemaVersion` is the version the file was
+* written at, before any upgrade.
+* @returns {Promise<{ ok: true, session: object, schemaVersion: string } | { ok: false, session: object, problems: object[] }>}
 */
 var openInto = async (session, text, name) => {
 	const blocked = checkCanSwitch(session);
@@ -17602,7 +17605,8 @@ var openInto = async (session, text, name) => {
 			project,
 			baseline: project,
 			changes: 0
-		}
+		},
+		schemaVersion: result.fileVersion
 	};
 };
 /**
@@ -17774,7 +17778,7 @@ var DESCRIPTIONS = {
 	set_step_metrics: "Set metrics on a step: pt, lt, ca (percent), queue and batch.",
 	connect: "Connect one step to another, from source to target.",
 	disconnect: "Remove the connection from source to target.",
-	open_project: "Open a saved project by file name from the projects folder.",
+	open_project: "Open a saved project by file name from the projects folder. Returns its schemaVersion.",
 	save_project: "Save the open project. A project with no file yet needs a name.",
 	discard_changes: "Drop the unsaved changes and return to the project as last opened or saved.",
 	get_project: "Return the open project, with its steps and connections.",
@@ -17817,7 +17821,7 @@ var openProject = async (session, { name }, { store }) => {
 	const opened = await openInto(session, read.text, name);
 	if (!opened.ok) return reject(session, "open_project", opened.problems);
 	const steps = formatCount(opened.session.project.nodes.length, "step");
-	return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`);
+	return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`, { schemaVersion: opened.schemaVersion });
 };
 var saveProject = async (session, args, { store, now }) => {
 	const plan = planSave(session, args.name);

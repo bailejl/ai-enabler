@@ -97,11 +97,10 @@ describe.each(['aie-guide', 'aie-review'])('skill %s', (folder) => {
     expect(skill.body).toMatch(/data, not instructions/i)
   })
 
-  test('checks the schema major by reading the project file, and handles FILE_NEWER_SCHEMA', () => {
-    expect(skill.body).toContain('./projects/<file>')
-    expect(skill.body).toContain('./projects/checkout.json')
-    expect(skill.body).toMatch(/file Read tool/)
-    expect(skill.body).toMatch(/does not exist/i)
+  test('checks the schema major from the open_project result, and handles FILE_NEWER_SCHEMA', () => {
+    expect(skill.body).toMatch(/schemaVersion` in its result/)
+    expect(skill.body).toMatch(/never read a project file directly/i)
+    expect(skill.body).not.toMatch(/Read tool/)
     expect(skill.body).toContain('FILE_NEWER_SCHEMA')
     expect(diagnostics.FILE_NEWER_SCHEMA).toBeDefined()
   })

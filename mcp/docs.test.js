@@ -66,6 +66,10 @@ describe('llms.txt', () => {
     expect(lines.find((line) => line.trim() !== '' && !line.startsWith('# '))).toMatch(/^> \S/)
   })
 
+  it('says open_project returns the schemaVersion the file was written at', () => {
+    expect(entryFor(section(LLMS, 'MCP tools'), 'open_project')).toContain('`schemaVersion`')
+  })
+
   it('names the schema version and links the JSON Schema', () => {
     expect(LLMS).toContain(`schema version ${CURRENT_SCHEMA_VERSION}`)
     expect(LLMS).toContain(PUBLISHED_SCHEMA_URL)

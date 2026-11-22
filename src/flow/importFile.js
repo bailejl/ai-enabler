@@ -77,8 +77,9 @@ export const unreadableImport = () => fail([problem('FILE_UNREADABLE')])
  * `edited` says the file changed outside the app since it was exported (it has no matching
  * contentHash); the hash is checked against the file as read, before any upgrade. `changedBy` is
  * present only for an unedited file whose own version is 0.1.0 or later and that carries the AI mark.
+ * `fileVersion` is the schemaVersion the file was written at, before any upgrade.
  * Never throws on any file contents; the injected settings are trusted.
- * @returns {Promise<{ ok: true, file: object, edited: boolean,
+ * @returns {Promise<{ ok: true, file: object, fileVersion: string, edited: boolean,
  *   changedBy?: { tool: string, at: string } } | { ok: false, problems: object[] }>}
  */
 export const parseImport = async (
@@ -96,7 +97,12 @@ export const parseImport = async (
   if (!result.ok) return result
   try {
     const edited = await isEdited(parsed.file, digest)
-    return { ...result, edited, ...honoredMark(parsed.file, result.file, edited) }
+    return {
+      ...result,
+      fileVersion: parsed.file.schemaVersion,
+      edited,
+      ...honoredMark(parsed.file, result.file, edited),
+    }
   } catch {
     return unreadableImport()
   }

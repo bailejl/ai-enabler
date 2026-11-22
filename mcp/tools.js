@@ -49,7 +49,8 @@ const DESCRIPTIONS = {
   set_step_metrics: 'Set metrics on a step: pt, lt, ca (percent), queue and batch.',
   connect: 'Connect one step to another, from source to target.',
   disconnect: 'Remove the connection from source to target.',
-  open_project: 'Open a saved project by file name from the projects folder.',
+  open_project:
+    'Open a saved project by file name from the projects folder. Returns its schemaVersion.',
   save_project: 'Save the open project. A project with no file yet needs a name.',
   discard_changes: 'Drop the unsaved changes and return to the project as last opened or saved.',
   get_project: 'Return the open project, with its steps and connections.',
@@ -89,7 +90,9 @@ const openProject = async (session, { name }, { store }) => {
   const opened = await openInto(session, read.text, name)
   if (!opened.ok) return reject(session, 'open_project', opened.problems)
   const steps = formatCount(opened.session.project.nodes.length, 'step')
-  return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`)
+  return succeed(opened.session, `Opened ${quoted(name)}: ${steps}`, {
+    schemaVersion: opened.schemaVersion,
+  })
 }
 
 const saveProject = async (session, args, { store, now }) => {

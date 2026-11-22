@@ -67,7 +67,7 @@ The server runs over stdio (`npm run mcp`). Every tool takes only the arguments 
 - `set_step_metrics`: set metrics on a step; metrics you leave out stay as they are. Arguments: `stepId` (required), `pt`, `lt`, `ca`, `queue`, `batch`.
 - `connect`: connect one step to another. Arguments: `sourceId` (required), `targetId` (required).
 - `disconnect`: remove the connection from source to target. Arguments: `sourceId` (required), `targetId` (required).
-- `open_project`: open a saved project from the projects folder. Arguments: `name` (required), a file name such as `checkout.json`. Blocked while the open project has unsaved changes.
+- `open_project`: open a saved project from the projects folder. Arguments: `name` (required), a file name such as `checkout.json`. Blocked while the open project has unsaved changes. Returns the `schemaVersion` the file was written at, before the server upgrades it, as `schemaVersion`.
 - `save_project`: write the open project to disk. Arguments: `name`, needed only for a project with no file yet. A new name that is already taken is rejected.
 - `discard_changes`: drop the unsaved changes and return to the project as last opened or saved. No arguments.
 - `get_project`: return the open project, with its steps and connections. No arguments.
@@ -89,7 +89,7 @@ Every tool returns the same shape, as JSON text and as structured content:
 - `total`: how many problems there are in all, which can be more than the 20 shown.
 - `summary`: one line saying what happened.
 
-Some tools add a field: `add_step` adds `created`, the new step id; `connect` adds `created`, the new connection id; and `get_project` adds `project`. A rejected call also sets MCP `isError` to true, and nothing was changed.
+Some tools add a field: `add_step` adds `created`, the new step id; `connect` adds `created`, the new connection id; `open_project` adds `schemaVersion`, the version the file was written at; and `get_project` adds `project`. A rejected call also sets MCP `isError` to true, and nothing was changed.
 
 Each problem has:
 

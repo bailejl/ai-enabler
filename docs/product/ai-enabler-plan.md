@@ -520,7 +520,7 @@ Nine skills ship with the features that need them, and each work item names its 
 
 1. **One plugin.** All skills ship in the `aie` plugin from this repo's `plugin/` folder (marketplace manifest at `.claude-plugin/marketplace.json`), and as zip files for claude.ai. One install gets everything, and updates arrive together.
 2. **In context.** Every feature that needs a skill shows a "Works with: aie-…" chip in the app. It links to that feature's help page, which gives the one-line install and an example prompt.
-3. **Version-matched.** Each skill declares the schema version it supports. Skills read the project file's schema version first and warn when they are older than it.
+3. **Version-matched.** Each skill declares the schema version it supports. Skills check the schema version the MCP server reports when it opens a file; a schema major the skill does not support is refused, and the user is told to update the plugin.
 4. **Thin skills, strict schema.** When a skill and the app disagree on a number, the app's calculation wins and the skill says so.
 
 ## Data model

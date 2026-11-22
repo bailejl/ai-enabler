@@ -1,8 +1,10 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { COMMANDS } from '../src/flow/commands/index.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { parseImport } from '../src/flow/importFile.js'
 import { toProjectFile, withContentHash } from '../src/flow/projectFile.js'
+import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { TOOLS, createToolHost, toCallResult } from './tools.js'
 
 const NOW = new Date('2026-11-21T10:30:00.000Z')
@@ -607,6 +609,20 @@ describe('open_project', () => {
     expect(reopened.content.summary).toBe('Opened "team.json": 2 steps')
     expect(reopened.content.problems).toEqual([])
     expect((await call('get_project')).content.project.project.name).toBe('Checkout')
+  })
+
+  it('returns the schemaVersion the file was written at', async () => {
+    const { call } = await withOpenProject()
+    const reopened = await call('open_project', { name: 'team.json' })
+    expect(reopened.content.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+  })
+
+  it('returns the original schemaVersion of an older file it upgraded on open', async () => {
+    const older = await readFile(new URL('../src/flow/schema/fixtures/0.0.0.json', import.meta.url))
+    const { call } = makeHost({ 'old.json': older.toString() })
+    const opened = await call('open_project', { name: 'old.json' })
+    expect(opened.isError).toBe(false)
+    expect(opened.content.schemaVersion).toBe('0.0.0')
   })
 
   it('reads through the store and passes its problems on for a path-like name', async () => {

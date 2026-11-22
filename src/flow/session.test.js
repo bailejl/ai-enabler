@@ -90,6 +90,7 @@ describe('openInto', () => {
         baseline: { project: file.project, nodes: file.nodes, edges: file.edges },
         changes: 0,
       },
+      schemaVersion: file.schemaVersion,
     })
     expect(hasUnsavedChanges(result.session)).toBe(false)
   })
@@ -419,6 +420,7 @@ describe('toSaveFile', () => {
     expect(imported).toEqual({
       ok: true,
       file,
+      fileVersion: file.schemaVersion,
       edited: false,
       changedBy: { tool: TOOL, at: NOW.toISOString() },
     })
