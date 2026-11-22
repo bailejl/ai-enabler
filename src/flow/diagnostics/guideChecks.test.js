@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { fileAccessProblems, missingGuides, orphanGuides, shapeProblems } from './guideChecks.js'
+import {
+  fileAccessProblems,
+  missingGuides,
+  noToolProblems,
+  orphanGuides,
+  shapeProblems,
+} from './guideChecks.js'
 
 const TITLE = 'Connection forms a loop'
 
@@ -198,5 +204,41 @@ describe('fileAccessProblems', () => {
 
   it('names the line number', () => {
     expect(fileAccessProblems('fine\nFix it by hand.')[0]).toContain('line 2')
+  })
+})
+
+describe('noToolProblems', () => {
+  const NO_TOOL = 'No tool repairs this.\n\nTell the user to choose another file.'
+  const check = (text) => noToolProblems('CONN_LOOP', text)
+
+  it('passes the marker followed by a line that starts "Tell the user"', () => {
+    expect(check(guide({ repair: NO_TOOL }))).toEqual([])
+  })
+
+  it('names the guide when the repair section uses a numbered step, not the marker', () => {
+    const problems = check(guide({ repair: '1. Tell the user to choose another file.' }))
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('CONN_LOOP')
+  })
+
+  it('fails the marker with nothing after it', () => {
+    expect(check(guide({ repair: 'No tool repairs this.' }))).toHaveLength(1)
+  })
+
+  it('fails the marker followed by a line that does not start "Tell the user"', () => {
+    expect(check(guide({ repair: 'No tool repairs this.\n\nChoose another file.' }))).toHaveLength(
+      1,
+    )
+  })
+
+  it('fails a "Tell the user" line that comes before the marker', () => {
+    const repair = 'Tell the user to choose another file.\n\nNo tool repairs this.'
+
+    expect(check(guide({ repair }))).toHaveLength(1)
+  })
+
+  it('does not count the marker in another section', () => {
+    expect(check(guide({ ask: NO_TOOL }))).toHaveLength(1)
   })
 })

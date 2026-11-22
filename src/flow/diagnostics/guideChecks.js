@@ -106,3 +106,19 @@ export const fileAccessProblems = (text) =>
       ? [`line ${index + 1} sends the agent to the file: "${line}"`]
       : []
   })
+
+/**
+ * What is wrong with a guide that must say no tool repairs its code: the repair section has the
+ * no-tool marker line, and a later line in that section starts "Tell the user" (what to tell them).
+ */
+export const noToolProblems = (code, text) => {
+  const { body } = sections(text).find(({ heading }) => heading === REPAIR_HEADING)
+  const markerIndex = body.indexOf(NO_TOOL_MARKER)
+  const hasUserLine =
+    markerIndex !== -1 && body.slice(markerIndex + 1).some((line) => line.startsWith(USER_ADDRESS))
+  return hasUserLine
+    ? []
+    : [
+        `${code}: "${REPAIR_HEADING}" must have "${NO_TOOL_MARKER}" and then a line starting "${USER_ADDRESS}"`,
+      ]
+}
