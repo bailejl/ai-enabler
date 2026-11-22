@@ -15,6 +15,7 @@ import DevCommandTrigger from './shell/DevCommandTrigger.jsx'
 import ImportStatus from './shell/ImportStatus.jsx'
 import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
+import ProblemsPanel from './shell/ProblemsPanel.jsx'
 import { isValidConnection } from './flow/connections.js'
 import { IMPORT_CONFIRMING } from './flow/importFlow.js'
 import { STEP_TYPE } from './flow/step.js'
@@ -29,6 +30,7 @@ const nodeTypes = { [STEP_TYPE]: StepCard }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: tokens.arrowhead } }
 const DELETE_KEYS = ['Delete', 'Backspace']
 const themeProperties = toCssCustomProperties(tokens)
+const EDIT_PROBLEMS_LABEL = 'Edit problems'
 const EMPTY_MAP_MESSAGE =
   'No steps on this map. Import a project, or reload to restore the starter map.'
 
@@ -46,6 +48,9 @@ function Shell({ routeName }) {
     onConnect,
     onBeforeDelete,
     applyEdit,
+    editRejection,
+    editPanelRef,
+    dismissEditProblems,
     exportProject,
     importState,
     importFile,
@@ -69,6 +74,15 @@ function Shell({ routeName }) {
         importButtonRef={importButtonRef}
       />
       <ImportStatus state={importState} onDismiss={dismissImportError} />
+      {editRejection && (
+        <ProblemsPanel
+          ref={editPanelRef}
+          view={editRejection}
+          label={EDIT_PROBLEMS_LABEL}
+          onDismiss={dismissEditProblems}
+          className="edit-status"
+        />
+      )}
       <Announcer message={message} />
       {importState.type === IMPORT_CONFIRMING && (
         <ConfirmDialog

@@ -2,13 +2,15 @@ import { useEffect, useRef } from 'react'
 
 // Not a live region: the Announcer speaks every rejection, this only keeps it visible. With
 // `takesFocus` the heading takes focus each time `view` is a new rejection, so the list is read
-// where the user lands. `view` comes from toProblemsView.
+// where the user lands. `view` comes from toProblemsView. Dismiss is named after the panel, since
+// two panels can be shown at once; `ref` is the panel's element.
 export default function ProblemsPanel({
   view,
   label,
   onDismiss,
   takesFocus = false,
   className = '',
+  ref,
 }) {
   const headingRef = useRef(null)
 
@@ -17,7 +19,7 @@ export default function ProblemsPanel({
   }, [takesFocus, view])
 
   return (
-    <section aria-label={label} className={`problems-panel ${className}`.trim()}>
+    <section ref={ref} aria-label={label} className={`problems-panel ${className}`.trim()}>
       <div className="problems-panel__body">
         <h2
           ref={headingRef}
@@ -26,7 +28,8 @@ export default function ProblemsPanel({
         >
           {view.heading}
         </h2>
-        <ul className="problems-panel__list">
+        {/* The list scrolls when it is long, so the keyboard needs a way to scroll it. */}
+        <ul className="problems-panel__list" tabIndex={0}>
           {view.items.map(({ message, fix }, index) => (
             // Messages can repeat, so the position is the identity; the list never reorders.
             <li key={index}>
@@ -36,7 +39,7 @@ export default function ProblemsPanel({
         </ul>
         {view.more && <p className="problems-panel__more">{view.more}</p>}
       </div>
-      <button type="button" className="button" onClick={onDismiss}>
+      <button type="button" className="button" aria-label={`Dismiss ${label}`} onClick={onDismiss}>
         Dismiss
       </button>
     </section>

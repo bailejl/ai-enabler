@@ -9,6 +9,7 @@ import {
 } from '../flow/importFlow.js'
 import { parseImport, unreadableImport } from '../flow/importFile.js'
 import { syncCanvas } from '../flow/canvas.js'
+import { EDIT_EVENT } from '../flow/editFlow.js'
 import { createStarterMemoryProject } from '../flow/project.js'
 import {
   projectFileName,
@@ -108,8 +109,9 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     projectRef: latestProject,
     commitProject,
     canvasElementRef,
+    announce,
   })
-  const { setCanvas } = canvasEdits
+  const { setCanvas, dispatchEdit } = canvasEdits
   const { fitView } = useReactFlow()
   // Fitting must wait for React Flow to hold the replaced nodes, so a replacement only asks for it.
   const [fitRequestCount, setFitRequestCount] = useState(0)
@@ -118,9 +120,11 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
       const next = toMemoryProject(replacement)
       commitProject(next)
       setCanvas(syncCanvas(NO_CANVAS, next))
+      // The map an edit rejection refers to is gone.
+      dispatchEdit({ type: EDIT_EVENT.importReplaced })
       setFitRequestCount((count) => count + 1)
     },
-    [commitProject, setCanvas],
+    [commitProject, setCanvas, dispatchEdit],
   )
   useEffect(() => {
     if (fitRequestCount > 0) fitView()

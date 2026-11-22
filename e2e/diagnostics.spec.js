@@ -27,7 +27,8 @@ const markerFile = () => ({
   ],
 })
 
-const dismissStatus = (page) => importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
+const dismissStatus = (page) =>
+  importStatus(page).getByRole('button', { name: 'Dismiss Import status' }).click()
 
 test('a file that is not JSON writes exactly one coded error record', async ({
   page,
