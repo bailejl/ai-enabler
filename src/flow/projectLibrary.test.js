@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest'
+import { createMemoryStoreAdapter } from './memoryStoreAdapter.js'
+import { createProjectLibrary, observeLibrary } from './projectLibrary.js'
+import { createProjectStore } from './projectStore.js'
+import oldFile from './schema/fixtures/0.0.0.json?raw'
+
+const DAY_ONE = '2026-11-01T10:00:00.000Z'
+
+const memoryProject = (id, name) => ({
+  project: { id, name },
+  nodes: [{ id: 's1', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } }],
+  edges: [],
+})
+
+// A library over a memory adapter that already holds `records`: [id, name, text].
+const libraryWith = async (records = []) => {
+  const adapter = createMemoryStoreAdapter()
+  for (const [id, name, text] of records) {
+    await adapter.put({ id, name, modifiedAt: DAY_ONE }, text)
+  }
+  const store = createProjectStore(adapter)
+  return { adapter, store, library: createProjectLibrary(store) }
+}
+
+const codes = (result) => result.problems.map(({ code }) => code)
+
+describe('project library open', () => {
+  it('opens a saved project as the in-memory project it was saved from', async () => {
+    const { library } = await libraryWith()
+    await library.save(memoryProject('p1', 'Checkout'))
+    expect(await library.open('p1')).toEqual({
+      ok: true,
+      problems: [],
+      project: memoryProject('p1', 'Checkout'),
+    })
+  })
+
+  it('upgrades a file saved at an older schema and writes nothing', async () => {
+    const { library, store } = await libraryWith([['old', 'Fixture 0.0.0', oldFile]])
+    const opened = await library.open('old')
+    expect(opened.ok).toBe(true)
+    expect(opened.project.project.name).toBe('Fixture 0.0.0')
+    expect(opened.project.nodes.length).toBeGreaterThan(0)
+    expect((await store.read('old')).text).toBe(oldFile)
+    expect((await store.list()).projects[0].modifiedAt).toBe(DAY_ONE)
+  })
+
+  it('reports an id that is not stored', async () => {
+    const { library } = await libraryWith()
+    expect(codes(await library.open('nope'))).toEqual(['STORE_PROJECT_NOT_FOUND'])
+  })
+
+  it('reports a file that cannot be opened with STORE_FILE_INVALID first, then its own problems', async () => {
+    const broken = JSON.stringify({
+      schemaVersion: '0.1.0',
+      exportedAt: DAY_ONE,
+      project: { id: 'b', name: 'Broken' },
+      nodes: [{ id: 's1', type: 'step', data: { label: 'Plan' } }],
+      edges: [],
+    })
+    const { library } = await libraryWith([['b', 'Broken', broken]])
+    const opened = await library.open('b')
+    expect(opened.ok).toBe(false)
+    expect(opened.name).toBe('Broken')
+    expect(codes(opened)[0]).toBe('STORE_FILE_INVALID')
+    expect(codes(opened)).toContain('STEP_POSITION_MISSING')
+    expect(opened.problems[0].message).not.toContain('Broken')
+    expect(opened.problems[0].untrusted).toEqual({ id: 'b', name: 'Broken' })
+  })
+
+  it('reports text that is not JSON as a file that cannot be opened', async () => {
+    const { library } = await libraryWith([['x', 'Garbled', 'not json']])
+    expect(codes(await library.open('x'))).toEqual(['STORE_FILE_INVALID', 'FILE_NOT_JSON'])
+  })
+})
+
+describe('observeLibrary', () => {
+  const observedLibrary = (failingPut) => {
+    const adapter = createMemoryStoreAdapter()
+    const base = failingPut ? { ...adapter, put: failingPut } : adapter
+    const library = createProjectLibrary(createProjectStore(base))
+    const seen = { problems: [], firstSaves: 0 }
+    const observed = observeLibrary(library, {
+      onProblems: (problems) => seen.problems.push(...problems.map(({ code }) => code)),
+      onFirstSave: () => {
+        seen.firstSaves += 1
+      },
+    })
+    return { observed, seen }
+  }
+
+  it('hands over the problems of each failed call once', async () => {
+    const { observed, seen } = observedLibrary()
+    await observed.open('nope')
+    expect(seen.problems).toEqual(['STORE_PROJECT_NOT_FOUND'])
+  })
+
+  it('calls onFirstSave after the first save that works, and never again', async () => {
+    const { observed, seen } = observedLibrary()
+    await observed.save(memoryProject('p1', 'Checkout'))
+    await observed.save(memoryProject('p1', 'Checkout'))
+    await observed.save(memoryProject('p2', 'Payments'))
+    expect(seen).toEqual({ problems: [], firstSaves: 1 })
+  })
+
+  it('does not count a failed save as the first save', async () => {
+    const calls = { count: 0 }
+    const { observed, seen } = observedLibrary(async () => {
+      calls.count += 1
+      if (calls.count === 1) throw new Error('refused')
+    })
+    await observed.save(memoryProject('p1', 'Checkout'))
+    expect(seen).toEqual({ problems: ['STORE_WRITE_FAILED'], firstSaves: 0 })
+    await observed.save(memoryProject('p1', 'Checkout'))
+    expect(seen.firstSaves).toBe(1)
+  })
+})

@@ -1,0 +1,51 @@
+import { createContext, useContext, useEffect, useState } from 'react'
+import { createProjectLibrary, observeLibrary } from '../flow/projectLibrary.js'
+import { createProjectStore } from '../flow/projectStore.js'
+import { report } from './diagnostics.js'
+import { openStoreAdapter, requestDurableStorage } from './storeAdapter.js'
+
+export const STORE_STATUS = Object.freeze({ opening: 'opening', ready: 'ready' })
+
+const OPENING = Object.freeze({ status: STORE_STATUS.opening, library: null, persistent: true })
+
+const StoreContext = createContext(OPENING)
+
+// The library the app uses: each failed call reports its problems once, where the call is made,
+// and the first save that works asks for durable storage, once.
+const reportingLibrary = (library) =>
+  observeLibrary(library, {
+    onProblems: (problems) => problems.forEach(report),
+    onFirstSave: () => requestDurableStorage(),
+  })
+
+// Opened once per page, so React StrictMode's second mount neither opens the database again nor
+// reports STORE_UNAVAILABLE twice.
+const ready = { promise: null }
+const openStoreOnce = () => {
+  ready.promise ??= openStoreAdapter().then(({ adapter, persistent, problems }) => {
+    problems.forEach(report)
+    return {
+      status: STORE_STATUS.ready,
+      library: reportingLibrary(createProjectLibrary(createProjectStore(adapter))),
+      persistent,
+    }
+  })
+  return ready.promise
+}
+
+/** The browser project store for the app: `{ status, library, persistent }`. */
+export function StoreProvider({ children }) {
+  const [store, setStore] = useState(OPENING)
+  useEffect(() => {
+    const live = { current: true }
+    openStoreOnce().then((opened) => {
+      if (live.current) setStore(opened)
+    })
+    return () => {
+      live.current = false
+    }
+  }, [])
+  return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
+}
+
+export const useStore = () => useContext(StoreContext)

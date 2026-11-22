@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
+import { databaseNames, readIndex } from './store.js'
 import { openAllHelpSections, STARTER_STEP_COUNT } from './views.js'
 
 const PROJECT_NAME = 'Untitled Project'
@@ -47,7 +48,7 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
   await expect(page.getByText('AI Enabler', { exact: true })).toBeVisible()
 })
 
-test('reloading after deleting Idea restores six steps and stores nothing', async ({ page }) => {
+test('reloading after deleting Idea restores six steps and stores no project', async ({ page }) => {
   await page.goto('/')
   const steps = cards(page)
   await expect(steps).toHaveCount(STARTER_STEP_COUNT)
@@ -58,12 +59,13 @@ test('reloading after deleting Idea restores six steps and stores nothing', asyn
   await page.reload()
 
   await expect(steps).toHaveCount(STARTER_STEP_COUNT)
-  const storage = await page.evaluate(async () => ({
+  const storage = await page.evaluate(() => ({
     local: localStorage.length,
     session: sessionStorage.length,
-    databases: (await indexedDB.databases()).length,
   }))
-  expect(storage).toEqual({ local: 0, session: 0, databases: 0 })
+  expect(storage).toEqual({ local: 0, session: 0 })
+  await expect.poll(() => databaseNames(page)).toEqual(['ai-enabler'])
+  expect(await readIndex(page)).toEqual([])
 })
 
 test('the default view has no accessibility violations', async ({ page }) => {

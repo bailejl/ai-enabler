@@ -20,6 +20,7 @@ import { isValidConnection } from './flow/connections.js'
 import { IMPORT_CONFIRMING } from './flow/importFlow.js'
 import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
+import { StoreProvider } from './shell/StoreProvider.jsx'
 import { tokens, toCssCustomProperties } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
 import { useProject } from './shell/useProject.js'
@@ -127,8 +128,10 @@ function Shell({ routeName }) {
 export default function App() {
   const route = useRoute()
   return (
-    <ReactFlowProvider>
-      <Shell routeName={route.name} />
-    </ReactFlowProvider>
+    <StoreProvider>
+      <ReactFlowProvider>
+        <Shell routeName={route.name} />
+      </ReactFlowProvider>
+    </StoreProvider>
   )
 }
