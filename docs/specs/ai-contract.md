@@ -8,7 +8,7 @@ Sources: [#24 E13](https://github.com/bailejl/ai-enabler/issues/24) and the requ
 
 Today an AI can build a VSM only by writing the whole project file and importing it. The app's validator stops at the first error, so a large VSM takes many slow round trips. This change gives Claude Code a local MCP server that applies one small, validated change at a time, through the same pure rules the app enforces, and returns every problem with that change right away.
 
-Claude can create a project or open an existing one, edit it with commands, and save it. The server lays out the steps for human readability after every change, and marks the file as changed by AI tools. A human then imports the file into the GitHub Pages app to review it, and the app validates it again. The app stays a static site with no backend.
+Claude can create a project or open an existing one, edit it with commands, and save it. When it saves, the server lays out the steps for human readability and marks the file as changed by AI tools. A human then imports the file into the GitHub Pages app to review it, and the app validates it again. The app stays a static site with no backend.
 
 The server ships in a Claude Code plugin from this repo, together with the `aie-guide` and `aie-review` skills, a JSON Schema for the file, `llms.txt` and `AGENTS.md`.
 
