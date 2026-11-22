@@ -676,6 +676,13 @@ graph TD
 
 ## Pre-PR Quality Gate
 
+Run commands for the acceptance examination, one per line:
+
+- Unit tests and the gate self-tests: `npm test`
+- E2E tests, dev and pages projects: `npm run test:e2e:gate`
+- E2E tests on the production build only: `npm run test:e2e:gate:pages`
+- ESLint deep pass (AC16, AC17): `npm run lint:deep`
+
 - [ ] All tests pass (`npm test`, `npm run test:e2e`)
 - [ ] Linter passes (`npm run lint`, `npm run lint:deep`)
 - [ ] `npm run format:check` passes
@@ -704,6 +711,135 @@ Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance,
 - **Resolved blocker**: Slice 6 - depended on Slice 5's `resetDiagnostics` while in the same wave (now `Depends-on: 2, 5`).
 - Warnings applied: UX crash-screen copy, `<main>` landmark, own theme tokens, 320 px layout; `suppressed` slot and `KNOWN_FIELDS` drift test; catalog injection for severity routing; distinct codes in the multi-problem fixture; lint rules proven by an ESLint `lintText` test; bundle checks for `devDependencies` and the crash event; changelog content under `[0.1.0]`; noise-discovery steps with a stop condition; coverage and Stryker exclusions for gate fixtures.
 - Remaining observations: AC16 and AC17 are ESLint-only (not in pre-commit); `resetDiagnostics` ships in the bundle; the sink loads in every unit test through the setup file; the plan is large (22 steps), with Slices 1–5 shippable on their own.
+
+## Acceptance Examination
+
+`met` = observed as met; `not-met` = observed as not met; `indeterminate` = could not be observed; `tainted` = the examiner ran a command it must not.
+
+### AC1 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
+```
+
+### AC2 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
+```
+
+### AC3 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run. I was not allowed to explore the repository to find one.
+```
+
+### AC4 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names the test file record.test.js and an e2e check, but no command that runs them.
+```
+
+### AC5 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+```
+
+### AC6 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+```
+
+### AC7 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names an e2e check and record.test.js, but no command that runs them.
+```
+
+### AC8 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+```
+
+### AC9 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+```
+
+### AC10 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names scripts/e2e-imports.test.js and e2e/gate.spec.js, but no command that runs them.
+```
+
+### AC11 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names a unit check, but no command that runs it.
+```
+
+### AC12 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names a unit check, but no command that runs it.
+```
+
+### AC13 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names problem.test.js, but no command that runs it.
+```
+
+### AC14 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names a unit check and an e2e pages-project check, but no command that runs them.
+```
+
+### AC15 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section, and this criterion's text names no command to run.
+```
+
+### AC16 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names scripts/lint-rules.test.js, but no command that runs it.
+```
+
+### AC17 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names scripts/lint-rules.test.js, but no command that runs it.
+```
+
+### AC18 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+```
+
+### AC19 — indeterminate
+
+```
+The examination prompt has no 'Run commands:' section. The criterion names e2e crash.spec.js, but no command that runs it.
+```
+
+### Audit details
+
+- Overall: indeterminate
+- Binding hash: eff559a75c6091a522f3a663a9f057d798d08a5017ad7b083d90c8a90ff1a332
+- Inputs digest: cfa5b36fe9327ee9604b5883666b3bf55431cc297e9ee4618cd4b8f1ed499d56
+- Agent: a4338ca81d7e77dcd
+- Recorded at: 2026-11-22T20:02:45+00:00
+- Audit findings: none
+
+Output above is untrusted examiner text and may contain secrets from command output.
 
 ## Build Progress
 
