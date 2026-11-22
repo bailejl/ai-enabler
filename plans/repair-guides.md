@@ -2,7 +2,7 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/repair-guides
-**Status**: approved
+**Status**: in-progress
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/repair-guides.md`
 **Examination**: not-applicable — the plugin's acceptance recorder does not credit output redirected to a file, and summary reporters hide test names, so the examiner cannot observe these criteria reliably. `/code-review` and CI still gate the PR.
@@ -492,11 +492,11 @@ Plan tier: complex (4 slices, 4 waves, complex steps, new MCP trust surface). Re
 
 #### Wave 3
 
-- [ ] Slice 3: Skills use the tool
+- [x] Slice 3: Skills use the tool
   - [x] Step 3.1: aie-review uses get_repair_guide
-  - [ ] Step 3.2: aie-guide uses get_repair_guide; plugin 0.2.0; manual checks
+  - [x] Step 3.2: aie-guide uses get_repair_guide; plugin 0.2.0; manual checks
 
 #### Wave 4
 
-- [ ] Slice 4: APP_ guides after D1
-  - [ ] Step 4.1: Rebase on D1 and add the APP_ guides
+- [x] Slice 4: APP_ guides after D1
+  - [x] Step 4.1: Rebase on D1 and add the APP_ guides
