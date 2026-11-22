@@ -2,10 +2,10 @@
 
 **Created**: 2026-11-22
 **Branch**: feat/homepage
-**Status**: draft (revision 2, after plan review)
+**Status**: approved (2026-11-22, by the user, with all six R rules; spec AC30–AC35)
 **Examination**: not-applicable (standing rule: the plugin recorder bug does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
-**Spec**: `docs/specs/homepage.md` (AC1–AC29, gate passed 2026-11-22). Issue #27, row 8 of `plans/mvp-order.md`.
+**Spec**: `docs/specs/homepage.md` (AC1–AC35, gate passed 2026-11-22). Issue #27, row 8 of `plans/mvp-order.md`.
 **Build waits for**: R4 (`feat/ui-on-commands`) and D2 (repair guides) to merge. Step 0.1 re-checks the seams after both merge.
 
 ## Goal
@@ -76,6 +76,12 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - [ ] AC27 Help says projects save automatically and that the last change wins across two tabs.
 - [ ] AC28 All homepage states pass axe and work by keyboard.
 - [ ] AC29 The in-project header Import replaces that project and keeps its id.
+- [ ] AC30 An unopenable card offers only Replace from file, Export and Delete; replace repairs it.
+- [ ] AC31 A refused homepage write changes nothing, keeps the dialog or lists the problem, never announces success.
+- [ ] AC32 The lasting notice also shows after a failed save until a save works; leaving the tab asks first.
+- [ ] AC33 Import confirmations read "Replace <current> with <incoming>?".
+- [ ] AC34 The card's import is labelled "Replace from file".
+- [ ] AC35 Durable storage is requested once; help says clearing site data deletes projects.
 
 ## Slices
 
@@ -403,7 +409,7 @@ Feature: Projects open from and save to the browser
 **TEST**: The contract and half-write scenarios in `store.spec.js` (the contract runs in the page through `page.evaluate` on the built module); library unit tests for `open` (found, not found, invalid with `STORE_FILE_INVALID` first) and the persist call.
 **REFACTOR**: Keep the adapter to request-to-promise plumbing only.
 **Files**: `src/shell/indexedDbAdapter.js`, `src/shell/storeAdapter.js`, `src/shell/StoreProvider.jsx`, `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/App.jsx`, `e2e/store.js`, `e2e/store.spec.js`
-**Covers**: AC12, AC22
+**Covers**: AC12, AC22, AC35
 **Commit**: `feat: store projects in IndexedDB behind one adapter choice`
 
 #### Step 3.2: Seed e2e projects while the starter still exists
@@ -443,7 +449,7 @@ Feature: Projects open from and save to the browser
 **TEST**: Reducer unit tests (different id and name, same name, wording); header-import e2e with reload; help lines e2e.
 **REFACTOR**: Drop the id branch from the reducer and its dead tests.
 **Files**: `src/shell/useImportFlow.js`, `src/shell/useProject.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/shell/HelpMenu.jsx`, `docs/specs/ui-shell.md`, `e2e/export-import.spec.js`, `e2e/shell.spec.js`
-**Covers**: AC27, AC29
+**Covers**: AC27, AC29, AC33, AC35
 **Commit**: `feat: share the import flow, keep the project id, and explain saving`
 
 ### Slice 4: Homepage list and create
@@ -542,7 +548,7 @@ Feature: Homepage list and create
 **TEST**: Library unit tests (created, blank, write fails); create, blank, failed-create and cancel scenarios.
 **REFACTOR**: Keep the dialog generic (title, label, submit text) for rename.
 **Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/ProjectNameDialog.jsx`, `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `src/App.jsx`, `e2e/homepage.spec.js`
-**Covers**: AC5, AC6
+**Covers**: AC5, AC6, AC31
 **Commit**: `feat: create a project from the homepage`
 
 #### Step 4.3: Brand link home and accessibility
@@ -697,7 +703,7 @@ Feature: Card actions
 **TEST**: Unit tests over id lists (first, middle, last, only); delete, cancel, unopenable-delete and failed-write scenarios.
 **REFACTOR**: Share the announcement builder with duplicate.
 **Files**: `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `e2e/homepage.spec.js`
-**Covers**: AC10, AC17, AC22
+**Covers**: AC10, AC17, AC22, AC31
 **Commit**: `feat: delete a project from its card`
 
 #### Step 5.4: Export from a card and unopenable menus
@@ -707,7 +713,7 @@ Feature: Card actions
 **TEST**: Library unit tests; export, unopenable-menu scenarios; a11y.
 **REFACTOR**: One download path shared with the header export.
 **Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/shell/ProjectCard.jsx`, `src/shell/CardMenu.jsx`, `e2e/homepage.spec.js`, `e2e/a11y.spec.js`
-**Covers**: AC10, AC20, AC28
+**Covers**: AC10, AC20, AC28, AC30
 **Commit**: `feat: export a project from its card`
 
 ### Slice 6: Imports from the homepage
@@ -810,7 +816,7 @@ Feature: Import from the homepage
 **TEST**: Reducer unit cases for the card name, the edited and AI notices; library unit test for replace on an unopenable card; replace scenarios.
 **REFACTOR**: No second copy of the import orchestration.
 **Files**: `src/shell/useImportFlow.js`, `src/shell/CardMenu.jsx`, `src/shell/ProjectCard.jsx`, `src/shell/useHomepage.js`, `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `e2e/homepage.spec.js`
-**Covers**: AC18, AC22
+**Covers**: AC18, AC22, AC30, AC34
 **Commit**: `feat: replace a project from a file on its card`
 
 #### Step 6.2: Import a new project on the homepage
@@ -820,7 +826,7 @@ Feature: Import from the homepage
 **TEST**: Library unit tests (free id, taken id, two concurrent imports, write fails); homepage-import scenarios.
 **REFACTOR**: One id-choice function, named for what it decides.
 **Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/HomeStatus.jsx`, `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `e2e/homepage.spec.js`
-**Covers**: AC19, AC22
+**Covers**: AC19, AC22, AC31
 **Commit**: `feat: import a project file from the homepage`
 
 ### Slice 7: Blocked storage notice
@@ -889,7 +895,7 @@ Feature: Working when the browser is not saving
 **TEST**: Blocked-storage outline (three init-script variants), memory workflow, not-found, leave guard, failed-save notice, a11y; `expectDiagnostics` for `STORE_UNAVAILABLE` and `STORE_WRITE_FAILED`.
 **REFACTOR**: The notice rule is one selector in `storeStatus.js`, unit tested.
 **Files**: `src/flow/storeStatus.js`, `src/flow/storeStatus.test.js`, `src/shell/StoreNotice.jsx`, `src/shell/StoreProvider.jsx`, `src/shell/HomePage.jsx`, `src/shell/ProjectMissing.jsx`, `src/App.jsx`, `src/index.css`, `e2e/store.spec.js`, `e2e/a11y.spec.js`
-**Covers**: AC14, AC21, AC22, AC28
+**Covers**: AC14, AC21, AC22, AC28, AC32
 **Commit**: `feat: show a lasting notice while the browser is not saving`
 
 ## Parallelization
@@ -936,7 +942,7 @@ graph TD
 
 ## Risks & Open Questions
 
-- **R rules need the user's yes** (from plan review; each extends or adjusts the spec, and the spec is updated to match once confirmed):
+- **R rules: accepted by the user 2026-11-22** and recorded in the spec as AC30–AC35:
   1. Unopenable cards show only Replace from file, Export and Delete; replace repairs them.
   2. A failed homepage write (create, rename, duplicate, delete, import) changes nothing, keeps a dialog open or lists the problem, and never announces success.
   3. The lasting "Not saved" notice also shows after a failed save, until a save works, and a leave prompt guards it.
