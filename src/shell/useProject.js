@@ -38,6 +38,13 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
   // state a callback captured at render time, so a dispatch after an `await` sees every earlier one.
   const latestImportState = useRef(importState)
   const latestRequestId = useRef(0)
+  // The newest project, for the same reason: a read that finishes after a confirm must compare the
+  // file with the project that confirm put in place.
+  const latestProject = useRef(project)
+
+  useEffect(() => {
+    latestProject.current = project
+  }, [project])
 
   useEffect(() => {
     const hasChanged = previousState.current !== importState
@@ -53,7 +60,10 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       latestImportState.current = state
       setImportState(state)
       if (announcement) announce(announcement)
-      if (replacement) applyReplacement(replacement)
+      if (replacement) {
+        latestProject.current = replacement.project
+        applyReplacement(replacement)
+      }
     },
     [announce, applyReplacement],
   )
@@ -65,10 +75,10 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
       const requestId = latestRequestId.current
       const result = await readImport(file)
       if (requestId === latestRequestId.current) {
-        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project })
+        dispatchImport({ type: IMPORT_EVENT.fileParsed, result, project: latestProject.current })
       }
     },
-    [dispatchImport, project],
+    [dispatchImport],
   )
   const confirmImport = useCallback(
     () => dispatchImport({ type: IMPORT_EVENT.confirm }),

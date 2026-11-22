@@ -614,6 +614,43 @@ test('when two files are chosen in a row, only the last one chosen asks for conf
   await expect(confirmDialog(page)).not.toContainText(CHECKOUT_NAME)
 })
 
+test('a read that finishes after a confirm is judged against the project and outcome that confirm left', async ({
+  page,
+}) => {
+  const checkoutFile = readFixture('different-name.json')
+  const outcome = `Imported ${CHECKOUT_NAME}, ${checkoutFile.nodes.length} steps`
+  await page.goto('/')
+  await chooseFile(page, fixturePath('different-name.json'))
+  await expect(confirmDialog(page)).toHaveAccessibleName(CHECKOUT_QUESTION)
+  // The next read, started while the dialog is open, is held until the test releases it.
+  await page.evaluate((slowText) => {
+    const readText = Blob.prototype.text
+    Blob.prototype.text = () => {
+      Blob.prototype.text = readText
+      return new Promise((resolve) => {
+        window.releaseSlowRead = () => {
+          window.slowReadSettled = true
+          resolve(slowText)
+        }
+      })
+    }
+  }, JSON.stringify(checkoutFile))
+  await chooseFile(page, asUpload(checkoutFile))
+  await confirmDialog(page).getByRole('button', { name: 'Replace map' }).click()
+  await expect(confirmDialog(page)).toHaveCount(0)
+  await expect(importStatus(page)).toHaveText(outcome)
+
+  await page.evaluate(() => window.releaseSlowRead())
+
+  // The same file as the confirmed one is the current project now, not a replacement of the old.
+  const sameNameQuestion = `Replace current map with the imported version of ${CHECKOUT_NAME}?`
+  await expect(confirmDialog(page)).toHaveAccessibleName(sameNameQuestion)
+  // Cancelling puts back the last outcome, which is the confirmed import, not the state the read
+  // started from.
+  await confirmDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(importStatus(page)).toHaveText(outcome)
+})
+
 test('choosing the same invalid file again shows and announces the error again', async ({
   page,
   diagnostics,

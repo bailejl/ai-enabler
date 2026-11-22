@@ -8,7 +8,7 @@
 // mockRestore() inside a test cannot unhook it. A test's own spy that it restores puts the
 // capture back, which is fine; any other replacement left in place fails the test.
 
-import { afterEach, beforeEach } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { resetDiagnostics } from './src/shell/diagnostics.js'
 import { captureConsole, finishCapture, startCapture } from './src/testHelpers.js'
 
@@ -33,6 +33,9 @@ afterEach(() => {
   const replaced = installed
     .filter(({ level, capture }) => globalThis.console[level] !== capture)
     .map(({ level }) => `console.${level} spy replaced: use expectDiagnostics or inject a console`)
+  // Undo any spy a test left behind (a failing test may never reach its own restore), so it
+  // cannot leak into later tests in the file, then put the real console methods back.
+  vi.restoreAllMocks()
   installed.forEach(({ level, original }) => {
     globalThis.console[level] = original
   })

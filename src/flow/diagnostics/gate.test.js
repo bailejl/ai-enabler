@@ -350,6 +350,16 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
     })
   })
 
+  it('restores a spy a test left behind, so it cannot leak into the next test', () => {
+    // Guard: the test before it must have left a spy
+    expect(outcomes['isolation.fixture.js > passes while leaving a spy behind']).toMatchObject({
+      status: 'passed',
+    })
+    expect(
+      outcomes['isolation.fixture.js > passes because the spy left behind was restored'],
+    ).toMatchObject({ status: 'passed' })
+  })
+
   it('fails a test that replaces the implementation of a console spy', () => {
     expect(
       outcomes['spyreplaced.fixture.js > fails when console.error gets its own implementation'],
