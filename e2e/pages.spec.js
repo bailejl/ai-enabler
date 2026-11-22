@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { PAGES_BASE } from '../scripts/pages-base.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import { collectConsole, ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter } from './console.js'
+import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter } from './console.js'
 import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
@@ -48,8 +48,13 @@ test('a project deep link loads directly and after a refresh under the base', as
   await expectHash(page, '#/projects/abc')
 })
 
-test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async ({ page }) => {
-  const { messages } = collectConsole(page)
+test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  const { messages } = capture
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto(`${PAGES_BASE}#/`)
   await expectStarterSteps(page)
 

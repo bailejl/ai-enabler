@@ -13,6 +13,11 @@ export { expect }
 const CONSOLE_LEVEL = Object.freeze({ warning: 'warn' })
 const toLevel = (type) => CONSOLE_LEVEL[type] ?? type
 
+// What a test may do to the gate: declare the codes it expects, and nothing else.
+export const createDiagnostics = (capture) => ({
+  expect: (codes) => capture.expected.push(...codes),
+})
+
 // Playwright's fixture callback is conventionally named `use`; `provide` keeps the React hooks
 // lint rule from reading it as a hook.
 export const test = base.extend({
@@ -23,7 +28,7 @@ export const test = base.extend({
   },
 
   diagnostics: async ({ capture }, provide) => {
-    await provide({ expect: (codes) => capture.expected.push(...codes) })
+    await provide(createDiagnostics(capture))
   },
 
   gate: [

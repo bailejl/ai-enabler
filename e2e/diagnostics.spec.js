@@ -1,12 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import {
-  collectConsole,
-  ISO_UTC_TIMESTAMP,
-  PACKAGE_VERSION,
-  recordsAfter,
-  UUID_V4,
-} from './console.js'
+import { ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter, UUID_V4 } from './console.js'
 import { asUpload, chooseFile, importStatus, readFixture } from './views.js'
 
 const SECRET = 'SECRET-MARKER'
@@ -35,8 +29,13 @@ const markerFile = () => ({
 
 const dismissStatus = (page) => importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
 
-test('a file that is not JSON writes exactly one coded error record', async ({ page }) => {
-  const { messages } = collectConsole(page)
+test('a file that is not JSON writes exactly one coded error record', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  const { messages } = capture
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
 
   const before = Date.now()
@@ -64,8 +63,11 @@ test('a file that is not JSON writes exactly one coded error record', async ({ p
 
 test('a file with three problems writes three records, again on a second import', async ({
   page,
+  capture,
+  diagnostics,
 }) => {
-  const { messages } = collectConsole(page)
+  const { messages } = capture
+  diagnostics.expect(THREE_PROBLEM_CODES)
   await page.goto('/')
 
   await chooseFile(page, asUpload(threeProblemFile()))
@@ -81,8 +83,13 @@ test('a file with three problems writes three records, again on a second import'
   ])
 })
 
-test('records in one page load share version and session', async ({ page }) => {
-  const { messages } = collectConsole(page)
+test('records in one page load share version and session', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  const { messages } = capture
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   await recordsAfter(page, messages, 1)
@@ -98,8 +105,9 @@ test('records in one page load share version and session', async ({ page }) => {
   expect(second.version).toBe(first.version)
 })
 
-test('a reload starts a new session', async ({ page }) => {
-  const { messages } = collectConsole(page)
+test('a reload starts a new session', async ({ page, capture, diagnostics }) => {
+  const { messages } = capture
+  diagnostics.expect(['FILE_NOT_JSON'])
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   const [{ record: beforeReload }] = await recordsAfter(page, messages, 1)
@@ -112,8 +120,13 @@ test('a reload starts a new session', async ({ page }) => {
   expect(afterReload.session).not.toBe(beforeReload.session)
 })
 
-test('a step name from the file never reaches the console', async ({ page }) => {
-  const { messages, pageErrors } = collectConsole(page)
+test('a step name from the file never reaches the console', async ({
+  page,
+  capture,
+  diagnostics,
+}) => {
+  const { messages, pageErrors } = capture
+  diagnostics.expect(['STEP_POSITION_MISSING', 'STEP_COUNT_INVALID'])
   await page.goto('/')
 
   await chooseFile(page, asUpload(markerFile()))
