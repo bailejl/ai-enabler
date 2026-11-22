@@ -563,20 +563,20 @@ Approved by the user on 2026-11-22, through the coordinator: one PR; the first-r
 
 #### Wave 1
 
-- [ ] Slice 1: UI-only commands and all-or-nothing edits
-  - [ ] Step 1.1: move_step command, flagged UI-only
-  - [ ] Step 1.2: applyCommands, all or nothing
-  - [ ] Step 1.3: MCP leaves UI-only commands out
-  - [ ] Step 1.4: Parity counts only MCP commands, and the rule is written down
-- [ ] Slice 2: Shared problems panel
-  - [ ] Step 2.1: Pure problems view
-  - [ ] Step 2.2: Import rejection through the shared view and panel
+- [x] Slice 1: UI-only commands and all-or-nothing edits
+  - [x] Step 1.1: move_step command, flagged UI-only
+  - [x] Step 1.2: applyCommands, all or nothing
+  - [x] Step 1.3: MCP leaves UI-only commands out
+  - [x] Step 1.4: Parity counts only MCP commands, and the rule is written down
+- [x] Slice 2: Shared problems panel
+  - [x] Step 2.1: Pure problems view
+  - [x] Step 2.2: Import rejection through the shared view and panel
 
 #### Wave 2
 
 - [ ] Slice 3: Canvas edits through commands
-  - [ ] Step 3.1: Pure canvas mapping and edit builders
-  - [ ] Step 3.2: Pure edit runner
+  - [x] Step 3.1: Pure canvas mapping and edit builders
+  - [x] Step 3.2: Pure edit runner
   - [ ] Step 3.3: The project drives the canvas
 
 #### Wave 3
