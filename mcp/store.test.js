@@ -257,6 +257,31 @@ describe('read', () => {
     expect(result).not.toHaveProperty('text')
   })
 
+  it('rejects a file that grew above 5 MB after the check', async () => {
+    await writeFile(path.join(folder, 'grew.json'), 'a'.repeat(MAX_BYTES + 1))
+    await writeFile(path.join(folder, 'small.json'), 'a')
+    const realLstat = fsp.lstat
+    vi.spyOn(fsp, 'lstat').mockImplementation(async (file) =>
+      realLstat(file.endsWith('grew.json') ? path.join(folder, 'small.json') : file),
+    )
+    const result = await createStore(startDir).read('grew.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_TOO_LARGE'])
+    expect(result).not.toHaveProperty('text')
+  })
+
+  it('rejects a file that gained a second hard link after the check', async () => {
+    await writeFile(path.join(outside, 'linked-later.json'), 'secret')
+    await link(path.join(outside, 'linked-later.json'), path.join(folder, 'linked.json'))
+    await writeFile(path.join(folder, 'small.json'), 'a')
+    const realLstat = fsp.lstat
+    vi.spyOn(fsp, 'lstat').mockImplementation(async (file) =>
+      realLstat(file.endsWith('linked.json') ? path.join(folder, 'small.json') : file),
+    )
+    const result = await createStore(startDir).read('linked.json')
+    expect(result.problems.map((p) => p.code)).toEqual(['FILE_NAME_NOT_ALLOWED'])
+    expect(result).not.toHaveProperty('text')
+  })
+
   it('closes the file after reading it', async () => {
     await writeFile(path.join(folder, 'team.json'), 'text')
     const realOpen = fsp.open

@@ -75,6 +75,10 @@ export const createStore = (startDir) => {
       // between makes the open fail with ELOOP instead of being followed.
       const handle = await fsp.open(resolved.target, constants.O_RDONLY | constants.O_NOFOLLOW)
       try {
+        // Check the opened file again: one swapped in after the lstat is caught here.
+        const opened = await handle.stat()
+        if (!opened.isFile() || opened.nlink > 1) return fail('FILE_NAME_NOT_ALLOWED', name)
+        if (opened.size > MAX_FILE_BYTES) return fail('FILE_TOO_LARGE', name)
         return { ok: true, text: await handle.readFile('utf8') }
       } finally {
         await handle.close()
