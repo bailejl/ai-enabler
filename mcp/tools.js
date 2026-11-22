@@ -132,10 +132,19 @@ const listProblems = (session, { gate }) => {
   return succeed(session, `${scope}: ${formatCount(problems.length, 'problem')}`, { problems })
 }
 
-// Pure lookup in the injected guide map. Anything but a catalog code with a guide throws, so
-// `execute` answers CMD_INTERNAL_ERROR; refusing a bad code with its own problem is a later step.
+// Pure lookup in the injected guide map. A value that is not a catalog code is refused before any
+// lookup, and is echoed only through `nameLabel` in the message and as sent in `untrusted`. A
+// catalog code with no guide is a server fault, so it throws and `execute` answers
+// CMD_INTERNAL_ERROR.
 const getRepairGuide = (session, { code }, { guides }) => {
-  if (typeof code !== 'string' || !isCatalogCode(code)) throw new Error('Not a catalog code')
+  if (typeof code !== 'string' || !isCatalogCode(code)) {
+    return reject(session, 'get_repair_guide', [
+      problem('CMD_CODE_UNKNOWN', {
+        params: { code: nameLabel(code) },
+        ...(code === undefined ? {} : { untrusted: { code } }),
+      }),
+    ])
+  }
   const guide = guides[code]
   if (guide === undefined) throw new Error(`No repair guide for ${code}`)
   return succeed(session, `Repair guide for ${code}`, { code, guide })

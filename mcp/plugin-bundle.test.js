@@ -97,4 +97,24 @@ describe('the bundled server', () => {
     },
     SPAWN_TIMEOUT_MS,
   )
+
+  it(
+    'refuses a code that is not a catalog code with CMD_CODE_UNKNOWN',
+    async () => {
+      const { client, cleanup } = await startBundle()
+      onTestFinished(cleanup)
+
+      const result = await client.callTool({
+        name: 'get_repair_guide',
+        arguments: { code: 'CONN_NOPE' },
+      })
+
+      expect(result.isError).toBe(true)
+      expect(result.structuredContent.problems.map(({ code }) => code)).toEqual([
+        'CMD_CODE_UNKNOWN',
+      ])
+      expect(result.structuredContent).not.toHaveProperty('guide')
+    },
+    SPAWN_TIMEOUT_MS,
+  )
 })

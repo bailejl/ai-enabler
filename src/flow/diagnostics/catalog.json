@@ -550,5 +550,17 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "CMD_CODE_UNKNOWN": {
+    "code": "CMD_CODE_UNKNOWN",
+    "severity": "error",
+    "title": "Problem code is unknown",
+    "summary": "The code given to get_repair_guide is not the code of any problem this server reports.",
+    "message": "There is no problem code {code}. Use the `code` of a problem from a tool result.",
+    "fix": "Call get_repair_guide with the code of a problem from a tool result.",
+    "docs": "#cmd-code-unknown",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

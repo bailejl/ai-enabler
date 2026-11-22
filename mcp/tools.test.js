@@ -566,6 +566,69 @@ describe('get_repair_guide', () => {
     ])
   })
 
+  // Each row: the arguments sent, how the message names the value, and the `untrusted` key
+  // expected on the problem (absent when no code was sent).
+  const LONG = 'a'.repeat(10_000)
+  const NOT_A_CODE = [
+    ['missing', {}, '(no name)', undefined],
+    ['null', { code: null }, '(no name)', { code: null }],
+    ['42', { code: 42 }, '(no name)', { code: 42 }],
+    ['true', { code: true }, '(no name)', { code: true }],
+    ['a list', { code: ['CONN_LOOP'] }, '(no name)', { code: ['CONN_LOOP'] }],
+    ['an object', { code: {} }, '(no name)', { code: {} }],
+    ['an empty string', { code: '' }, '(no name)', { code: '' }],
+    ['an unknown code', { code: 'CONN_NOPE' }, 'CONN_NOPE', { code: 'CONN_NOPE' }],
+    ['lower case', { code: 'conn_loop' }, 'conn_loop', { code: 'conn_loop' }],
+    ['a padded code', { code: ' CONN_LOOP' }, ' CONN_LOOP', { code: ' CONN_LOOP' }],
+    ['a trailing newline', { code: 'CONN_LOOP\n' }, 'CONN_LOOP\n', { code: 'CONN_LOOP\n' }],
+    ['__proto__', { code: '__proto__' }, '__proto__', { code: '__proto__' }],
+    ['constructor', { code: 'constructor' }, 'constructor', { code: 'constructor' }],
+    ['toString', { code: 'toString' }, 'toString', { code: 'toString' }],
+    ['a path', { code: '../catalog.json' }, '../catalog.json', { code: '../catalog.json' }],
+    ['a file name', { code: 'CONN_LOOP.md' }, 'CONN_LOOP.md', { code: 'CONN_LOOP.md' }],
+    ['a windows path', { code: 'C:\\x' }, 'C:\\x', { code: 'C:\\x' }],
+    ['a 10,000-letter string', { code: LONG }, `${'a'.repeat(79)}…`, { code: LONG }],
+  ]
+
+  describe.each(NOT_A_CODE)('with a code that is %s', (_label, args, label, untrusted) => {
+    it('is refused with exactly one CMD_CODE_UNKNOWN problem and no guide', async () => {
+      const { call, lines } = makeHost({}, GUIDES)
+      const result = await call('get_repair_guide', args)
+      expect(result.isError).toBe(true)
+      expect(codes(result)).toEqual(['CMD_CODE_UNKNOWN'])
+      expect(result.content.total).toBe(1)
+      expect(result.content).not.toHaveProperty('guide')
+      expect(lines).toEqual([])
+      const [found] = result.content.problems
+      expect(found.message).toBe(
+        `There is no problem code ${label}. Use the \`code\` of a problem from a tool result.`,
+      )
+      expect(found.fix).toBe('Call get_repair_guide with the code of a problem from a tool result.')
+    })
+
+    it('keeps the value out of fix, field, stepId and edgeId and as sent in untrusted', async () => {
+      const { call } = makeHost({}, GUIDES)
+      const [found] = (await call('get_repair_guide', args)).content.problems
+      const value = args.code
+      if (typeof value === 'string' && value !== '') {
+        for (const key of ['fix', 'field', 'stepId', 'edgeId']) {
+          expect(found[key] ?? '', key).not.toContain(value)
+        }
+      }
+      if (untrusted === undefined) expect(found).not.toHaveProperty('untrusted')
+      else expect(found.untrusted).toEqual(untrusted)
+    })
+  })
+
+  it('refuses an extra argument with only CMD_ARGUMENT_UNKNOWN, before the code is checked', async () => {
+    const { call } = makeHost({}, GUIDES)
+    const result = await call('get_repair_guide', { code: 'NOPE', path: 'x' })
+    expect(result.isError).toBe(true)
+    expect(codes(result)).toEqual(['CMD_ARGUMENT_UNKNOWN'])
+    expect(result.content.problems[0].message).toContain('path')
+    expect(result.content).not.toHaveProperty('guide')
+  })
+
   it('is an internal error for a catalog code with no entry in the guide map', async () => {
     const { call, lines } = makeHost({}, { STEP_NOT_FOUND: 'x' })
     const result = await call('get_repair_guide', { code: 'CONN_LOOP' })
