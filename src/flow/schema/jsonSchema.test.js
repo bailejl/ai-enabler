@@ -126,6 +126,8 @@ describe('the JSON Schema and the validator agree on field rules', () => {
       withEdit((f) => (f.modifiedBy = markWith({ at: '2026-11-20T09:30:00+02:00' }))),
     ],
     ['a whitespace-only project id', withEdit((f) => (f.project.id = ' '))],
+    ['a content hash that is not sha256', withEdit((f) => (f.contentHash = 'md5-abc'))],
+    ['an export time that is not a date', withEdit((f) => (f.exportedAt = 'yesterday'))],
   ])('accepts %s', (_what, file) => {
     expect(checkSchema(file)).toBe(true)
     expect(validateProjectFile(file).ok).toBe(true)

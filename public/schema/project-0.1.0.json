@@ -6,32 +6,43 @@
   "type": "object",
   "required": ["schemaVersion", "project", "nodes", "edges"],
   "properties": {
-    "schemaVersion": { "const": "0.1.0" },
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
     "contentHash": {
-      "description": "sha256- and the lowercase hex SHA-256 of the file's canonical JSON without this field. A missing or wrong hash makes the app show a changed-outside notice.",
-      "type": "string",
-      "pattern": "^sha256-[0-9a-f]{64}$"
+      "description": "Written as sha256- and the lowercase hex SHA-256 of the file's canonical JSON without this field. The app accepts any value: a missing or wrong hash only makes it show a changed-outside notice."
     },
     "exportedAt": {
-      "description": "When the file was written.",
-      "type": "string",
-      "format": "date-time"
+      "description": "When the file was written, as an ISO 8601 time. The app does not check it."
     },
     "modifiedBy": {
       "description": "Set by AI tools that change the file; absent in a file exported by the app.",
       "type": "object",
       "required": ["tool", "at"],
       "properties": {
-        "tool": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,40}$" },
-        "at": { "type": "string", "format": "date-time" }
+        "tool": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,40}$"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     },
     "project": {
       "type": "object",
       "required": ["id", "name"],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "description": "Not blank.", "type": "string", "pattern": "\\S" }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "description": "Not blank.",
+          "type": "string",
+          "pattern": "\\S"
+        }
       }
     },
     "nodes": {
@@ -41,21 +52,33 @@
         "type": "object",
         "required": ["id", "position", "data"],
         "properties": {
-          "id": { "description": "Unique among steps.", "type": "string" },
-          "type": { "const": "step" },
+          "id": {
+            "description": "Unique among steps.",
+            "type": "string"
+          },
+          "type": {
+            "const": "step"
+          },
           "position": {
             "type": "object",
             "required": ["x", "y"],
             "properties": {
-              "x": { "type": "number" },
-              "y": { "type": "number" }
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
             }
           },
           "data": {
             "type": "object",
             "required": ["label"],
             "properties": {
-              "label": { "description": "The step's name.", "type": "string" },
+              "label": {
+                "description": "The step's name.",
+                "type": "string"
+              },
               "pt": {
                 "description": "Process time in whole minutes.",
                 "type": "integer",
@@ -94,12 +117,19 @@
         "type": "object",
         "required": ["id", "source", "target"],
         "properties": {
-          "id": { "description": "Unique among connections.", "type": "string", "minLength": 1 },
+          "id": {
+            "description": "Unique among connections.",
+            "type": "string",
+            "minLength": 1
+          },
           "source": {
             "description": "The id of the step the connection leaves.",
             "type": "string"
           },
-          "target": { "description": "The id of the step the connection enters.", "type": "string" }
+          "target": {
+            "description": "The id of the step the connection enters.",
+            "type": "string"
+          }
         }
       }
     }
