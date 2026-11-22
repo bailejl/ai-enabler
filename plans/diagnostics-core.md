@@ -17,22 +17,22 @@ Make the browser app write one coded, single-line JSON record to the console for
 ## Acceptance Criteria
 
 - [ ] AC1 A rejected import writes exactly one `aie` record per reported problem, via `console.error` for `error` severity
-- [ ] AC2 Every record has `version` = `package.json` version, a per-load `session`, `platform: "browser"`, `build`, and ISO `time`
+- [ ] AC2 Every record has `version` = `package.json` version, a `session` that is equal for all records of one page load and differs after reload, `platform: "browser"`, `build` of `"dev"` or `"prod"`, and `time` matching ISO 8601 UTC (`YYYY-MM-DDTHH:mm:ss.sssZ`)
 - [ ] AC3 A production build writes the same codes and fields, without dev-only error detail
 - [ ] AC4 Records hold only allow-listed keys; marker text in untrusted, params, message, ids or any other key never appears; unknown `field` values are dropped
 - [ ] AC5 At most 5 records per code in any 60 s window; dropped ones counted into `suppressed` on the next record; codes are independent
-- [ ] AC6 A render crash writes one `APP_RENDER_FAILED` record and no other console output, and shows a fallback with heading, one line, the code and Reload; focus on the heading; axe clean; no map content
+- [ ] AC6 In dev (the crash hook exists only in dev; production uses the same boundary code), a forced render crash writes exactly one `APP_RENDER_FAILED` record and no other console output, and shows a `<main>` with the heading "Something went wrong", the exact line "The app hit an error and can't continue. Reload to start again; your unsaved map will be lost. If this keeps happening, report the code below.", the text "Error code: APP_RENDER_FAILED" and a Reload button; focus is on the heading; axe reports no violations; the page text contains no map content
 - [ ] AC7 Uncaught errors and unhandled rejections write `APP_UNCAUGHT_ERROR` and `APP_UNHANDLED_REJECTION`; production `error` holds only `name`
 - [ ] AC8 `report` and `reportError` throw on a code not in the catalog and write nothing
-- [ ] AC9 Vitest gate fails on uncoded console errors or warnings, unexpected codes of any severity, and declared codes that never appear; prints code, severity and fix
-- [ ] AC10 Playwright gate does the same for console messages and page errors; every e2e file uses the shared fixture
-- [ ] AC11 Neither gate has a global allow-list or suppression
-- [ ] AC12 The gates run inside `npm test` and `npm run test:e2e`, which CI runs on every PR
-- [ ] AC13 Catalog severities are `error`, `warning`, `hint`; three `APP_` codes exist with every field
-- [ ] AC14 `package.json` version is `0.1.0`; the client reads it only through `__APP_VERSION__`; the production bundle has no `devDependencies` text
-- [ ] AC15 `CHANGELOG.md` in Keep a Changelog format has `Unreleased` and a `[0.1.0]` section listing Pages deploy, the AI contract and diagnostics; a test requires the current version's section
-- [ ] AC16 Only `src/shell/diagnostics.js` calls `console.*` in non-test `src/` files
-- [ ] AC17 The no-classes and no-`this` rules stay on everywhere except `src/shell/ErrorBoundary.jsx`
+- [ ] AC9 The Vitest gate fails a test, printing one line per problem: for an uncoded `console.error` or `console.warn` call, `uncoded <level>: <text>`; for a record whose code the test did not declare (any severity), `unexpected <code> (<severity>): <catalog fix>`; for a record whose code is not in the catalog, `unknown code <code>`; for a declared code never written, `expected <code> was not seen`
+- [ ] AC10 The Playwright gate applies the AC9 rules and lines to browser console messages, and also fails on page errors with `page error: <message>`, except that each record of a declared `APP_UNCAUGHT_ERROR` or `APP_UNHANDLED_REJECTION` covers one page error (if Step 7.1's spike shows Chromium raises no page error after `preventDefault()`, this exception is dropped and every page error fails); every `e2e/*.js` file except `e2e/fixtures.js` imports `test` only from `./fixtures.js`, checked for static and dynamic imports
+- [ ] AC11 Neither gate accepts a global allow-list or suppression (any configuration, environment variable, file or option that lets a code or console pattern pass without a per-test declaration): `checkDiagnostics`, `expectDiagnostics` and the e2e fixture take only per-test expected codes, and a test asserts their option keys
+- [ ] AC12 The gates run inside `npm test` and `npm run test:e2e`, and a test asserts that `.github/workflows/ci.yml` runs on `pull_request` and runs both commands
+- [ ] AC13 Catalog severities are `error`, `warning`, `hint`; `APP_RENDER_FAILED`, `APP_UNCAUGHT_ERROR` and `APP_UNHANDLED_REJECTION` each have `code`, `severity: "error"`, `title`, `summary`, `message`, `fix`, `docs`, `owner: "app"`, `status: "active"` and `since: "0.1.0"`, all non-empty
+- [ ] AC14 `package.json` version is the literal `0.1.0`; the client reads it only through `__APP_VERSION__`, and `APP_VERSION` equals `0.1.0`; the production bundle contains no `devDependencies` text
+- [ ] AC15 `CHANGELOG.md` starts with `# Changelog`, has `## [Unreleased]` followed by `## [0.1.0] - YYYY-MM-DD`, and the `[0.1.0]` section lists the Pages deploy, the AI contract and diagnostics; a test fails when the `package.json` version has no such section
+- [ ] AC16 In `src/`, `console.*` appears only in `src/shell/diagnostics.js`, `src/testHelpers.js`, `src/**/*.test.{js,jsx}` and `src/flow/diagnostics/gate-selftest/*.fixture.js`; a console call in any other `src/` file fails `npm run lint:deep`
+- [ ] AC17 The no-classes and no-`this` rules apply to every `src/` file, tests included, except `src/shell/ErrorBoundary.jsx`, and exactly one config entry names that file
 
 ## Slices
 
@@ -144,7 +144,7 @@ Feature: Records carry only allow-listed fields
 
 **Complexity**: complex
 **IMPLEMENT**: `toRecord(problem, context, suppressed = 0)` copies only `code`, `severity`, the context keys, `field` when it is in `KNOWN_FIELDS`, and `suppressed` when above zero. `RECORD_KEYS` is one frozen array. `serializeRecord` returns one line.
-**TEST**: `record.test.js`: exact key set, marker redaction across every excluded and extra key, known and unknown `field`, suppressed 2 and 0, single-line output; a drift test that collects `field` from `validateProjectFile` over the validator test inputs and from the commands' rejection results, and checks each is in `KNOWN_FIELDS`.
+**TEST**: `record.test.js`: exact key set, `time` matches the ISO 8601 UTC pattern, marker redaction across every excluded and extra key, known and unknown `field`, suppressed 2 and 0, single-line output; a drift test that collects `field` from `validateProjectFile` over the validator test inputs and from the commands' rejection results, and checks each is in `KNOWN_FIELDS`.
 **REFACTOR**: Keep `RECORD_KEYS` and `KNOWN_FIELDS` side by side.
 **Files**: `src/flow/diagnostics/record.js`, `src/flow/diagnostics/record.test.js`
 **Covers**: AC2, AC4, AC5
@@ -260,7 +260,7 @@ Feature: App version and changelog
 
 **Complexity**: standard
 **IMPLEMENT**: Set `package.json` and lockfile root version to `0.1.0`. `vite.config.js` reads `package.json` through `new URL('./package.json', import.meta.url)` and defines `__APP_VERSION__` as its `version` only. `src/shell/version.js` exports `APP_VERSION`.
-**TEST**: `version.test.js`: `APP_VERSION` equals `package.json` version (read with `readFileSync`).
+**TEST**: `version.test.js`: `APP_VERSION` equals `package.json` version (read with `readFileSync`) and equals the literal `0.1.0`.
 **REFACTOR**: Keep the only `__APP_VERSION__` reference in `version.js`, with an inline global comment.
 **Files**: `package.json`, `package-lock.json`, `vite.config.js`, `src/shell/version.js`, `src/shell/version.test.js`
 **Covers**: AC14
@@ -270,7 +270,7 @@ Feature: App version and changelog
 
 **Complexity**: standard
 **IMPLEMENT**: `CHANGELOG.md` in Keep a Changelog format: empty `Unreleased`, and `[0.1.0]` listing the Pages deploy, the AI contract with the MCP server, and diagnostics (nothing has been released before, so all of D1 belongs in 0.1.0). `scripts/changelog.js` exports pure `versionSection(text, version)` returning the section body or `null`.
-**TEST**: `scripts/changelog.test.js`: the real file has `Unreleased` and a `[<package.json version>]` section mentioning all three items; `versionSection` returns `null` for a missing version.
+**TEST**: `scripts/changelog.test.js`: the real file starts with `# Changelog`, has `## [Unreleased]` then `## [<package.json version>] - YYYY-MM-DD`, and that section mentions all three items; `versionSection` returns `null` for a missing version.
 **REFACTOR**: Keep the heading pattern in one constant.
 **Files**: `CHANGELOG.md`, `scripts/changelog.js`, `scripts/changelog.test.js`
 **Covers**: AC15
@@ -423,7 +423,7 @@ Feature: Unit tests fail on uncoded or unexpected diagnostics
 
 **Complexity**: standard
 **IMPLEMENT**: `checkDiagnostics({ entries, pageErrors = [], expected })` takes console entries (`{ level, text }`), page errors and expected codes; returns failure lines for uncoded error/warn entries, records with unexpected codes (any severity, with severity and catalog fix, or "not in the catalog"), expected codes never seen, and page errors not paired (rule in Step 7.1). The function has no allow-list parameter.
-**TEST**: `gate.test.js`: each scenario as a pure case, plus the pairing cases from Slice 7.
+**TEST**: `gate.test.js`: each scenario as a pure case asserting the exact AC9 failure line, plus the pairing cases from Slice 7, plus an AC11 test that `checkDiagnostics` accepts only `entries`, `pageErrors` and `expected` and throws on any other key.
 **REFACTOR**: Format each failure line in one function shared by both gates.
 **Files**: `src/flow/diagnostics/gate.js`, `src/flow/diagnostics/gate.test.js`
 **Covers**: AC9, AC10, AC11
@@ -451,7 +451,7 @@ Feature: Unit tests fail on uncoded or unexpected diagnostics
 ### Slice 7: E2E test gate
 
 **Depends-on:** 5, 6
-**Files:** `e2e/fixtures.js`, `e2e/console.js`, `e2e/gate.spec.js`, `e2e/*.spec.js`, `e2e/canvas.js`, `e2e/views.js`, `e2e/axe.js`, `scripts/e2e-imports.js`, `scripts/e2e-imports.test.js`
+**Files:** `e2e/fixtures.js`, `e2e/console.js`, `e2e/gate.spec.js`, `e2e/*.spec.js`, `e2e/canvas.js`, `e2e/views.js`, `e2e/axe.js`, `scripts/e2e-imports.js`, `scripts/e2e-imports.test.js`, `scripts/ci-workflow.js`, `scripts/ci-workflow.test.js`
 
 **Behavior:**
 
@@ -518,10 +518,10 @@ Feature: E2E tests fail on uncoded or unexpected diagnostics
 #### Step 7.3: Move every e2e file onto the fixture
 
 **Complexity**: standard
-**IMPLEMENT**: Every `e2e/*.js` file that imports `test` uses `./fixtures.js`. Tests that reject imports declare their codes, derived from the problem lists they already assert on. `scripts/e2e-imports.js` (pure) lists files whose text imports `test` from `@playwright/test`, given file names and texts.
-**TEST**: `scripts/e2e-imports.test.js`: a synthetic offending text is reported; the real `e2e/` folder has no offender except `fixtures.js`. `npm run test:e2e` green, including the "normal canvas use" spec.
+**IMPLEMENT**: Every `e2e/*.js` file that imports `test` uses `./fixtures.js`. Tests that reject imports declare their codes, derived from the problem lists they already assert on. `scripts/e2e-imports.js` (pure) lists files whose text imports from `@playwright/test`, statically or with `import()`, given file names and texts. `scripts/ci-workflow.js` (pure) reports whether a workflow object runs on `pull_request` and which `run` commands it has.
+**TEST**: `scripts/e2e-imports.test.js`: synthetic static and dynamic offending texts are reported; the real `e2e/` folder has no offender except `fixtures.js`. `scripts/ci-workflow.test.js`: `.github/workflows/ci.yml`, parsed with `yaml`, runs on `pull_request` and runs `npm test` and `npm run test:e2e`. An AC11 check that the fixture's `diagnostics` API has only `expect`. `npm run test:e2e` green, including the "normal canvas use" spec.
 **REFACTOR**: Remove the now-unused direct imports.
-**Files**: `e2e/*.spec.js`, `e2e/canvas.js`, `e2e/views.js`, `e2e/axe.js`, `scripts/e2e-imports.js`, `scripts/e2e-imports.test.js`
+**Files**: `e2e/*.spec.js`, `e2e/canvas.js`, `e2e/views.js`, `e2e/axe.js`, `scripts/e2e-imports.js`, `scripts/e2e-imports.test.js`, `scripts/ci-workflow.js`, `scripts/ci-workflow.test.js`
 **Covers**: AC10, AC12
 **Commit**: `test: run every e2e spec through the diagnostics gate`
 
