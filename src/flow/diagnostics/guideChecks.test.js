@@ -105,9 +105,13 @@ describe('shapeProblems', () => {
     const text = guide().replace('## Ask the user first\n\nNone.\n', '')
     const problems = check(text)
 
-    expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain('CONN_LOOP')
-    expect(problems[0]).toContain('## Ask the user first')
+    expect(problems).toEqual(['CONN_LOOP: missing section "## Ask the user first"'])
+  })
+
+  it('names only the missing section when the repair section is gone', () => {
+    const text = guide().replace('## Repair with the tools\n\n1. Call `get_project`.\n', '')
+
+    expect(check(text)).toEqual(['CONN_LOOP: missing section "## Repair with the tools"'])
   })
 
   it('fails a section that appears twice', () => {
@@ -234,6 +238,26 @@ describe('noToolProblems', () => {
     expect(check(guide({ repair: NO_TOOL }))).toEqual([])
   })
 
+  it('does not end the repair section at a line with a # inside it', () => {
+    const repair = 'No tool repairs this.\nSee note # 1.\nTell the user to choose another file.'
+
+    expect(check(guide({ repair }))).toEqual([])
+  })
+
+  it('fails a "Tell the user" line with no marker', () => {
+    expect(check(guide({ repair: 'Tell the user to choose another file.' }))).toHaveLength(1)
+  })
+
+  it('fails a "Tell the user" line just before the marker', () => {
+    const repair = 'Tell the user to choose another file.\nNo tool repairs this.'
+
+    expect(check(guide({ repair }))).toHaveLength(1)
+  })
+
+  it('does not take marker lines from a guide with no repair section', () => {
+    expect(check('No tool repairs this.\nTell the user to choose another file.\n')).toHaveLength(1)
+  })
+
   it('names the guide when the repair section uses a numbered step, not the marker', () => {
     const problems = check(guide({ repair: '1. Tell the user to choose another file.' }))
 
@@ -309,6 +333,28 @@ describe('unknownNameProblems', () => {
     expect(check(text)).toEqual([])
   })
 
+  it.each([
+    ['tool', 'fix_everything'],
+    ['property', 'stepName'],
+    ['gate', 'all-good'],
+    ['catalog code', 'CONN_NOPE'],
+  ])('says the unknown name is not a %s the server has', (kind, name) => {
+    expect(check(`Use \`${name}\` here.`)).toEqual([
+      `CONN_LOOP: \`${name}\` is not a ${kind} the server has`,
+    ])
+  })
+
+  it.each(['fix_all.md', 'XstepNope', 'Xall-nope', 'all-nope.md', 'xCONN_NOPE', 'CONN_NOPE.md'])(
+    'does not check `%s`, which has a shape only in part',
+    (span) => {
+      expect(check(`Use \`${span}\` here.`)).toEqual([])
+    },
+  )
+
+  it.each(['stepNameNope', 'all-very-nope'])('checks `%s`, which repeats its shape', (span) => {
+    expect(check(`Use \`${span}\` here.`)).toHaveLength(1)
+  })
+
   it('does not check a name that is mentioned without backticks', () => {
     expect(check('Call fix_everything with stepName.')).toEqual([])
   })
@@ -352,6 +398,18 @@ describe('unknownNameProblems', () => {
 })
 
 describe('unaskedDestructiveProblems', () => {
+  it('reads None. on the last line of a guide with no final newline', () => {
+    const text = guide({ repair: '1. Call `disconnect`.', ask: 'None.' }).trimEnd()
+
+    expect(unaskedDestructiveProblems(CODE, text)).toHaveLength(1)
+  })
+
+  it('finds a destructive tool at the end of a repair line', () => {
+    const repair = '1. Call disconnect\n2. Call `list_problems`.'
+
+    expect(unaskedDestructiveProblems(CODE, guide({ repair, ask: 'None.' }))).toHaveLength(1)
+  })
+
   it.each(['remove_step', 'disconnect', 'discard_changes'])(
     'fails a repair that calls `%s` when "Ask the user first" is only None.',
     (tool) => {

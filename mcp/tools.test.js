@@ -603,6 +603,7 @@ describe('get_repair_guide', () => {
       expect(result.isError).toBe(true)
       expect(codes(result)).toEqual(['CMD_CODE_UNKNOWN'])
       expect(result.content.total).toBe(1)
+      expect(result.content.summary).toBe('Rejected get_repair_guide: nothing changed (1 problem)')
       expect(result.content).not.toHaveProperty('guide')
       expect(lines).toEqual([])
       const [found] = result.content.problems
