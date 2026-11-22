@@ -1,8 +1,15 @@
 import { test, expect } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { PAGES_BASE } from '../scripts/pages-base.js'
-import { expectHash, expectStarterSteps } from './views.js'
+import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
+import { collectConsole, flushConsole, recordsIn } from './console.js'
+import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
+
+const { version: PACKAGE_VERSION } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+)
 
 const currentPath = (page) => page.evaluate(() => window.location.pathname)
 
@@ -44,4 +51,42 @@ test('a project deep link loads directly and after a refresh under the base', as
   await expectStarterSteps(page)
   expect(await currentPath(page)).toBe(PAGES_BASE)
   await expectHash(page, '#/projects/abc')
+})
+
+test('a rejected import writes the same record as dev, with build "prod"', async ({ page }) => {
+  const { messages } = collectConsole(page)
+  await page.goto(`${PAGES_BASE}#/`)
+  await expectStarterSteps(page)
+
+  await chooseFile(page, asUpload('this is not json'))
+
+  await expect.poll(() => recordsIn(messages).length).toBeGreaterThanOrEqual(1)
+  await flushConsole(page)
+  const records = recordsIn(messages)
+  expect(records).toHaveLength(1)
+  const [{ type, record }] = records
+  expect(type).toBe('error')
+  expect(Object.keys(record)).toEqual(RECORD_KEYS)
+  expect(record).toMatchObject({
+    code: 'FILE_NOT_JSON',
+    version: PACKAGE_VERSION,
+    platform: 'browser',
+    build: 'prod',
+  })
+})
+
+test('no served JavaScript asset contains the text devDependencies', async ({ page, request }) => {
+  const scriptUrls = new Set()
+  page.on('request', (found) => {
+    if (found.resourceType() === 'script') scriptUrls.add(found.url())
+  })
+
+  await page.goto(`${PAGES_BASE}#/`)
+  await expectStarterSteps(page)
+
+  expect(scriptUrls.size).toBeGreaterThan(0)
+  const bodies = await Promise.all(
+    [...scriptUrls].map(async (url) => (await request.get(url)).text()),
+  )
+  expect(bodies.filter((body) => body.includes('devDependencies'))).toEqual([])
 })

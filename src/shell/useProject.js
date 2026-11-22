@@ -16,6 +16,7 @@ import {
   toProjectFile,
   withContentHash,
 } from '../flow/projectFile.js'
+import { report } from './diagnostics.js'
 import { downloadTextFile } from './download.js'
 
 // A file the browser cannot read is reported like any other file that cannot be imported.
@@ -40,6 +41,7 @@ const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) 
     previousState.current = importState
     const keepsFocus = importState.type === IMPORT_CONFIRMING || importState.type === IMPORT_ERROR
     if (hasChanged && !keepsFocus) returnFocusRef.current?.focus()
+    if (hasChanged && importState.type === IMPORT_ERROR) importState.problems.forEach(report)
   }, [importState, returnFocusRef])
 
   const dispatchImport = useCallback(
