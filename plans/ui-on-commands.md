@@ -6,7 +6,7 @@
 **Examination**: not-applicable (plugin recorder bug: it does not credit file-redirected output, and summary reporters hide test names; code review and CI still gate the PR)
 **Gherkin persistence**: plan-file-only
 **Spec**: `docs/specs/ui-on-commands.md` (AC1–AC15, gate passed 2026-11-22). Row 6 of `plans/mvp-order.md`.
-**Build waits for**: D1 (`feat/diagnostics-core`) to merge. Slice 4 uses D1's `report(problem)` sink, its Vitest and Playwright gates (`expectDiagnostics`, `e2e/fixtures.js`) and `CHANGELOG.md`. Slices 1–3 do not need D1 to compile, but every new e2e spec imports D1's fixture, so the whole build starts after D1 merges.
+**Build waited for**: D1 (`feat/diagnostics-core`, merged in #51). Slice 4 uses D1's `report(problem)` sink, its Vitest and Playwright gates (`expectDiagnostics`, `e2e/fixtures.js`) and `CHANGELOG.md`. Slices 1–3 do not need D1 to compile, but every new e2e spec imports D1's fixture, so the whole build starts after D1 merges.
 
 ## Goal
 

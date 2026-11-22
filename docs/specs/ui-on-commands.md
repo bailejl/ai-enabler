@@ -46,7 +46,7 @@ A rejected command changes nothing. It is announced in the live region and its p
 **Dependencies**
 
 - E13 PR3 (merged): parity test, `llms.txt`, plugin bundle.
-- D1 (in review on `feat/diagnostics-core`): `report(problem)`, the Vitest and Playwright gates with `expectDiagnostics`, `KNOWN_FIELDS`. R4's build starts after D1 merges.
+- D1 (merged in #51): `report(problem)`, the Vitest and Playwright gates with `expectDiagnostics`, `KNOWN_FIELDS`.
 - Merge before E1, E3a and E3b.
 
 ## Acceptance Criteria
@@ -64,7 +64,7 @@ Citations: **C** = MVP card or order row, **S** = existing spec, **Q** = stakeho
 9. **Rejection is listed.** The problems surface shows the heading "Edit rejected: N problems", each problem's message and fix (at most 10, then "and N more"), and a Dismiss button. Focus stays where the user was. The list stays until Dismiss, a later rejection replaces it, and the next accepted edit clears it. Pass: unit tests on `problemsView.js`; e2e through the hook checks the list, Dismiss, the clear on the next edit, and axe. (C row 6; Q 2026-11-22)
 10. **One surface for import and edits.** A rejected import renders through the same panel and view function. Its heading, announcement, focus to the heading, and Dismiss returning focus to Import work as today, and each item adds its fix line. Pass: existing import e2e tests pass, updated only for the fix line; a unit test that both callers build the same view shape. (C rows 6, 12, 14, 16; Q 2026-11-22)
 11. **The surface is reusable.** The view takes any problem list and a heading, and keeps each problem's `code`, `stepId`, `edgeId` and `field`, so E3b can show problems by field and N1 can list gate problems. Pass: unit test that those keys survive into the view items. (C rows 14, 16)
-12. **Rejections are logged.** Each problem of a rejected UI command is reported once through D1's `report`. No other path writes to the console. Pass: an e2e test through the hook declares the code with `expectDiagnostics` and finds its record; D1's console lint rule passes. (C row 4; D1 spec)
+12. **Rejections are logged.** Each problem of a rejected UI command is reported once through D1's `report`. No other edit path writes to the console (import rejections keep their own report). Pass: an e2e test through the hook declares the code with `expectDiagnostics` and finds its record; D1's console lint rule passes. (C row 4; D1 spec)
 13. **Dev-only hook.** The command hook exists only in dev builds. Pass: the production bundle check finds no hook name; e2e uses it in the dev project only. (Q 2026-11-22; D1 precedent)
 14. **Nothing else changes for the user.** All existing unit, e2e and a11y tests pass, with changes limited to AC10's fix line. Pass: `npm test`, `npm run test:e2e`, coverage and mutation at the current bar.
 15. **The rule is written down.** `CLAUDE.md` says React UI edits go through `src/flow/commands` and app-only commands are flagged `uiOnly`. Pass: review. (inference)
