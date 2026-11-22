@@ -155,6 +155,7 @@ describe('llms.txt', () => {
       'target',
       'name',
       'tool',
+      'time',
       'command',
       'arguments',
       'gate',

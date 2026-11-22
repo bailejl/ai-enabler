@@ -118,9 +118,9 @@ describe('skill aie-review', () => {
   test('calls list_problems and reports each problem by step with its fix and a count', () => {
     expect(body).toContain('list_problems')
     expect(body).toContain('data-complete')
-    expect(body).toMatch(/step/i)
-    expect(body).toMatch(/fix/i)
-    expect(body).toMatch(/count/i)
+    const reportLine = body.split('\n').find((line) => /report the count/i.test(line)) ?? ''
+    expect(reportLine).toMatch(/step/i)
+    expect(reportLine).toMatch(/`fix`/)
   })
 
   test('says not to change the project', () => {
