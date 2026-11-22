@@ -48,10 +48,15 @@ npx playwright install chromium
 | Format                    | `npm run format`        |
 | Check formatting          | `npm run format:check`  |
 | Mutation testing          | `npx stryker run`       |
+| Run the MCP server        | `npm run mcp`           |
+| Rebuild the plugin bundle | `npm run build:plugin`  |
+| Check the plugin bundle   | `npm run check:plugin`  |
 
-Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}` and `scripts/**/*.js`,
-excluding test files, `scripts/**/*-cli.js`, `src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow;
-the e2e tests cover it.
+Mutation testing (changing code on purpose to check that tests catch it) runs on `src/**/*.{js,jsx}`,
+`scripts/**/*.js` and `mcp/**/*.js`, excluding test files, `scripts/**/*-cli.js`, `mcp/server.js`,
+`src/main.jsx`, and `src/App.jsx`. `App.jsx` is only wiring for React Flow; the e2e tests cover it.
+`mcp/server.js` is a thin stdio shell over the tested tools. `plugin/server/` is a generated
+bundle and is excluded.
 
 ## Project layout
 
@@ -65,7 +70,14 @@ the e2e tests cover it.
   from its path: dev on 3100-3999, preview on the dev port + 1000. Set `PORT` to choose the dev
   port (an existing server on it is reused outside CI), and `PREVIEW_PORT` to choose the preview
   port.
+- `mcp/` - the MCP server (stdio) that lets an AI assistant read and edit project files. It imports
+  from `src/flow/` only.
+- `plugin/` - the Claude Code plugin: skills, `.mcp.json`, and the generated, committed server bundle
+  (`plugin/server/`) and schema copy (`plugin/schema/`).
+- `public/` - files served as-is on the site: `llms.txt` and the JSON Schema under `schema/`.
+- `.claude-plugin/` - the plugin marketplace manifest.
 - `vite.config.js` - Vite dev server and build settings.
+- `vite.mcp.config.js` - builds the MCP server into `plugin/server/` (`npm run build:plugin`).
 - `vitest.config.js` - unit test and coverage settings.
 - `playwright.config.js` - Playwright settings (Chromium only).
 - `stryker.config.mjs` - mutation testing settings.
@@ -121,10 +133,19 @@ Prototype branches are meant to stay local. Two guards block pushes of them:
   `scripts/claude-push-guard.js`. It blocks `--no-verify` and `HUSKY=0` pushes and pushes of
   `proto/*` refs.
 
-## AI tooling (optional)
+## AI tooling
 
 You do not need any of this to build or test the project.
 
+- The `aie` Claude Code plugin gives an assistant an MCP server and the `aie-guide` and `aie-review`
+  skills for building and reviewing value stream maps. Install it with
+  `/plugin marketplace add bailejl/ai-enabler`, then `/plugin install aie@ai-enabler`. On Claude
+  Code 2.1.275 or later one step also works: `/plugin install aie --marketplace bailejl/ai-enabler`.
+- For local development, register the server from a checkout with
+  `claude mcp add aie-mcp -- npm run --silent mcp`. It reads and writes `./projects/` in the folder
+  it starts in.
+- [`public/llms.txt`](public/llms.txt) tells an assistant the file format, tools, and rules.
+  [`AGENTS.md`](AGENTS.md) is the entry point for agents working in this repo.
 - `.claude/agents/` holds agent files for Claude Code: `esm-enforcer.md` and
   `front-end-testing.md`.
 - Repowise keeps a code index in `.repowise/`. The pre-commit hook refreshes it.

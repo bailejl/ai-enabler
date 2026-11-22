@@ -36,10 +36,10 @@ A version that adds an optional field also gets a second fixture with the field 
 
 1. Add a fixture for the new version: `src/flow/schema/fixtures/<new>.json`. Copy the shape of the export at that version, including a valid `contentHash`. When the version adds an optional field, add the `<new>-marked.json` variant too.
 2. In `src/flow/schema/version.js`, add the new version to `RELEASED_SCHEMA_VERSIONS` and set `CURRENT_SCHEMA_VERSION` to it.
-3. Add a hop to `REGISTRY` in `src/flow/schema/upgrades.js`:
+3. Add a hop to `REGISTRY` in `src/flow/schema/upgrades.js`. Its shape is below. The real 0.0.0 to 0.1.0 hop is `{ from: '0.0.0', to: '0.1.0', upgrade: dropModifiedBy }`.
 
    ```js
-   { from: '0.0.0', to: '0.1.0', upgrade: (file) => ({ ...file, notes: '' }) }
+   { from: '<old>', to: '<new>', upgrade: (file) => ({ ...file /* the data change */ }) }
    ```
 
    - The upgrade is pure: it must not mutate its input, and it returns a plain object.
@@ -47,7 +47,11 @@ A version that adds an optional field also gets a second fixture with the field 
    - Hops run oldest first with no gaps, one `from` each, and `from` below `to`.
 
 4. Regenerate the expected snapshots (below).
-5. Run `npm test`. The registry and fixture checks in `upgrades.test.js` fail if a released version has no fixture or no upgrade path to current.
+5. Publish the JSON Schema as `public/schema/project-<new>.json`, and point the hard-coded `project-<version>.json` paths at it: `SCHEMA_SOURCE` in `vite.mcp.config.js`, and the schema paths in `parity.test.js`, `jsonSchema.test.js` and `mcp/plugin-manifest.test.js`. Keep `parity.test.js` and `jsonSchema.test.js` green: they check that every writable schema field has a command and that the schema agrees with the validator.
+6. Update `public/llms.txt` for the new version. A new writable field also needs a command, an MCP tool argument and an `llms.txt` entry (the Definition of Done rule in `.claude/CLAUDE.md`).
+7. Run `npm run build:plugin`. It rebuilds `plugin/server/aie-mcp.js` and copies the schema to `plugin/schema/`, emptying that folder first so the old version does not linger. Commit the result, because CI runs `npm run check:plugin`.
+8. On a major bump, update `Supported schema major` in `plugin/skills/aie-guide/SKILL.md` and `plugin/skills/aie-review/SKILL.md`. `mcp/plugin-manifest.test.js` checks that they match the schema.
+9. Run `npm test`. The registry and fixture checks in `upgrades.test.js` fail if a released version has no fixture or no upgrade path to current.
 
 ## Expected snapshots
 
