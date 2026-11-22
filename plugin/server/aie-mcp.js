@@ -16429,6 +16429,42 @@ var catalog_default = {
 		"owner": "app",
 		"status": "active",
 		"since": "0.1.0"
+	},
+	APP_RENDER_FAILED: {
+		"code": "APP_RENDER_FAILED",
+		"severity": "error",
+		"title": "The app failed while drawing the screen",
+		"summary": "A component threw an error while rendering, so the app could not continue.",
+		"message": "The app failed while drawing the screen and can't continue.",
+		"fix": "Reload the page to start again; your unsaved map will be lost. If it keeps happening, report this code.",
+		"docs": "#app-render-failed",
+		"owner": "app",
+		"status": "active",
+		"since": "0.1.0"
+	},
+	APP_UNCAUGHT_ERROR: {
+		"code": "APP_UNCAUGHT_ERROR",
+		"severity": "error",
+		"title": "An uncaught error occurred",
+		"summary": "An error was thrown outside any handler and reached the window, or React recovered from a render error.",
+		"message": "The app hit an error that nothing handled.",
+		"fix": "Reload the page if the app stops responding. If it keeps happening, report this code.",
+		"docs": "#app-uncaught-error",
+		"owner": "app",
+		"status": "active",
+		"since": "0.1.0"
+	},
+	APP_UNHANDLED_REJECTION: {
+		"code": "APP_UNHANDLED_REJECTION",
+		"severity": "error",
+		"title": "A promise was rejected and not handled",
+		"summary": "An asynchronous operation failed and nothing caught the rejection.",
+		"message": "An asynchronous operation failed and nothing handled the failure.",
+		"fix": "Reload the page if the app stops responding. If it keeps happening, report this code.",
+		"docs": "#app-unhandled-rejection",
+		"owner": "app",
+		"status": "active",
+		"since": "0.1.0"
 	}
 };
 Object.keys(catalog_default);

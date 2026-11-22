@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, settledBox } from './canvas.js'
 import { deleteAllSteps, STARTER_STEP_COUNT } from './views.js'

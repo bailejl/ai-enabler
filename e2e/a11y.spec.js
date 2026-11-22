@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures.js'
 import { contrastRatio } from '../src/shell/contrast.js'
 import { tokens } from '../src/shell/tokens.js'
 import { scan } from './axe.js'
@@ -46,7 +46,8 @@ test('all three help sections expanded have no axe violations', async ({ page })
   await expectNoViolations(page)
 })
 
-test('an import error has no axe violations', async ({ page }) => {
+test('an import error has no axe violations', async ({ page, diagnostics }) => {
+  diagnostics.expect(['FILE_NOT_JSON'])
   await openStarterView(page)
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page)).toContainText('This file is not valid JSON.')

@@ -92,8 +92,13 @@ describe('catalog', () => {
     'status',
     'since',
   ]
-  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_']
+  const AREAS = ['FILE_', 'STEP_', 'CONN_', 'MARK_', 'CMD_', 'GATE_', 'APP_']
+  const SEVERITIES = ['error', 'warning', 'hint']
+  const APP_CODES = ['APP_RENDER_FAILED', 'APP_UNCAUGHT_ERROR', 'APP_UNHANDLED_REJECTION']
+  const docsAnchor = (code) => `#${code.toLowerCase().replaceAll('_', '-')}`
   const entries = Object.entries(catalog)
+  const entriesWithUnknownSeverity = (candidates) =>
+    candidates.filter(([, entry]) => !SEVERITIES.includes(entry.severity))
 
   it.each(entries)('%s has every required field as a non-empty string', (_code, entry) => {
     const missing = REQUIRED_FIELDS.filter(
@@ -114,7 +119,7 @@ describe('catalog', () => {
   it.each(entries)('%s has a one-line summary and fix and a docs anchor', (code, entry) => {
     expect(entry.summary).not.toMatch(/\n/)
     expect(entry.fix).not.toMatch(/\n/)
-    expect(entry.docs).toBe(`#${code.toLowerCase().replaceAll('_', '-')}`)
+    expect(entry.docs).toBe(docsAnchor(code))
   })
 
   it('has no duplicate codes', () => {
@@ -122,8 +127,29 @@ describe('catalog', () => {
     expect(new Set(codes).size).toBe(codes.length)
   })
 
-  it('uses error severity for every entry', () => {
-    expect(entries.filter(([, entry]) => entry.severity !== 'error')).toEqual([])
+  it('uses error, warning or hint severity for every entry', () => {
+    expect(entriesWithUnknownSeverity(entries)).toEqual([])
+  })
+
+  it('accepts entries with warning and hint severity', () => {
+    const accepted = SEVERITIES.map((severity) => [`FILE_${severity}`, { severity }])
+    expect(entriesWithUnknownSeverity(accepted)).toEqual([])
+  })
+
+  it.each(['debug', 'Error', ''])('reports an entry whose severity is %j', (severity) => {
+    const badEntry = ['FILE_BAD', { code: 'FILE_BAD', severity }]
+    expect(entriesWithUnknownSeverity([...entries, badEntry])).toEqual([badEntry])
+  })
+
+  it.each(APP_CODES)('%s is an active app-owned error since 0.1.0', (code) => {
+    expect(catalog[code]).toMatchObject({
+      code,
+      severity: 'error',
+      owner: 'app',
+      status: 'active',
+      since: '0.1.0',
+      docs: docsAnchor(code),
+    })
   })
 
   it('lists exactly the catalog codes in CATALOG_CODES', () => {
