@@ -41,6 +41,17 @@ describe('checkBundle', () => {
     expect(message).toContain('npm run build:plugin')
   })
 
+  test('the stale message puts the heading, each artifact and the fix on their own lines', () => {
+    const { message } = checkBundle({ built, committed: { [SERVER]: 'old', [SCHEMA]: 'old' } })
+
+    expect(message.split('\n')).toEqual([
+      'The plugin build is out of date:',
+      `  ${SERVER}`,
+      `  ${SCHEMA}`,
+      'Run `npm run build:plugin` and commit the result.',
+    ])
+  })
+
   test('a committed artifact that is missing is stale', () => {
     const { ok, message } = checkBundle({ built, committed: { [SCHEMA]: built[SCHEMA] } })
 
@@ -61,6 +72,9 @@ describe('checkBundle', () => {
   })
 
   test('a build that produced no artifacts fails rather than passing vacuously', () => {
-    expect(checkBundle({ built: {}, committed: built }).ok).toBe(false)
+    const { ok, message } = checkBundle({ built: {}, committed: built })
+
+    expect(ok).toBe(false)
+    expect(message).toMatch(/no artifacts/)
   })
 })
