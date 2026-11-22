@@ -6,7 +6,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ['src/**/*.test.{js,jsx}', 'scripts/**/*.test.js', 'mcp/**/*.test.js'],
-      // The diagnostics gate: fails a test on uncoded or unexpected console output
+      // The diagnostics gate: fails a test on uncoded console output, unexpected or unknown codes,
+      // and declared codes that were never written
       setupFiles: ['./vitest.setup.js'],
       coverage: {
         provider: 'v8',

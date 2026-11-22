@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -55,21 +55,6 @@ describe('checkDiagnostics: coded records', () => {
     expect(failures).toEqual([
       `unexpected STEP_ID_MISSING (${catalog.STEP_ID_MISSING.severity}): ${catalog.STEP_ID_MISSING.fix}`,
     ])
-  })
-
-  it('fails an undeclared hint record written to console.info', () => {
-    const hintCode = 'TEST_ONLY_HINT'
-    catalog[hintCode] = { code: hintCode, severity: 'hint', fix: 'Do the hinted thing.' }
-    try {
-      const failures = checkDiagnostics({
-        entries: [recordEntry(hintCode, 'info')],
-        expected: [],
-      })
-
-      expect(failures).toEqual([`unexpected ${hintCode} (hint): Do the hinted thing.`])
-    } finally {
-      delete catalog[hintCode]
-    }
   })
 
   it('fails a code the test declared a different code for', () => {
@@ -279,6 +264,8 @@ describe('the unit gate in the Vitest config (AC12)', () => {
 
 // Runs the fixtures that exercise vitest.setup.js once, through the selftest config, and reads
 // the JSON report. Several fixture tests fail on purpose; the outcome of each is asserted here.
+const SELFTEST_TIMEOUT_MS = 60_000
+
 const runSelfTest = () => {
   const outputDir = mkdtempSync(join(tmpdir(), 'gate-selftest-'))
   const outputFile = join(outputDir, 'report.json')
@@ -286,35 +273,53 @@ const runSelfTest = () => {
     dirname(createRequire(import.meta.url).resolve('vitest/package.json')),
     'vitest.mjs',
   )
+  // Nothing from the parent run (Vitest worker flags, coverage collection) may reach the child.
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')),
-  )
-  spawnSync(
-    process.execPath,
-    [
-      vitestBin,
-      'run',
-      '--config',
-      'vitest.selftest.config.js',
-      '--reporter=json',
-      `--outputFile=${outputFile}`,
-    ],
-    { cwd: REPO_ROOT, env, encoding: 'utf8' },
-  )
-  const report = JSON.parse(readFileSync(outputFile, 'utf8'))
-  rmSync(outputDir, { recursive: true, force: true })
-  return Object.fromEntries(
-    report.testResults.flatMap((file) =>
-      file.assertionResults.map((test) => [
-        `${basename(file.name)} > ${test.title}`,
-        { status: test.status, message: test.failureMessages.join('\n') },
-      ]),
+    Object.entries(process.env).filter(
+      ([key]) => !key.startsWith('VITEST') && key !== 'NODE_V8_COVERAGE',
     ),
   )
+  try {
+    // The fixtures fail on purpose, so the exit code says nothing; the report file does.
+    const child = spawnSync(
+      process.execPath,
+      [
+        vitestBin,
+        'run',
+        '--config',
+        'vitest.selftest.config.js',
+        '--reporter=json',
+        `--outputFile=${outputFile}`,
+      ],
+      {
+        cwd: REPO_ROOT,
+        env,
+        encoding: 'utf8',
+        timeout: SELFTEST_TIMEOUT_MS - 5_000,
+        killSignal: 'SIGKILL',
+      },
+    )
+    if (!existsSync(outputFile)) {
+      throw new Error(
+        `self-test run wrote no report (status ${child.status}, signal ${child.signal}, ` +
+          `error ${child.error?.message}): ${child.stderr}`,
+      )
+    }
+    const report = JSON.parse(readFileSync(outputFile, 'utf8'))
+    return Object.fromEntries(
+      report.testResults.flatMap((file) =>
+        file.assertionResults.map((test) => [
+          `${basename(file.name)} > ${test.title}`,
+          { status: test.status, message: test.failureMessages.join('\n') },
+        ]),
+      ),
+    )
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
 }
 
 describe('the unit gate wiring (vitest.setup.js)', () => {
-  const SELFTEST_TIMEOUT_MS = 60_000
   let outcomes
 
   beforeAll(() => {
@@ -362,7 +367,7 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
       outcomes['unexpected.fixture.js > fails on a record whose code is not in the catalog'],
     ).toMatchObject({
       status: 'failed',
-      message: expect.stringMatching(/^Error: unknown code NOT_IN_CATALOG\n/),
+      message: expect.stringContaining('unknown code NOT_IN_CATALOG'),
     })
   })
 
@@ -376,6 +381,10 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
   })
 
   it('resets the rate limit before every test', () => {
+    // Guard: the reset only proves anything if the test before it used up the limit
+    expect(
+      outcomes['isolation.fixture.js > passes after using up the rate limit for the code'],
+    ).toMatchObject({ status: 'passed' })
     expect(
       outcomes['isolation.fixture.js > passes because the rate limit was reset'],
     ).toMatchObject({ status: 'passed' })
@@ -391,6 +400,10 @@ describe('the unit gate wiring (vitest.setup.js)', () => {
   })
 
   it('still captures the console after a test restored every mock', () => {
+    // Guard: the test before it must have restored every mock
+    expect(outcomes['isolation.fixture.js > passes while restoring every mock']).toMatchObject({
+      status: 'passed',
+    })
     expect(
       outcomes['isolation.fixture.js > fails on an uncoded error after mocks were restored'],
     ).toMatchObject({

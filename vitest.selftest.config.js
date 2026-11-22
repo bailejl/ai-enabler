@@ -9,6 +9,8 @@ export default mergeConfig(
     test: {
       include: ['src/flow/diagnostics/gate-selftest/*.fixture.js'],
       setupFiles: ['./vitest.setup.js'],
+      // Some fixture tests rely on the test before them, so keep the declared order
+      sequence: { shuffle: false, concurrent: false },
     },
   }),
 )

@@ -44,7 +44,7 @@ const unpairedPageErrors = (records, expected, pageErrors) => {
 
 /**
  * Checks one test's console output. `entries` are `{ level, text }` console messages (level is
- * the console method name: `error`, `warn`, `info`, `log`), `pageErrors` are the messages of
+ * the console method name, such as `error`, `warn` or `info`), `pageErrors` are the messages of
  * uncaught page errors, and `expected` are the codes the test declared. Returns failure lines,
  * empty when the test is clean. Throws on any other key, so no allow-list can be passed in.
  */
