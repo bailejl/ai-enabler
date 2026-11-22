@@ -493,7 +493,7 @@ Plan tier: complex (4 slices, 4 waves, complex steps, new MCP trust surface). Re
 #### Wave 3
 
 - [ ] Slice 3: Skills use the tool
-  - [ ] Step 3.1: aie-review uses get_repair_guide
+  - [x] Step 3.1: aie-review uses get_repair_guide
   - [ ] Step 3.2: aie-guide uses get_repair_guide; plugin 0.2.0; manual checks
 
 #### Wave 4
