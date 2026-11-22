@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Edits run through the command layer; rejected edits and import problems are listed with their fixes; new connection ids are UUIDs.
+- Edits run through the command layer; rejected edits and import problems are listed with their fixes; new connection ids are UUIDs (import still accepts any id).
 
 ## [0.1.0] - 2026-11-22
 

@@ -291,6 +291,10 @@ test('an edit rejected with 2 problems writes 2 records and no step name', async
     'STEP_COUNT_INVALID',
   ])
   expect(recordsIn(capture.messages)).toHaveLength(2)
+  const recordText = JSON.stringify(records)
+  for (const stepName of ['Idea', 'Plan', 'Build', 'Test', 'Deploy', 'Production']) {
+    expect(recordText).not.toContain(stepName)
+  }
 })
 
 test('the rejected-edit view has no axe violations', async ({ page, diagnostics }) => {
