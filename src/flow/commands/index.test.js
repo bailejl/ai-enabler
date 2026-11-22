@@ -172,6 +172,7 @@ describe('applyCommand with no project open', () => {
     ['remove_step', { stepId: 'a' }],
     ['connect', { sourceId: 'a', targetId: 'b' }],
     ['disconnect', { sourceId: 'a', targetId: 'b' }],
+    ['move_step', { stepId: 'a', x: 1, y: 2 }],
   ]
 
   it.each(NEEDS_PROJECT)('rejects %s with CMD_NO_PROJECT instead of throwing', (name, args) => {
@@ -223,6 +224,9 @@ describe('applyCommand with values that are not text', () => {
     ['connect', 'targetId', { sourceId: 'idea' }],
     ['disconnect', 'sourceId', { targetId: 'build' }],
     ['disconnect', 'targetId', { sourceId: 'idea' }],
+    ['move_step', 'stepId', { x: 1, y: 2 }],
+    ['move_step', 'x', { stepId: 'idea', y: 2 }],
+    ['move_step', 'y', { stepId: 'idea', x: 1 }],
   ]
 
   it.each(CASES.flatMap((entry) => HOSTILE.map((value) => [entry[0], entry[1], value, entry[2]])))(

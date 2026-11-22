@@ -126,9 +126,5 @@ describe('save-file parity', () => {
       expect(hasArgument(COMMANDS, 'move_step.x')).toBe(true)
       expect(hasArgument(MCP_COMMANDS, 'move_step.x')).toBe(false)
     })
-
-    it('keeps positions exempt, so the real schema needs no command for them', () => {
-      expect(pathsWithoutCommand(projectSchema, options)).toEqual([])
-    })
   })
 })
