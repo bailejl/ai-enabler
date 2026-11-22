@@ -29,7 +29,7 @@ const readImport = async (file) => {
 }
 
 // Runs import events through the pure reducer and performs what it asks for: speak, replace the
-// map, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
+// map, write each rejected problem to the console as a diagnostic record, and hand focus back to the Import button once the dialog (if any) has gone. A rejection
 // keeps focus off the button: the status heading takes it, and Dismiss returns it to the button.
 const useImportFlow = ({ project, applyReplacement, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)

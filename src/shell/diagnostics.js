@@ -18,15 +18,19 @@ const CONSOLE_METHOD_BY_SEVERITY = Object.freeze({
 const UUID_BYTE_COUNT = 16
 const UUID_VERSION_BYTE = 6
 const UUID_VARIANT_BYTE = 8
+const LOW_NIBBLE_MASK = 0x0f
+const VERSION_4_BITS = 0x40
+const LOW_SIX_BITS_MASK = 0x3f
+const VARIANT_10_BITS = 0x80
 
 const toHex = (bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 
 // A v4 UUID from random bytes: the version nibble is 4 and the variant bits are 10.
 const uuidFromRandomBytes = () => {
-  const random = globalThis.crypto.getRandomValues(new Uint8Array(UUID_BYTE_COUNT))
-  const bytes = random.map((byte, index) => {
-    if (index === UUID_VERSION_BYTE) return (byte & 0x0f) | 0x40
-    if (index === UUID_VARIANT_BYTE) return (byte & 0x3f) | 0x80
+  const randomBytes = globalThis.crypto.getRandomValues(new Uint8Array(UUID_BYTE_COUNT))
+  const bytes = randomBytes.map((byte, index) => {
+    if (index === UUID_VERSION_BYTE) return (byte & LOW_NIBBLE_MASK) | VERSION_4_BITS
+    if (index === UUID_VARIANT_BYTE) return (byte & LOW_SIX_BITS_MASK) | VARIANT_10_BITS
     return byte
   })
   const hex = toHex(bytes)
@@ -61,30 +65,32 @@ export const createDiagnostics = ({
 } = {}) => {
   let limiterState = EMPTY_LIMITER_STATE
 
+  // The limiter state is committed only after the record is built, so a build that throws does
+  // not use up a slot of the code's rate limit.
   const write = (code, buildRecord) => {
     if (!Object.hasOwn(catalog, code)) throw new Error(`Unknown diagnostic code: ${String(code)}`)
     const at = now()
     const admission = admit(limiterState, code, at)
+    const record = admission.emit
+      ? buildRecord(
+          { version, session, platform: PLATFORM, build, time: new Date(at).toISOString() },
+          admission.suppressed,
+        )
+      : null
     limiterState = admission.state
-    if (!admission.emit) return
-    const context = {
-      version,
-      session,
-      platform: PLATFORM,
-      build,
-      time: new Date(at).toISOString(),
-    }
-    const record = buildRecord(context, admission.suppressed)
-    sink[CONSOLE_METHOD_BY_SEVERITY[record.severity]](serializeRecord(record))
+    if (record) sink[CONSOLE_METHOD_BY_SEVERITY[record.severity]](serializeRecord(record))
   }
 
-  const report = (found) =>
-    write(found.code, (context, suppressed) =>
-      toRecord({ ...found, severity: catalog[found.code].severity }, context, suppressed),
+  const report = (problem) =>
+    write(problem.code, (context, suppressed) =>
+      toRecord({ ...problem, severity: catalog[problem.code].severity }, context, suppressed),
     )
 
   const reportError = (code, error) =>
-    write(code, (context, suppressed) => toErrorRecord(code, error, context, suppressed))
+    write(code, (context, suppressed) => ({
+      ...toErrorRecord(code, error, context, suppressed),
+      severity: catalog[code].severity,
+    }))
 
   const reset = () => {
     limiterState = EMPTY_LIMITER_STATE

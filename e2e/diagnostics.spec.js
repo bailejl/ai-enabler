@@ -1,18 +1,18 @@
-import { readFileSync } from 'node:fs'
 import { test, expect } from '@playwright/test'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import { collectConsole, flushConsole, recordsIn } from './console.js'
+import {
+  collectConsole,
+  ISO_UTC_TIMESTAMP,
+  PACKAGE_VERSION,
+  recordsAfter,
+  UUID_V4,
+} from './console.js'
 import { asUpload, chooseFile, importStatus, readFixture } from './views.js'
 
-const { version: PACKAGE_VERSION } = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-)
-const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const SECRET = 'SECRET-MARKER'
 
 // Three problems with three different codes: a step with no position, one with a bad process
-// time, and one with no id. The marker is in a step name and in a value.
+// time, and one with no id.
 const threeProblemFile = () => ({
   ...readFixture('same-name.json'),
   nodes: [
@@ -24,27 +24,26 @@ const threeProblemFile = () => ({
 })
 const THREE_PROBLEM_CODES = ['STEP_POSITION_MISSING', 'STEP_COUNT_INVALID', 'STEP_ID_MISSING']
 
+// The marker is in a step name, and in a value that fails validation.
 const markerFile = () => ({
   ...threeProblemFile(),
-  nodes: [{ id: 'a', type: 'step', data: { label: SECRET } }],
+  nodes: [
+    { id: 'a', type: 'step', data: { label: SECRET } },
+    { id: 'b', type: 'step', position: { x: 1, y: 1 }, data: { label: 'Second', pt: SECRET } },
+  ],
 })
 
 const dismissStatus = (page) => importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
-
-// Waits until `count` records have arrived, then lets any later console events land.
-const recordsAfter = async (page, messages, count) => {
-  await expect.poll(() => recordsIn(messages).length).toBeGreaterThanOrEqual(count)
-  await flushConsole(page)
-  return recordsIn(messages)
-}
 
 test('a file that is not JSON writes exactly one coded error record', async ({ page }) => {
   const { messages } = collectConsole(page)
   await page.goto('/')
 
+  const before = Date.now()
   await chooseFile(page, asUpload('this is not json'))
 
   const records = await recordsAfter(page, messages, 1)
+  const after = Date.now()
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
   expect(type).toBe('error')
@@ -58,6 +57,8 @@ test('a file that is not JSON writes exactly one coded error record', async ({ p
     build: 'dev',
   })
   expect(record.time).toMatch(ISO_UTC_TIMESTAMP)
+  expect(Date.parse(record.time)).toBeGreaterThanOrEqual(before)
+  expect(Date.parse(record.time)).toBeLessThanOrEqual(after)
   expect(record.session).toMatch(UUID_V4)
 })
 
@@ -80,27 +81,35 @@ test('a file with three problems writes three records, again on a second import'
   ])
 })
 
-test('records in one page load share version and session, and a reload changes the session', async ({
-  page,
-}) => {
+test('records in one page load share version and session', async ({ page }) => {
   const { messages } = collectConsole(page)
   await page.goto('/')
   await chooseFile(page, asUpload('this is not json'))
   await recordsAfter(page, messages, 1)
   await dismissStatus(page)
   await chooseFile(page, asUpload('{ still not json'))
-  const beforeReload = await recordsAfter(page, messages, 2)
+
+  const records = await recordsAfter(page, messages, 2)
+
+  expect(records).toHaveLength(2)
+  const [first, second] = records.map(({ record }) => record)
+  expect(first.session).toMatch(UUID_V4)
+  expect(second.session).toBe(first.session)
+  expect(second.version).toBe(first.version)
+})
+
+test('a reload starts a new session', async ({ page }) => {
+  const { messages } = collectConsole(page)
+  await page.goto('/')
+  await chooseFile(page, asUpload('this is not json'))
+  const [{ record: beforeReload }] = await recordsAfter(page, messages, 1)
 
   await page.reload()
   await chooseFile(page, asUpload('this is not json'))
-  const afterReload = await recordsAfter(page, messages, 3)
+  const [, { record: afterReload }] = await recordsAfter(page, messages, 2)
 
-  const [first, second, third] = afterReload.map(({ record }) => record)
-  expect(beforeReload).toHaveLength(2)
-  expect(second.session).toBe(first.session)
-  expect(second.version).toBe(first.version)
-  expect(third.session).toMatch(UUID_V4)
-  expect(third.session).not.toBe(first.session)
+  expect(afterReload.session).toMatch(UUID_V4)
+  expect(afterReload.session).not.toBe(beforeReload.session)
 })
 
 test('a step name from the file never reaches the console', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { problem } from '../flow/diagnostics/problem.js'
-import { RATE_WINDOW_MS } from '../flow/diagnostics/rateLimit.js'
+import { RATE_LIMIT, RATE_WINDOW_MS } from '../flow/diagnostics/rateLimit.js'
 import { parseRecord } from '../flow/diagnostics/record.js'
 import {
   createDiagnostics,
@@ -11,7 +11,6 @@ import {
 } from './diagnostics.js'
 import { APP_VERSION } from './version.js'
 
-const ISO_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const SECRET = 'SECRET-MARKER'
 
@@ -104,7 +103,6 @@ describe('record context', () => {
       build: 'dev',
       time: '2026-11-22T08:30:15.042Z',
     })
-    expect(record.time).toMatch(ISO_UTC_TIMESTAMP)
   })
 
   it('keeps the message and params of a problem out of the record', () => {
@@ -116,18 +114,18 @@ describe('record context', () => {
   })
 
   it('shares one session across records of one sink and differs between sinks', () => {
-    const first = sinkWith({ session: undefined })
-    const second = sinkWith({ session: undefined })
+    const sinkA = sinkWith({ session: undefined })
+    const sinkB = sinkWith({ session: undefined })
 
-    first.report(problem('FILE_NOT_JSON'))
-    first.report(problem('FILE_UNREADABLE'))
-    second.report(problem('FILE_NOT_JSON'))
+    sinkA.report(problem('FILE_NOT_JSON'))
+    sinkA.report(problem('FILE_UNREADABLE'))
+    sinkB.report(problem('FILE_NOT_JSON'))
 
-    const [a, b] = recordsOf(first.calls)
-    const [c] = recordsOf(second.calls)
-    expect(a.session).toMatch(UUID_V4)
-    expect(b.session).toBe(a.session)
-    expect(c.session).not.toBe(a.session)
+    const [firstOfA, secondOfA] = recordsOf(sinkA.calls)
+    const [firstOfB] = recordsOf(sinkB.calls)
+    expect(firstOfA.session).toMatch(UUID_V4)
+    expect(secondOfA.session).toBe(firstOfA.session)
+    expect(firstOfB.session).not.toBe(firstOfA.session)
   })
 })
 
@@ -160,6 +158,17 @@ describe('reportError', () => {
     })
     expect(calls[0].text).not.toContain(SECRET)
   })
+
+  it("takes the severity from the sink's catalog, as report does", () => {
+    const { reportError: write, calls } = sinkWith({
+      catalog: { APP_UNCAUGHT_ERROR: { severity: 'warning' } },
+    })
+
+    write('APP_UNCAUGHT_ERROR', crash)
+
+    expect(calls.map(({ method }) => method)).toEqual(['warn'])
+    expect(parseRecord(calls[0].text).severity).toBe('warning')
+  })
 })
 
 describe('an unknown code', () => {
@@ -173,79 +182,83 @@ describe('an unknown code', () => {
     expect(sink.calls).toEqual([])
   })
 
-  it('does not use up the rate limit', () => {
-    const sink = sinkWith()
-    expect(() => sink.report({ code: 'NOPE_UNKNOWN' })).toThrow()
+  it('does not read the clock, so it cannot use up a rate limit slot', () => {
+    const now = vi.fn(() => 0)
+    const sink = sinkWith({ now })
 
-    sink.report(problem('FILE_NOT_JSON'))
+    for (let count = 0; count <= RATE_LIMIT; count += 1) {
+      expect(() => sink.report({ code: 'NOPE_UNKNOWN' })).toThrow('NOPE_UNKNOWN')
+    }
 
-    expect(parseRecord(sink.calls[0].text).suppressed).toBeUndefined()
+    expect(now).not.toHaveBeenCalled()
   })
 })
 
 describe('rate limit', () => {
-  const FIRST_SEVEN = [0, 1000, 2000, 3000, 4000, 10_000, 20_000]
+  const IN_WINDOW = [0, 1000, 2000, 3000, 4000, 10_000, 20_000]
+  const DROPPED_COUNT = IN_WINDOW.length - RATE_LIMIT
 
   it('drops records over the limit and carries the dropped count on the next emitted one', () => {
-    const { report: write, calls } = sinkWith({
-      now: fixedClock(...FIRST_SEVEN, RATE_WINDOW_MS + 4000),
-    })
-
-    for (let count = 0; count < FIRST_SEVEN.length + 1; count += 1) {
-      write(problem('FILE_NOT_JSON'))
-    }
+    const times = [...IN_WINDOW, RATE_WINDOW_MS + 4000]
+    const { report: write, calls } = sinkWith({ now: fixedClock(...times) })
+    times.forEach(() => write(problem('FILE_NOT_JSON')))
 
     const records = recordsOf(calls)
-    expect(records).toHaveLength(6)
-    expect(records.slice(0, 5).map((record) => record.suppressed)).toEqual([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    ])
-    expect(records[5].suppressed).toBe(2)
+    expect(records).toHaveLength(RATE_LIMIT + 1)
+    records
+      .slice(0, RATE_LIMIT)
+      .forEach((record) => expect(record).not.toHaveProperty('suppressed'))
+    expect(records[RATE_LIMIT].suppressed).toBe(DROPPED_COUNT)
   })
 
   it('limits each code on its own', () => {
     const { report: write, calls } = sinkWith()
-    for (let count = 0; count < 6; count += 1) write(problem('FILE_NOT_JSON'))
+    for (let count = 0; count <= RATE_LIMIT; count += 1) write(problem('FILE_NOT_JSON'))
 
     write(problem('STEP_ID_MISSING'))
 
     const last = parseRecord(calls.at(-1).text)
     expect(last.code).toBe('STEP_ID_MISSING')
-    expect(last.suppressed).toBeUndefined()
+    expect(last).not.toHaveProperty('suppressed')
   })
 
   it('starts counting again after reset', () => {
     const sink = sinkWith()
-    for (let count = 0; count < 6; count += 1) sink.report(problem('FILE_NOT_JSON'))
-    expect(sink.calls).toHaveLength(5)
+    for (let count = 0; count <= RATE_LIMIT; count += 1) sink.report(problem('FILE_NOT_JSON'))
+    expect(sink.calls).toHaveLength(RATE_LIMIT)
 
     sink.reset()
     sink.report(problem('FILE_NOT_JSON'))
 
-    expect(sink.calls).toHaveLength(6)
-    expect(parseRecord(sink.calls[5].text).suppressed).toBeUndefined()
+    expect(sink.calls).toHaveLength(RATE_LIMIT + 1)
+    expect(parseRecord(sink.calls[RATE_LIMIT].text)).not.toHaveProperty('suppressed')
   })
 })
 
 describe('without crypto.randomUUID', () => {
-  const stubCryptoWithoutRandomUuid = () => {
-    const { crypto: realCrypto } = globalThis
-    vi.stubGlobal('crypto', { getRandomValues: (array) => realCrypto.getRandomValues(array) })
+  const stubCryptoWithoutRandomUuid = (fillByte) => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: (array) => array.fill(fillByte),
+    })
   }
 
   it('builds a UUID-shaped session id from random bytes', () => {
-    stubCryptoWithoutRandomUuid()
+    stubCryptoWithoutRandomUuid(0xff)
+    expect(newSessionId()).toBe('ffffffff-ffff-4fff-bfff-ffffffffffff')
 
-    expect(newSessionId()).toMatch(UUID_V4)
+    stubCryptoWithoutRandomUuid(0x00)
+    expect(newSessionId()).toBe('00000000-0000-4000-8000-000000000000')
+  })
+
+  it('builds a different id each time', () => {
+    const { crypto: realCrypto } = globalThis
+    vi.stubGlobal('crypto', { getRandomValues: (array) => realCrypto.getRandomValues(array) })
+
     expect(newSessionId()).not.toBe(newSessionId())
   })
 
   it('creates a sink that has a session id and reports normally', () => {
-    stubCryptoWithoutRandomUuid()
+    stubCryptoWithoutRandomUuid(0xab)
     const recorder = recordingConsole()
     const diagnostics = createDiagnostics({ console: recorder, build: 'dev' })
 
@@ -256,19 +269,20 @@ describe('without crypto.randomUUID', () => {
 })
 
 describe('the default sink', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    resetDiagnostics()
+  })
+
   it('writes to the real console with the app version and the dev build', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    try {
-      resetDiagnostics()
-      report(problem('FILE_NOT_JSON'))
-      reportError('APP_UNCAUGHT_ERROR', new Error('x'))
+    resetDiagnostics()
 
-      const [first, second] = spy.mock.calls.map(([text]) => parseRecord(text))
-      expect(first).toMatchObject({ code: 'FILE_NOT_JSON', version: APP_VERSION, build: 'dev' })
-      expect(second).toMatchObject({ code: 'APP_UNCAUGHT_ERROR', error: { name: 'Error' } })
-    } finally {
-      resetDiagnostics()
-      spy.mockRestore()
-    }
+    report(problem('FILE_NOT_JSON'))
+    reportError('APP_UNCAUGHT_ERROR', new Error('x'))
+
+    const [firstRecord, secondRecord] = spy.mock.calls.map(([text]) => parseRecord(text))
+    expect(firstRecord).toMatchObject({ code: 'FILE_NOT_JSON', version: APP_VERSION, build: 'dev' })
+    expect(secondRecord).toMatchObject({ code: 'APP_UNCAUGHT_ERROR', error: { name: 'Error' } })
   })
 })

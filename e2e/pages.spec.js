@@ -1,15 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync } from 'node:fs'
 import { PAGES_BASE } from '../scripts/pages-base.js'
 import { RECORD_KEYS } from '../src/flow/diagnostics/record.js'
-import { collectConsole, flushConsole, recordsIn } from './console.js'
+import { collectConsole, ISO_UTC_TIMESTAMP, PACKAGE_VERSION, recordsAfter } from './console.js'
 import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
-
-const { version: PACKAGE_VERSION } = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-)
 
 const currentPath = (page) => page.evaluate(() => window.location.pathname)
 
@@ -53,16 +48,14 @@ test('a project deep link loads directly and after a refresh under the base', as
   await expectHash(page, '#/projects/abc')
 })
 
-test('a rejected import writes the same record as dev, with build "prod"', async ({ page }) => {
+test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async ({ page }) => {
   const { messages } = collectConsole(page)
   await page.goto(`${PAGES_BASE}#/`)
   await expectStarterSteps(page)
 
   await chooseFile(page, asUpload('this is not json'))
 
-  await expect.poll(() => recordsIn(messages).length).toBeGreaterThanOrEqual(1)
-  await flushConsole(page)
-  const records = recordsIn(messages)
+  const records = await recordsAfter(page, messages, 1)
   expect(records).toHaveLength(1)
   const [{ type, record }] = records
   expect(type).toBe('error')
@@ -73,6 +66,7 @@ test('a rejected import writes the same record as dev, with build "prod"', async
     platform: 'browser',
     build: 'prod',
   })
+  expect(record.time).toMatch(ISO_UTC_TIMESTAMP)
 })
 
 test('no served JavaScript asset contains the text devDependencies', async ({ page, request }) => {
