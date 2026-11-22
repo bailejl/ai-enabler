@@ -84,6 +84,7 @@ export default [
       'test-results/',
       'playwright-report/',
       'graphify-out/',
+      'plugin/server/',
     ],
   },
 ]
