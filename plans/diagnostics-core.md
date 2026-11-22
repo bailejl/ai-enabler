@@ -710,13 +710,13 @@ Plan tier: complex (6 waves, 8 slices, complex steps) — reviewers: Acceptance,
 
 #### Wave 1
 
-- [ ] Slice 1: Catalog severities and APP codes
-  - [ ] Step 1.1: Allow three severities and add the APP codes
-- [ ] Slice 3: Per-code rate limiter
-  - [ ] Step 3.1: Admit or drop by code within a sliding minute
-- [ ] Slice 4: App version and changelog
-  - [ ] Step 4.1: Inject the version at build time
-  - [ ] Step 4.2: Start the changelog
+- [x] Slice 1: Catalog severities and APP codes
+  - [x] Step 1.1: Allow three severities and add the APP codes
+- [x] Slice 3: Per-code rate limiter
+  - [x] Step 3.1: Admit or drop by code within a sliding minute
+- [x] Slice 4: App version and changelog
+  - [x] Step 4.1: Inject the version at build time
+  - [x] Step 4.2: Start the changelog
 
 #### Wave 2
 
