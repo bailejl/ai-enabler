@@ -87,9 +87,10 @@ const HANDLERS = {
   }),
   [HOME_EVENT.dialogCancelled]: (state) =>
     state.dialog ? { ...state, dialog: null, focus: focusOnClose(state.dialog) } : state,
-  // A refused name keeps its dialog open with the problems, so the user can retry.
-  [HOME_EVENT.nameRefused]: (state, { problems }) =>
-    NAME_DIALOGS.includes(state.dialog?.type)
+  // A refused name keeps its dialog open with the problems, so the user can retry. A rename's
+  // refusal names its card (`id`), so it never lands in a dialog opened since for another card.
+  [HOME_EVENT.nameRefused]: (state, { id, problems }) =>
+    NAME_DIALOGS.includes(state.dialog?.type) && state.dialog.id === id
       ? { ...state, dialog: { ...state.dialog, problems } }
       : state,
   [HOME_EVENT.renamed]: (state, { id }) => closeAfterSuccess(state, id, { target: FOCUS.menu, id }),
@@ -132,7 +133,7 @@ const HANDLERS = {
  * problems of a list that could not be read), `{ type: 'sortChanged', sort }`,
  * `{ type: 'createOpened' }`, `{ type: 'renameOpened', id, name }`,
  * `{ type: 'deleteOpened', id, name }`, `{ type: 'dialogCancelled' }`,
- * `{ type: 'nameRefused', problems }`, `{ type: 'renamed', id }`,
+ * `{ type: 'nameRefused', id?, problems }` (id for a rename), `{ type: 'renamed', id }`,
  * `{ type: 'duplicated', id, copyId }`, `{ type: 'deleted', id, focus }` (see `focusAfterRemove`),
  * `{ type: 'actionFailed', id, problems, focus? }`, `{ type: 'actionSucceeded' }`,
  * `{ type: 'imported', id, text }`,

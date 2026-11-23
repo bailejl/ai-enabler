@@ -40,7 +40,8 @@ export const notSavedAnnouncement = (problems) => `Not saved. ${problems[0].mess
 /**
  * Wraps a library so a write that works for project `id` (a save, a rename or a remove, from any
  * page) calls `onStored(id)`: that project's stored file is now what the user last kept, so an
- * earlier failed save of it no longer stands.
+ * earlier failed save of it no longer stands. A homepage write comes only after the project's page
+ * was left, which dropped its unsaved change, so nothing unsaved is hidden by clearing it.
  * @param {{ save: Function, rename: Function, remove: Function }} library
  * @param {(id: string) => void} onStored
  */

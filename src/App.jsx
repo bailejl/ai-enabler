@@ -6,7 +6,7 @@ import {
   MarkerType,
   MiniMap,
 } from '@xyflow/react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import '@xyflow/react/dist/style.css'
 import Header, { APP_NAME } from './shell/Header.jsx'
 import HomePage from './shell/HomePage.jsx'
@@ -85,8 +85,6 @@ function Shell({ routeName, initial }) {
     [announce, exportProject],
   )
 
-  const importStatus = useMemo(() => describeImportStatus(importState), [importState])
-
   const isValidForEdges = useCallback((connection) => isValidConnection(edges)(connection), [edges])
 
   return (
@@ -99,7 +97,11 @@ function Shell({ routeName, initial }) {
         onHomeClick={leaveGuard.guardLink}
       />
       <StoreNotice openId={openId} className="shell__notice" />
-      <ImportStatus status={importStatus} onDismiss={dismissImportError} />
+      <ImportStatus
+        state={importState}
+        describe={describeImportStatus}
+        onDismiss={dismissImportError}
+      />
       <StoreProblems problems={storeProblems} />
       {editRejection && (
         <ProblemsPanel

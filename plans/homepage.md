@@ -38,8 +38,8 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - **E2e waiting and seeding.** `e2e/store.js` seeds and reads IndexedDB with `page.evaluate`, using `storeLayout.js`. `waitForStored(page, id, predicate)` polls the stored text until the predicate holds, so reload tests never race a write. The adapter contract runs in the page against the Vite dev server by dynamic import of `/src/flow/storeContract.js` and `/src/shell/indexedDbAdapter.js`. No production test seam.
 - **Failure injection.** `page.addInitScript` variants: `indexedDB` deleted; `indexedDB.open` throwing; `open` firing `error`; and the transaction aborting on the `files` put (async), for writes.
 - **Unopenable cards.** The list reads only the index, so a card whose file fails to open looks like any other and offers every action (revised at code review 2026-11-22). Opening it shows "Can't open <name>"; Rename or Duplicate on it is refused with `STORE_FILE_INVALID` and its problems. Replace from file repairs the card without parsing the old file. **R**
-- **Homepage write failures.** A failed create or rename keeps its dialog open with the typed name kept and the problem shown in it, so the user can retry, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel above the list, returns focus to the card's "More actions" button (or "Import project"), and announces "Not saved. <message>". No success announcement is spoken. **R**
-- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Leaving a project with an unsaved (failed) change for another route asks first through `ConfirmDialog` (AC32): in-app links go through one `useLeaveGuard` hook that the header home link and later N17's Help link call, and a `hashchange` away (Back, typed hash) is reverted with `history.pushState` to the project hash while the dialog asks. With every change saved, including the memory fallback, nothing asks. **R**
+- **Homepage write failures.** A failed create or rename keeps its dialog open with the typed name kept and the problem shown in it, so the user can retry, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel above the list, returns focus to the card's "More actions" button (or "Import project"); a failed import or replace also announces "Not saved. <message>". No success announcement is spoken. **R**
+- **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Leaving a project with an unsaved (failed) change for another route asks first through `ConfirmDialog` (AC32): in-app links go through one `useLeaveGuard` hook that the header home link and later N17's Help link call, and a `hashchange` away (Back, typed hash) is reverted with `history.replaceState` to the previous address (`event.oldURL`) while the dialog asks, so the entry Back moved to keeps this page's address. With every change saved, including the memory fallback, nothing asks. **R**
 - **Durable storage.** On the first successful write, the app calls `navigator.storage.persist()` once, best effort, with no UI. Help adds "Clearing this site's data deletes its projects. Export to keep a copy." **R**
 - **Card menu.** Each card has an "Open <name>" link and a "More actions for <name>" disclosure button. The menu holds Rename, Duplicate, Replace from file, Export and Delete. Escape closes it and returns focus to its button, and so does Tab out of it or a click outside. "Replace from file" is the card's import, so it is not confused with "Import project". **R**
 - **Routes and focus.** Titles: home "AI Enabler"; project "<name> · AI Enabler" (as today); missing "Project not found · AI Enabler"; cannot open "Can't open <name> · AI Enabler". On a route change, focus moves to the page's `h1`. Loading shows "Loading projects…" (homepage) or "Opening project…" (project route) in a status line with `aria-busy`. The empty state renders only after the list arrives.
@@ -720,7 +720,7 @@ Feature: Card actions
 ### Slice 6: Imports from the homepage
 
 **Depends-on:** 5
-**Files:** `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/useHomepage.js`, `src/shell/useImportFlow.js`, `src/shell/HomePage.jsx`, `src/shell/ProjectCard.jsx`, `src/shell/CardMenu.jsx`, `src/shell/HomeStatus.jsx`, `e2e/homepage.spec.js`
+**Files:** `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/importFlow.js`, `src/flow/importFlow.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/useHomepage.js`, `src/shell/useImportFlow.js`, `src/shell/HomePage.jsx`, `src/shell/ProjectCard.jsx`, `src/shell/CardMenu.jsx`, `src/shell/HomeStatus.jsx` (since merged into `ImportStatus.jsx`), `e2e/homepage.spec.js`
 **Invariants:** `npm test`, `npm run test:e2e`
 
 **Behavior:**
@@ -823,10 +823,10 @@ Feature: Import from the homepage
 #### Step 6.2: Import a new project on the homepage
 
 **Complexity**: standard
-**IMPLEMENT**: `library.importNew(file)` checks the id and writes in one queued operation (a store-wide queue for id choice), keeping the file's `project.id` unless taken. `HomeStatus.jsx` shows the outcome line as `role="status"` with a Dismiss button; it stays until dismissed or the next action with notices. Focus moves to the new card.
+**IMPLEMENT**: `library.importNew(file)` checks the id and writes in one queued operation (a store-wide queue for id choice), keeping the file's `project.id` unless taken. `HomeStatus.jsx` (since merged into `ImportStatus.jsx`) shows the outcome line as `role="status"` with a Dismiss button; it stays until dismissed or the next action with notices. Focus moves to the new card.
 **TEST**: Library unit tests (free id, taken id, two concurrent imports, write fails); homepage-import scenarios.
 **REFACTOR**: One id-choice function, named for what it decides.
-**Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/HomeStatus.jsx`, `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `e2e/homepage.spec.js`
+**Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/HomeStatus.jsx` (since merged into `ImportStatus.jsx`), `src/shell/useHomepage.js`, `src/shell/HomePage.jsx`, `e2e/homepage.spec.js`
 **Covers**: AC19, AC22, AC31
 **Commit**: `feat: import a project file from the homepage`
 
@@ -963,7 +963,7 @@ graph TD
 ## Risks & Open Questions
 
 - **R rules: accepted by the user 2026-11-22** and recorded in the spec as AC30–AC35:
-  1. Unopenable cards show only Replace from file, Export and Delete; replace repairs them. _Revised at code review 2026-11-22: the list reads only the index, so every card offers every action and an unopenable file is refused when an action opens it._
+  1. Unopenable cards offer every action; a file that cannot be opened is refused when an action opens it, and replace repairs it (revised at code review 2026-11-22: the list reads only the index).
   2. A failed homepage write (create, rename, duplicate, delete, import) changes nothing, keeps a dialog open or lists the problem, and never announces success.
   3. The lasting "Not saved" notice also shows after a failed save, until a save works, and a leave prompt guards it.
   4. One confirm wording everywhere: "Replace <current> with <incoming>?" (replaces ui-shell's "Replace current map with …").

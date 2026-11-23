@@ -30,7 +30,9 @@ export const readImport = async (file) => {
  *
  * `onReplace` may return (or resolve to) false when it could not keep the replacement; the outcome
  * line then clears and nothing is announced, so it never says a refused save was imported. A
- * replacement's outcome is announced only once `onReplace` has kept it. `resetImport` clears the line
+ * replacement's outcome is announced only once `onReplace` has kept it. The header's replacement
+ * is kept on the map even when its save fails, so it returns nothing and the save failure is
+ * announced on its own. `resetImport` clears the line
  * when another status takes its place; neither moves focus, and neither closes a pending question.
  */
 export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFocusRef }) => {
@@ -73,9 +75,11 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
         if (announcement) announce(announcement)
         return
       }
+      // A late refusal clears only the outcome it belongs to, never a newer import's state.
       Promise.resolve(onReplace(replacement)).then((kept) => {
-        if (kept === false) resetImport()
-        else if (announcement) announce(announcement)
+        if (kept !== false) {
+          if (announcement) announce(announcement)
+        } else if (latestImportState.current === state) resetImport()
       })
     },
     [announce, onReplace, resetImport],

@@ -88,14 +88,6 @@ export default function HomePage({
   }, [focus])
   const isLoading = list.status === LIST_STATUS.loading
   const cardItems = useMemo(() => toCardItems(list.projects), [list.projects])
-  const replaceStatus = useMemo(
-    () => describeImportStatus(replace.importState),
-    [replace.importState],
-  )
-  const importStatus = useMemo(
-    () => describeHomeImportStatus(state.importStatus),
-    [state.importStatus],
-  )
   const storeProblems = useMemo(
     () => [...list.problems, ...actionProblems],
     [list.problems, actionProblems],
@@ -128,8 +120,17 @@ export default function HomePage({
           </button>
           <FileInput ref={importInputRef} onFile={onImportNew} />
         </div>
-        <ImportStatus status={replaceStatus} onDismiss={replace.dismissImportError} />
-        <ImportStatus status={importStatus} onDismiss={onDismissImport} dismissesText />
+        <ImportStatus
+          state={replace.importState}
+          describe={describeImportStatus}
+          onDismiss={replace.dismissImportError}
+        />
+        <ImportStatus
+          state={state.importStatus}
+          describe={describeHomeImportStatus}
+          onDismiss={onDismissImport}
+          dismissesText
+        />
         <StoreProblems problems={storeProblems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">

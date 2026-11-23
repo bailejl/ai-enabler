@@ -104,13 +104,23 @@ describe('reduceHome card actions', () => {
   })
 
   it('keeps rename open with the problems of a refused name', () => {
-    const state = run(renaming, { type: HOME_EVENT.nameRefused, problems: refused })
+    const state = run(renaming, { type: HOME_EVENT.nameRefused, id: 'p1', problems: refused })
     expect(state.dialog).toEqual({
       type: DIALOG.rename,
       id: 'p1',
       name: 'Checkout',
       problems: refused,
     })
+  })
+
+  it('keeps a late refusal out of a rename opened since for another card', () => {
+    const renamingB = { type: HOME_EVENT.renameOpened, id: 'b', name: 'B' }
+    const state = run(renaming, renamingB, {
+      type: HOME_EVENT.nameRefused,
+      id: 'p1',
+      problems: writeFailed,
+    })
+    expect(state.dialog.problems).toEqual([])
   })
 
   it('hands focus back to the card menu when rename or delete is cancelled', () => {
@@ -152,16 +162,20 @@ describe('reduceHome card actions', () => {
     expect(state.focus).toEqual(focus)
   })
 
-  it('keeps a dialog opened for another card when an earlier action ends', () => {
+  it.each([
+    ['deleted', { type: HOME_EVENT.deleted, id: 'a', focus: null }],
+    ['renamed', { type: HOME_EVENT.renamed, id: 'a' }],
+    ['duplicated', { type: HOME_EVENT.duplicated, id: 'a', copyId: 'a2' }],
+    ['actionFailed', { type: HOME_EVENT.actionFailed, id: 'a', problems: writeFailed }],
+    ['imported', { type: HOME_EVENT.imported, id: 'new', text: 'Imported New, 1 step' }],
+  ])('keeps a dialog opened for another card when an earlier %s ends', (_name, event) => {
     const renamingB = { type: HOME_EVENT.renameOpened, id: 'b', name: 'B' }
-    const afterDelete = run(renamingB, { type: HOME_EVENT.deleted, id: 'a', focus: null })
-    expect(afterDelete.dialog).toEqual({ type: DIALOG.rename, id: 'b', name: 'B', problems: [] })
-    const afterFailure = run(renamingB, {
-      type: HOME_EVENT.actionFailed,
-      id: 'a',
-      problems: writeFailed,
+    expect(run(renamingB, event).dialog).toEqual({
+      type: DIALOG.rename,
+      id: 'b',
+      name: 'B',
+      problems: [],
     })
-    expect(afterFailure.dialog).toEqual(afterDelete.dialog)
   })
 
   it('clears the problems of a refused action once an export or replace works', () => {

@@ -106,7 +106,7 @@ export const useHomepage = ({ announce }) => {
       const { id } = latestState.current.dialog
       const renamed = await library.rename(id, name)
       if (!renamed.ok) {
-        dispatch({ type: HOME_EVENT.nameRefused, problems: renamed.problems })
+        dispatch({ type: HOME_EVENT.nameRefused, id, problems: renamed.problems })
         return
       }
       await reload()

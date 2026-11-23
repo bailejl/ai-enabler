@@ -194,6 +194,16 @@ test.describe('creating a project', () => {
     await expect(cardItems(page)).toHaveCount(0)
   })
 
+  test('New project and Import project wait for the store to open', async ({ page }) => {
+    // An open that never settles keeps the store opening.
+    await page.addInitScript(() => {
+      window.indexedDB.open = () => ({})
+    })
+    await page.goto('/#/')
+    await expect(newProject(page)).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Import project' })).toBeDisabled()
+  })
+
   test('a second click on Create while the first is saving makes one project', async ({ page }) => {
     await page.goto('/#/')
     await newProject(page).click()
@@ -638,10 +648,22 @@ test.describe('replacing a card from a file', () => {
     await seedProjects(page, [await starterRecordAs('p1', { name: 'Checkout' })])
     await page.reload()
     await replaceWith(page, 'Checkout', await fileNamed('Payments'))
+    // Every text the announcer speaks from here on, so a passing "Imported ..." is caught.
+    await page.evaluate(() => {
+      const region = document.querySelector('[aria-live="polite"]')
+      window.spoken = []
+      new MutationObserver(() => window.spoken.push(region.textContent)).observe(region, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      })
+    })
     await confirm(page).getByRole('button', { name: 'Replace map' }).click()
     await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
     await expect(importStatus(page)).toHaveCount(0)
     await expect(announcer(page)).toHaveText(`Not saved. ${problem('STORE_WRITE_FAILED').message}`)
+    const spoken = await page.evaluate(() => window.spoken)
+    expect(spoken.filter((text) => text.startsWith('Imported'))).toEqual([])
     await expect(cardNames(page)).toHaveText(['Checkout'])
     await expect(menuButton(page, 'Checkout')).toBeFocused()
     await flushConsole(page)

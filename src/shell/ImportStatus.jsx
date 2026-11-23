@@ -1,16 +1,20 @@
+import { useMemo } from 'react'
 import ProblemsPanel from './ProblemsPanel.jsx'
 
 const IMPORT_STATUS_LABEL = 'Import status'
 
 /**
  * An import's outcome: the outcome line, or the rejection in the shared problems panel with its
- * Dismiss button. `status` is what describeImportStatus or describeHomeImportStatus give, kept by
- * the caller until the import state changes, so the panel's heading takes focus once per
- * rejection. `dismissesText` adds Dismiss to the outcome line too. Not a live region: the
- * Announcer speaks every outcome, this only keeps it visible.
- * @param {{ status: object | null, onDismiss: () => void, dismissesText?: boolean }} props
+ * Dismiss button. `describe` (describeImportStatus or describeHomeImportStatus, a stable module
+ * function) turns `state` into what shows; the result keeps its identity until `state` changes,
+ * so the panel's heading takes focus once per rejection. `dismissesText` adds Dismiss to the
+ * outcome line too. Not a live region: the Announcer speaks every outcome, this only keeps it
+ * visible.
+ * @param {{ state: object | null, describe: (state: object | null) => object | null,
+ *   onDismiss: () => void, dismissesText?: boolean }} props
  */
-export default function ImportStatus({ status, onDismiss, dismissesText = false }) {
+export default function ImportStatus({ state, describe, onDismiss, dismissesText = false }) {
+  const status = useMemo(() => describe(state), [describe, state])
   if (!status) return null
 
   if (status.isError) {
