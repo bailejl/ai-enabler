@@ -151,14 +151,15 @@ const libraryOver = (adapter) => {
 }
 
 describe('project library list', () => {
-  it('marks each entry openable or not', async () => {
+  it('lists a file that cannot be opened like any other, as its index entry', async () => {
     const { library } = await libraryWith([['b', 'Broken', BROKEN]])
     await library.save(memoryProject('p1', 'Checkout'))
     const listed = await library.list({ sort: 'name' })
-    expect(listed.projects.map(({ id, openable }) => ({ id, openable }))).toEqual([
-      { id: 'b', openable: false },
-      { id: 'p1', openable: true },
+    expect(listed.projects.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: 'b', name: 'Broken' },
+      { id: 'p1', name: 'Checkout' },
     ])
+    expect(Object.keys(listed.projects[0]).sort()).toEqual(['id', 'modifiedAt', 'name'])
   })
 })
 
@@ -231,9 +232,7 @@ describe('project library save over a file that cannot be opened', () => {
     const { library } = await libraryWith([['b', 'Broken', BROKEN]])
     expect((await library.save(memoryProject('b', 'Fixed'))).ok).toBe(true)
     expect((await library.open('b')).project).toEqual(memoryProject('b', 'Fixed'))
-    expect(
-      (await library.list()).projects.map(({ name, openable }) => ({ name, openable })),
-    ).toEqual([{ name: 'Fixed', openable: true }])
+    expect((await library.list()).projects.map(({ name }) => name)).toEqual(['Fixed'])
   })
 })
 
@@ -499,10 +498,11 @@ describe('project library when the store fails', () => {
     expect(codes(await library.list())).toEqual(['STORE_UNAVAILABLE'])
   })
 
-  it('keeps a card openable when its file cannot be read for now', async () => {
+  it('lists without reading any stored file', async () => {
     const library = await failingWith({ getFile: gone })
     const listed = await library.list()
-    expect(listed.projects.map(({ id, openable }) => [id, openable])).toEqual([['p1', true]])
+    expect(listed.ok).toBe(true)
+    expect(listed.projects.map(({ id }) => id)).toEqual(['p1'])
   })
 
   it('imports nothing when the list it picks an id from cannot be read', async () => {

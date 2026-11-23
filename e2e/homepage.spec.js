@@ -481,21 +481,24 @@ test.describe('card actions', () => {
     expect((await readIndex(page)).map(({ name }) => name)).toEqual(['A'])
   })
 
-  test('a project that cannot be opened offers only repair actions', async ({
+  test('a project that cannot be opened lists like any other and refuses a duplicate', async ({
     page,
     diagnostics,
   }) => {
     diagnostics.expect(['STORE_FILE_INVALID', 'STEP_POSITION_MISSING'])
     await seedBroken(page)
-    await page.goto('/#/projects/broken')
-    await expect(page.getByRole('heading', { level: 1, name: "Can't open Broken" })).toBeVisible()
-    await page.goto('/#/')
     await menuButton(page, 'Broken').click()
     await expect(cardFor(page, 'Broken').getByRole('listitem')).toHaveText([
+      'Rename',
+      'Duplicate',
       'Replace from file',
       'Export',
       'Delete',
     ])
+    await cardFor(page, 'Broken').getByRole('button', { name: 'Duplicate', exact: true }).click()
+    await expect(storageProblems(page)).toContainText(problem('STORE_FILE_INVALID').message)
+    await expect(cardNames(page)).toHaveText(['Broken'])
+    await expect(menuButton(page, 'Broken')).toBeFocused()
   })
 
   test('a project that cannot be opened can still be deleted', async ({ page, diagnostics }) => {

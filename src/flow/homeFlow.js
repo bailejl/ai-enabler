@@ -161,9 +161,6 @@ export const focusAfterRemove = (ids, removedId) => {
   return id === undefined ? { target: FOCUS.newProject } : { target: FOCUS.card, id }
 }
 
-/** True when the stored file could not be opened, so the list is stale and its card must change. */
-export const isUnopenable = (problems) => problems[0]?.code === 'STORE_FILE_INVALID'
-
 /**
  * The outcome line of a homepage import, such as "Imported Payments, 6 steps", or "Imported
  * Payments as a new project, 6 steps" when the file's id was taken, then the file's notices.

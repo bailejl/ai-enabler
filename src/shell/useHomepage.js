@@ -6,7 +6,6 @@ import {
   actionAnnouncement,
   describeHomeImport,
   focusAfterRemove,
-  isUnopenable,
   reduceHome,
 } from '../flow/homeFlow.js'
 import { projectHref } from '../flow/homepageView.js'
@@ -69,14 +68,10 @@ export const useHomepage = ({ announce }) => {
       pending.current = false
     }
   }, [])
-  // A refused card action: its problems show under "Storage problems" and focus returns to it. A
-  // file found unopenable since the list loaded reloads it, so its card offers only repairs.
+  // A refused card action: its problems show under "Storage problems" and focus returns to it.
   const failed = useCallback(
-    async (id, problems) => {
-      if (isUnopenable(problems)) await reload()
-      dispatch({ type: HOME_EVENT.actionFailed, id, problems })
-    },
-    [dispatch, reload],
+    (id, problems) => dispatch({ type: HOME_EVENT.actionFailed, id, problems }),
+    [dispatch],
   )
 
   const setSort = useCallback(
@@ -104,15 +99,13 @@ export const useHomepage = ({ announce }) => {
     [library, dispatch],
   )
 
-  // A refused rename, of the name or of the write, keeps the dialog open with the problems, as
-  // create does. A file found unopenable since the list loaded reloads it, so its card offers only
-  // repairs.
+  // A refused rename, of the name, the stored file or the write, keeps the dialog open with the
+  // problems, as create does.
   const rename = useCallback(
     async (name) => {
       const { id } = latestState.current.dialog
       const renamed = await library.rename(id, name)
       if (!renamed.ok) {
-        if (isUnopenable(renamed.problems)) await reload()
         dispatch({ type: HOME_EVENT.nameRefused, problems: renamed.problems })
         return
       }
@@ -165,7 +158,7 @@ export const useHomepage = ({ announce }) => {
       const saved = await library.save(replacement)
       if (!saved.ok) {
         announce(notSavedAnnouncement(saved.problems))
-        await failed(id, saved.problems)
+        failed(id, saved.problems)
         return false
       }
       await reload()

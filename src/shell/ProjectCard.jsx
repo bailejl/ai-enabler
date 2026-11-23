@@ -2,7 +2,8 @@ import CardMenu from './CardMenu.jsx'
 
 /**
  * One saved project on the homepage: its name as the link that opens it, its modified date and
- * its "More actions" menu. A project that cannot be opened offers only Replace from file, Export and Delete.
+ * its "More actions" menu. The list reads only the index, so every card offers every action; one
+ * that needs a stored file that cannot be opened is refused with its problems.
  * `data-focus` marks the link and the menu button so the homepage can move focus to them.
  */
 export default function ProjectCard({
@@ -14,18 +15,13 @@ export default function ProjectCard({
   onDelete,
 }) {
   const { id, name } = item
-  const repairs = [
+  const actions = [
+    { label: 'Rename', onSelect: () => onRename(id, name) },
+    { label: 'Duplicate', onSelect: () => onDuplicate(id, name) },
     { label: 'Replace from file', onSelect: () => onReplaceFromFile(id, name) },
     { label: 'Export', onSelect: () => onExport(id) },
     { label: 'Delete', onSelect: () => onDelete(id, name) },
   ]
-  const actions = item.openable
-    ? [
-        { label: 'Rename', onSelect: () => onRename(id, name) },
-        { label: 'Duplicate', onSelect: () => onDuplicate(id, name) },
-        ...repairs,
-      ]
-    : repairs
   return (
     <li className="project-card">
       <a

@@ -10,7 +10,6 @@ import {
   describeHomeImportStatus,
   focusAfterRemove,
   isEmptyList,
-  isUnopenable,
   reduceHome,
 } from './homeFlow.js'
 import { SORT } from './projectStore.js'
@@ -202,15 +201,6 @@ describe('focusAfterRemove', () => {
 
   it('moves to the first card when the removed id is not shown', () => {
     expect(focusAfterRemove(['a', 'b'], 'z')).toEqual({ target: FOCUS.card, id: 'a' })
-  })
-})
-
-describe('isUnopenable', () => {
-  it('tells a file that cannot be opened from a failed write', () => {
-    expect(isUnopenable([{ code: 'STORE_FILE_INVALID' }, { code: 'STEP_POSITION_MISSING' }])).toBe(
-      true,
-    )
-    expect(isUnopenable([{ code: 'STORE_WRITE_FAILED' }])).toBe(false)
   })
 })
 

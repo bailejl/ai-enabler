@@ -37,7 +37,7 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - **Dates.** A card shows `<time datetime="<ISO>">` with `Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone })` text, for example "22 Nov 2026, 10:00". The zone is the browser's. Tests inject `UTC`.
 - **E2e waiting and seeding.** `e2e/store.js` seeds and reads IndexedDB with `page.evaluate`, using `storeLayout.js`. `waitForStored(page, id, predicate)` polls the stored text until the predicate holds, so reload tests never race a write. The adapter contract runs in the page against the Vite dev server by dynamic import of `/src/flow/storeContract.js` and `/src/shell/indexedDbAdapter.js`. No production test seam.
 - **Failure injection.** `page.addInitScript` variants: `indexedDB` deleted; `indexedDB.open` throwing; `open` firing `error`; and the transaction aborting on the `files` put (async), for writes.
-- **Unopenable cards.** The library marks a card `openable: false` only when its file fails to open (`STORE_FILE_INVALID`); a write failure leaves the card fully usable so the user can retry. Its menu shows Replace from file, Export and Delete. Rename and Duplicate are hidden. Replace from file repairs the card without parsing the old file. **R**
+- **Unopenable cards.** The list reads only the index, so a card whose file fails to open looks like any other and offers every action (revised at code review 2026-11-22). Opening it shows "Can't open <name>"; Rename or Duplicate on it is refused with `STORE_FILE_INVALID` and its problems. Replace from file repairs the card without parsing the old file. **R**
 - **Homepage write failures.** A failed create or rename keeps its dialog open with the typed name kept and the problem shown in it, so the user can retry, and nothing navigates. A failed duplicate, delete or import leaves the list unchanged, lists the problem in the storage panel above the list, returns focus to the card's "More actions" button (or "Import project"), and announces "Not saved. <message>". No success announcement is spoken. **R**
 - **Lasting notice.** `StoreNotice` shows "Not saved in this browser. Export to keep your work." while `persistent` is false, and also while the open project has a failed save. It clears on the next successful write. While it shows, `beforeunload` asks before leaving the tab. Leaving a project with an unsaved (failed) change for another route asks first through `ConfirmDialog` (AC32): in-app links go through one `useLeaveGuard` hook that the header home link and later N17's Help link call, and a `hashchange` away (Back, typed hash) is reverted with `history.pushState` to the project hash while the dialog asks. With every change saved, including the memory fallback, nothing asks. **R**
 - **Durable storage.** On the first successful write, the app calls `navigator.storage.persist()` once, best effort, with no UI. Help adds "Clearing this site's data deletes its projects. Export to keep a copy." **R**
@@ -76,7 +76,7 @@ Make the homepage the entry point. It lists the projects saved in this browser a
 - [ ] AC27 Help says projects save automatically and that the last change wins across two tabs.
 - [ ] AC28 All homepage states pass axe and work by keyboard.
 - [ ] AC29 The in-project header Import replaces that project and keeps its id.
-- [ ] AC30 An unopenable card offers only Replace from file, Export and Delete; replace repairs it.
+- [ ] AC30 The list reads only the index; Rename or Duplicate on an unopenable card is refused with `STORE_FILE_INVALID`; replace repairs it.
 - [ ] AC31 A refused homepage write changes nothing, keeps the dialog or lists the problem, never announces success.
 - [ ] AC32 The lasting notice also shows after a failed save until a save works; leaving the tab, or the project for another route, asks first while a change is unsaved.
 - [ ] AC33 Import confirmations read "Replace <current> with <incoming>?".
@@ -649,11 +649,12 @@ Feature: Card actions
       | duplicate               |
       | rename to "A2"          |
 
-  Scenario: A project that cannot be opened offers only repair actions
-    # Still passes if: the hidden actions are shown disabled instead
-    Given a saved project "Broken" whose file has a step with no position, which the user has tried to open
-    When the user opens "More actions for Broken"
-    Then the menu offers Replace from file, Export and Delete, and not Rename or Duplicate
+  Scenario: A project that cannot be opened lists like any other and refuses a duplicate
+    # Still passes if: the problem is worded differently
+    Given a saved project "Broken" whose file has a step with no position
+    When the user chooses Duplicate from "More actions for Broken"
+    Then the menu offered Rename, Duplicate, Replace from file, Export and Delete
+    And "Storage problems" lists STORE_FILE_INVALID, the list still shows only "Broken", and focus is on "More actions for Broken"
 
   Scenario: A project that cannot be opened can still be deleted
     # Still passes if: the confirm text uses the stored name
@@ -679,7 +680,7 @@ Feature: Card actions
 #### Step 5.1: Card menu and rename
 
 **Complexity**: standard
-**IMPLEMENT**: `CardMenu.jsx` disclosure (Escape, Tab out and outside click close it and return focus). `library.rename(id, name)` reads, opens, runs `rename_project`, saves; an unopenable file returns `STORE_FILE_INVALID` and marks the card. `homeFlow.js` handles the rename dialog and focus.
+**IMPLEMENT**: `CardMenu.jsx` disclosure (Escape, Tab out and outside click close it and return focus). `library.rename(id, name)` reads, opens, runs `rename_project`, saves; an unopenable file returns `STORE_FILE_INVALID`. `homeFlow.js` handles the rename dialog and focus.
 **TEST**: Library and flow unit tests; menu, rename, cancel and blank scenarios.
 **REFACTOR**: A `withOpenedProject(id, fn)` helper in the library for read, open, apply, save.
 **Files**: `src/shell/CardMenu.jsx`, `src/shell/ProjectCard.jsx`, `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/flow/homeFlow.js`, `src/flow/homeFlow.test.js`, `src/shell/useHomepage.js`, `src/index.css`, `e2e/homepage.spec.js`
@@ -709,7 +710,7 @@ Feature: Card actions
 #### Step 5.4: Export from a card and unopenable menus
 
 **Complexity**: standard
-**IMPLEMENT**: `library.exportFile(id)` returns a fresh export for an openable file and the raw text otherwise. The card downloads it with `projectFileName`. The menu for an unopenable card hides Rename and Duplicate. Axe check with the menu open and the delete confirm open.
+**IMPLEMENT**: `library.exportFile(id)` returns a fresh export for an openable file and the raw text otherwise. The card downloads it with `projectFileName`. Every card offers every action. Axe check with the menu open and the delete confirm open.
 **TEST**: Library unit tests; export, unopenable-menu scenarios; a11y.
 **REFACTOR**: One download path shared with the header export.
 **Files**: `src/flow/projectLibrary.js`, `src/flow/projectLibrary.test.js`, `src/shell/ProjectCard.jsx`, `src/shell/CardMenu.jsx`, `e2e/homepage.spec.js`, `e2e/a11y.spec.js`
@@ -962,7 +963,7 @@ graph TD
 ## Risks & Open Questions
 
 - **R rules: accepted by the user 2026-11-22** and recorded in the spec as AC30–AC35:
-  1. Unopenable cards show only Replace from file, Export and Delete; replace repairs them.
+  1. Unopenable cards show only Replace from file, Export and Delete; replace repairs them. _Revised at code review 2026-11-22: the list reads only the index, so every card offers every action and an unopenable file is refused when an action opens it._
   2. A failed homepage write (create, rename, duplicate, delete, import) changes nothing, keeps a dialog open or lists the problem, and never announces success.
   3. The lasting "Not saved" notice also shows after a failed save, until a save works, and a leave prompt guards it.
   4. One confirm wording everywhere: "Replace <current> with <incoming>?" (replaces ui-shell's "Replace current map with …").

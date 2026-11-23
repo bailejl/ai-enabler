@@ -13,18 +13,17 @@ const formatTime = (format, iso) => {
 export const projectHref = (id) => `#/projects/${encodeURIComponent(id)}`
 
 /**
- * One card item per index entry, in the given order: `{ id, name, openable, modifiedAt,
- * modifiedText, href }`, where `openable` is false for a stored file that cannot be opened. `modifiedText` reads like "22 Nov 2026, 10:00" in `timeZone` (the browser's by default),
- * and `modifiedAt` is the ISO time for a `<time datetime>`.
+ * One card item per index entry, in the given order: `{ id, name, modifiedAt, modifiedText, href }`.
+ * `modifiedText` reads like "22 Nov 2026, 10:00" in `timeZone` (the browser's by default), and
+ * `modifiedAt` is the ISO time for a `<time datetime>`.
  * @param {{ id: string, name: string, modifiedAt: string }[]} entries
  * @param {{ timeZone?: string }} [options] timeZone is injected so tests are deterministic.
  */
 export const toCardItems = (entries, { timeZone } = {}) => {
   const format = dateFormat(timeZone)
-  return entries.map(({ id, name, modifiedAt, openable = true }) => ({
+  return entries.map(({ id, name, modifiedAt }) => ({
     id,
     name,
-    openable,
     modifiedAt,
     modifiedText: formatTime(format, modifiedAt),
     href: projectHref(id),

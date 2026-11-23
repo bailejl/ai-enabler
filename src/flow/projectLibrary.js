@@ -62,22 +62,10 @@ export const createProjectLibrary = (
   const save = (memoryProject) => store.save(memoryProject)
 
   /**
-   * Every saved project's index entry, sorted as projectStore's `list`, each with `openable`:
-   * false when its stored file fails to open (STORE_FILE_INVALID), so its card offers only repairs.
-   * A file that cannot be read now counts as openable, so a passing store failure hides nothing.
+   * Every saved project's index entry, sorted as projectStore's `list`. It reads only the index,
+   * never a stored file, so a file that fails to open shows its problem when it is opened.
    */
-  const list = async (options) => {
-    const listed = await store.list(options)
-    if (!listed.ok) return listed
-    const projects = await Promise.all(
-      listed.projects.map(async (entry) => {
-        const read = await store.read(entry.id)
-        const openable = !read.ok || (await parseImport(read.text)).ok
-        return { ...entry, openable }
-      }),
-    )
-    return { ...listed, projects }
-  }
+  const list = (options) => store.list(options)
 
   // Opens `id` and, when it opens, runs `change(project)` and saves the project it returns.
   // A file that cannot be opened, a change that is refused or a failed write saves nothing.
