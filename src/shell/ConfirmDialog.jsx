@@ -1,19 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 
-const HEADING_ID = 'confirm-dialog-heading'
-const BODY_ID = 'confirm-dialog-body'
-
-// Mounted only while a confirmation is pending, so closing it is just unmounting it.
+/**
+ * A modal question with a confirm and a cancel button; Cancel takes focus, so Enter is safe.
+ * `children` is the optional body that describes the dialog. Mounted only while a confirmation is
+ * pending, so closing it is just unmounting it.
+ */
 export default function ConfirmDialog({
   message,
-  currentName,
-  incomingName,
-  notices,
+  confirmText,
+  cancelText = 'Cancel',
+  children,
   onConfirm,
   onCancel,
 }) {
   const dialogRef = useRef(null)
   const cancelButtonRef = useRef(null)
+  const headingId = useId()
+  const bodyId = useId()
 
   useEffect(() => {
     dialogRef.current.showModal()
@@ -35,30 +38,22 @@ export default function ConfirmDialog({
     <dialog
       ref={dialogRef}
       className="dialog"
-      aria-labelledby={HEADING_ID}
-      aria-describedby={BODY_ID}
+      aria-labelledby={headingId}
+      aria-describedby={children ? bodyId : undefined}
       onCancel={handleCancelEvent}
       onClick={handleClick}
     >
       <div className="dialog__content">
-        <h2 id={HEADING_ID} className="dialog__heading">
+        <h2 id={headingId} className="dialog__heading">
           {message}
         </h2>
-        <div id={BODY_ID}>
-          <p>
-            Current project: <strong>{currentName}</strong>. Incoming project:{' '}
-            <strong>{incomingName}</strong>.
-          </p>
-          {notices.map((notice) => (
-            <p key={notice}>{notice}</p>
-          ))}
-        </div>
+        {children && <div id={bodyId}>{children}</div>}
         <div className="dialog__actions">
           <button type="button" className="button" onClick={onConfirm}>
-            Replace map
+            {confirmText}
           </button>
           <button ref={cancelButtonRef} type="button" className="button" onClick={onCancel}>
-            Cancel
+            {cancelText}
           </button>
         </div>
       </div>

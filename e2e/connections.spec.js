@@ -12,13 +12,13 @@ import {
   rightHandle,
   selectEdge,
 } from './canvas.js'
-import { STARTER_STEP_COUNT } from './views.js'
+import { STARTER_STEP_COUNT, openStarterProject } from './views.js'
 
 const STARTER_EDGE_COUNT = 5
 const MIN_HANDLE_HIT_SIZE = 20
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   await expect(edges(page)).toHaveCount(STARTER_EDGE_COUNT)
 })

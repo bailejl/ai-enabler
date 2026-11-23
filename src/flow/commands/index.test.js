@@ -52,6 +52,35 @@ describe('create_project', () => {
   })
 })
 
+describe('rename_project', () => {
+  const checkout = Object.freeze({
+    project: { id: 'p-1', name: 'Checkout' },
+    nodes: [
+      { id: 'a', type: 'step', position: { x: 0, y: 0 }, data: { label: 'Plan' } },
+      { id: 'b', type: 'step', position: { x: 200, y: 0 }, data: { label: 'Build' } },
+    ],
+    edges: [{ id: 'e1', source: 'a', target: 'b' }],
+  })
+
+  it('changes only the name', () => {
+    const result = run(checkout, 'rename_project', { name: 'Payments' })
+    expect(result.ok).toBe(true)
+    expect(result.project).toEqual({ ...checkout, project: { id: 'p-1', name: 'Payments' } })
+    expect(result.summary).toBe('Renamed project to "Payments"')
+  })
+
+  it.each(['', '   ', undefined, 7])('rejects the name %j and keeps the project', (name) => {
+    const result = run(checkout, 'rename_project', { name })
+    expect(onlyProblem(result).code).toBe('FILE_PROJECT_NAME_EMPTY')
+    expect(result.project).toBe(checkout)
+  })
+
+  it('is an edit command, not one that replaces the project', () => {
+    expect(replacesProject({ name: 'rename_project' })).toBe(false)
+    expect(EDIT_COMMAND_NAMES).toContain('rename_project')
+  })
+})
+
 describe('applyCommand argument checks', () => {
   it('rejects an unknown command, naming it and the valid commands', () => {
     const result = run(existing, 'drop_database', {})
@@ -174,6 +203,7 @@ describe('applyCommand results', () => {
 
 describe('applyCommand with no project open', () => {
   const NEEDS_PROJECT = [
+    ['rename_project', { name: 'Payments' }],
     ['add_step', { name: 'Build' }],
     ['update_step', { stepId: 'a', name: 'B' }],
     ['set_step_metrics', { stepId: 'a', pt: 1 }],

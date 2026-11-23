@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, settledBox } from './canvas.js'
-import { deleteAllSteps, STARTER_STEP_COUNT } from './views.js'
+import { deleteAllSteps, STARTER_STEP_COUNT, openStarterProject } from './views.js'
 
 // The badge's visible letters, not its visually hidden name.
 const badgeIn = (card, text) => card.getByText(text, { exact: true })
@@ -9,7 +9,7 @@ const badgeIn = (card, text) => card.getByText(text, { exact: true })
 const centerOf = ({ x, y, width, height }) => ({ x: x + width / 2, y: y + height / 2 })
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
 })
 

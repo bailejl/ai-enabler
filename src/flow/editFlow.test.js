@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { moveEdit, deleteEdit, syncCanvas } from './canvas.js'
 import { EDIT_EVENT, INITIAL_EDIT_STATE, reduceEdit, runEdit, toEditEvent } from './editFlow.js'
-import { createStarterMemoryProject } from './project.js'
+import { createStarterMemoryProject } from '../testHelpers.js'
 import { IMPORT_ERROR, describeImportStatus } from './importFlow.js'
 
 const context = { newId: () => 'new-id' }

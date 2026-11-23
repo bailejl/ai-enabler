@@ -52,6 +52,15 @@ export const withContentHash = async (file) => ({ ...file, contentHash: await co
 // The text of a project file as written to disk or downloaded: indented JSON and a final newline.
 export const serializeProjectFile = (file) => `${JSON.stringify(file, null, JSON_INDENT)}\n`
 
+/**
+ * The download for an in-memory project, exported at `now`: `{ fileName, text }`. The header's
+ * Export and a card's Export both go through here.
+ */
+export const toExportDownload = async ({ project, nodes, edges }, now) => ({
+  fileName: projectFileName(project.name),
+  text: serializeProjectFile(await withContentHash(toProjectFile({ project, nodes, edges, now }))),
+})
+
 export const projectFileName = (name) => {
   const slug = name
     .toLowerCase()

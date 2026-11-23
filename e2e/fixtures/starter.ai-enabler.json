@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "0.1.0",
+  "exportedAt": "2026-11-22T10:00:00.000Z",
+  "project": {
+    "id": "starter",
+    "name": "Untitled Project"
+  },
+  "nodes": [
+    {
+      "id": "idea",
+      "type": "step",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Idea",
+        "pt": 120,
+        "lt": 1440,
+        "ca": 90,
+        "queue": 20
+      }
+    },
+    {
+      "id": "plan",
+      "type": "step",
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "data": {
+        "label": "Plan",
+        "pt": 360,
+        "lt": 960,
+        "ca": 90,
+        "queue": 3
+      }
+    },
+    {
+      "id": "build",
+      "type": "step",
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "data": {
+        "label": "Build",
+        "pt": 480,
+        "lt": 1200,
+        "ca": 90,
+        "queue": 4
+      }
+    },
+    {
+      "id": "test",
+      "type": "step",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "data": {
+        "label": "Test",
+        "pt": 240,
+        "lt": 1200,
+        "ca": 90,
+        "queue": 5
+      }
+    },
+    {
+      "id": "deploy",
+      "type": "step",
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "data": {
+        "label": "Deploy",
+        "pt": 240,
+        "lt": 720,
+        "ca": 90,
+        "queue": 1
+      }
+    },
+    {
+      "id": "production",
+      "type": "step",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "data": {
+        "label": "Production",
+        "pt": 120,
+        "lt": 480,
+        "ca": 90,
+        "queue": 1,
+        "batch": 3
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "idea->plan",
+      "source": "idea",
+      "target": "plan"
+    },
+    {
+      "id": "plan->build",
+      "source": "plan",
+      "target": "build"
+    },
+    {
+      "id": "build->test",
+      "source": "build",
+      "target": "test"
+    },
+    {
+      "id": "test->deploy",
+      "source": "test",
+      "target": "deploy"
+    },
+    {
+      "id": "deploy->production",
+      "source": "deploy",
+      "target": "production"
+    }
+  ],
+  "contentHash": "sha256-091c8d9a0ef0c6e584fa607304dd99f48c65cd7518ddb65ebd61347123a873db"
+}

@@ -28,13 +28,15 @@ const pickFocusTarget = (focusReturn, canvasElement) =>
 // project and `commitProject(next)` replaces it, so two edits in one tick both see the result of
 // the first. A rejected edit is spoken through `announce`, written to the console once per problem
 // and kept in `editRejection` until the next accepted edit, a replaced project or Dismiss. It never
-// moves focus; Dismiss gives it back to where it was.
+// moves focus; Dismiss gives it back to where it was. `onAccepted(project)` gets the project of
+// each accepted edit that changed something, from the edit's result, not from React state.
 export const useCanvasEdits = ({
   initialProject,
   projectRef,
   commitProject,
   canvasElementRef,
   announce,
+  onAccepted,
 }) => {
   const [canvas, setCanvasState] = useState(() => syncCanvas(NO_CANVAS, initialProject))
   // The newest canvas, written only where the state is set, so an edit never starts from one a
@@ -79,12 +81,13 @@ export const useCanvasEdits = ({
       if (event) {
         dispatchEdit(event)
         if (event.type === EDIT_EVENT.rejected) result.problems.forEach(report)
+        if (event.type === EDIT_EVENT.accepted) onAccepted(result.project)
         // The panel closes, so focus inside it would be lost.
         if (event.type === EDIT_EVENT.accepted && isFocusInPanel) canvasElementRef.current?.focus()
       }
       return result
     },
-    [projectRef, commitProject, setCanvas, dispatchEdit, canvasElementRef],
+    [projectRef, commitProject, setCanvas, dispatchEdit, canvasElementRef, onAccepted],
   )
 
   // Opens `next` in place of the project: the canvas is drawn afresh from it, and the rejection

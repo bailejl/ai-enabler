@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { problem } from './diagnostics/problem.js'
 import { contentHash } from './contentHash.js'
 import { parseImport } from './importFile.js'
-import { layoutSteps, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
+import { layoutUnplacedSteps, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
 import { toProjectFile, withContentHash } from './projectFile.js'
 import {
   EMPTY_SESSION,
@@ -399,13 +399,12 @@ describe('toSaveFile', () => {
     const original = await appExport()
     const session = setQueue(await opened(original), 'a', 8).session
     const { file } = await toSaveFile(session, { now: NOW, tool: TOOL })
-    const laidOut = layoutSteps(original.nodes, original.edges)
     const expected = {
       ...original,
       schemaVersion: '0.1.0',
       exportedAt: NOW.toISOString(),
       modifiedBy: { tool: TOOL, at: NOW.toISOString() },
-      nodes: laidOut.map((node) =>
+      nodes: original.nodes.map((node) =>
         node.id === 'a' ? { ...node, data: { ...node.data, queue: 8 } } : node,
       ),
       contentHash: file.contentHash,
@@ -441,8 +440,31 @@ describe('toSaveFile', () => {
     expect((await parseImport(JSON.stringify(file))).ok).toBe(true)
   })
 
-  it('lays the map out on save so every connection points left to right without overlaps', async () => {
+  it('keeps the position of every step the user placed', async () => {
+    const original = await appExport()
+    const session = await opened(original)
+    const added = applyToSession(session, { name: 'add_step', args: { name: 'Test' } }, deps())
+    const { file } = await toSaveFile(added.session, { now: NOW, tool: TOOL })
+    const placed = file.nodes.filter((node) => ['a', 'b', 'c'].includes(node.id))
+    expect(placed.map((node) => node.position)).toEqual(original.nodes.map((node) => node.position))
+  })
+
+  it('lays out a step still at the start position', async () => {
     const session = await opened()
+    const added = applyToSession(session, { name: 'add_step', args: { name: 'Test' } }, deps())
+    const { file } = await toSaveFile(added.session, { now: NOW, tool: TOOL })
+    const { nodes, edges } = added.session.project
+    const newStep = file.nodes.find((node) => node.data.label === 'Test')
+    const laidOut = layoutUnplacedSteps(nodes, edges).find((node) => node.id === newStep.id)
+    expect(newStep.position).toEqual(laidOut.position)
+    expect(newStep.position).not.toEqual({ x: 0, y: 0 })
+  })
+
+  it('lays the map out on save when no step is placed, so every connection points left to right without overlaps', async () => {
+    const unplaced = await appExport({
+      nodes: [step('a', 'Plan', 0, 0), step('b', 'Build', 0, 0), step('c', 'Ship', 0, 0)],
+    })
+    const session = await opened(unplaced)
     const added = applyToSession(session, { name: 'add_step', args: { name: 'Test' } }, deps())
     const { file } = await toSaveFile(added.session, { now: NOW, tool: TOOL })
     const at = (id) => file.nodes.find((node) => node.id === id).position
@@ -458,7 +480,7 @@ describe('toSaveFile', () => {
     )
     const project = added.session.project
     expect(file.nodes.map((node) => node.position)).toEqual(
-      layoutSteps(project.nodes, project.edges).map((node) => node.position),
+      layoutUnplacedSteps(project.nodes, project.edges).map((node) => node.position),
     )
   })
 

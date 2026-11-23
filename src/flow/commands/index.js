@@ -24,6 +24,13 @@ export const COMMANDS = {
       summary: () => `Created project ${quoted(name)}`,
     }),
   },
+  rename_project: {
+    args: ['name'],
+    apply: (project, { name }) => ({
+      project: { ...project, project: { ...project.project, name } },
+      summary: () => `Renamed project to ${quoted(name)}`,
+    }),
+  },
   ...STEP_COMMANDS,
   ...CONNECTION_COMMANDS,
 }

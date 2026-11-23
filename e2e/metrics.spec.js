@@ -1,7 +1,12 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards } from './canvas.js'
-import { deleteAllSteps, EMPTY_MAP_MESSAGE, STARTER_STEP_COUNT } from './views.js'
+import {
+  deleteAllSteps,
+  EMPTY_MAP_MESSAGE,
+  STARTER_STEP_COUNT,
+  openStarterProject,
+} from './views.js'
 
 const STARTER_TILES = [
   ['Total lead time', '12d 4h'],
@@ -20,14 +25,14 @@ const tileValue = (page, label) =>
 test('the starter metrics show seven tiles in spec order as term and description pairs', async ({
   page,
 }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(tiles(page)).toHaveCount(STARTER_TILES.length)
   await expect(tiles(page).locator('dt')).toHaveText(STARTER_TILES.map(([label]) => label))
   await expect(tiles(page).locator('dd')).toHaveText(STARTER_TILES.map(([, value]) => value))
 })
 
 test('deleting Idea updates the card count and every tile in the same update', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   await cardByTitle(page, 'Idea').click()
   await page.keyboard.press('Backspace')
@@ -44,7 +49,7 @@ test('deleting Idea updates the card count and every tile in the same update', a
 
 test.describe('with every step deleted', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await deleteAllSteps(page)
   })
 
@@ -67,7 +72,7 @@ const WIDTHS = [
 for (const [width, rows, isExpectedRowCount] of WIDTHS) {
   test(`at ${width}px the tiles occupy ${rows} without clipping a value`, async ({ page }) => {
     await page.setViewportSize({ width, height: 700 })
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(tiles(page)).toHaveCount(STARTER_TILES.length)
 
     await page.evaluate(() => document.fonts.ready)
@@ -99,7 +104,7 @@ const SINGLE_LINE_WIDTHS = [1200, 1024]
 for (const width of SINGLE_LINE_WIDTHS) {
   test(`at ${width}px every value and status stays on a single line`, async ({ page }) => {
     await page.setViewportSize({ width, height: 700 })
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(tiles(page)).toHaveCount(STARTER_TILES.length)
     await page.evaluate(() => document.fonts.ready)
 
@@ -125,7 +130,7 @@ for (const width of SINGLE_LINE_WIDTHS) {
 }
 
 test('the default view with the metrics bar has no accessibility violations', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   expect(await scan(page)).toEqual([])
 })

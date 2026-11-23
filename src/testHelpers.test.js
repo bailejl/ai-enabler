@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { initialEdges, initialNodes } from './initialFlow.js'
-import { createStarterMemoryProject, createStarterProject } from './project.js'
-import { validateProjectFile } from './schema/validate.js'
+import { initialEdges, initialNodes } from './flow/initialFlow.js'
+import { createStarterMemoryProject, createStarterProject } from './testHelpers.js'
+import { validateProjectFile } from './flow/schema/validate.js'
 
 describe('createStarterMemoryProject', () => {
   it('holds the starter project with the id from the injected generator', () => {

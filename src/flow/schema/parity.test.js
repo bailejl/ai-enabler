@@ -51,7 +51,7 @@ const STEP_METRICS = ['pt', 'lt', 'ca', 'queue', 'batch']
 
 // Path -> the command arguments that set it.
 const MAPPING = {
-  'project.name': ['create_project.name'],
+  'project.name': ['create_project.name', 'rename_project.name'],
   'nodes[].data.label': ['add_step.name', 'update_step.name'],
   ...Object.fromEntries(
     STEP_METRICS.map((field) => [

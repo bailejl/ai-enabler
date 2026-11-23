@@ -1,11 +1,11 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
-import { openAllHelpSections, STARTER_STEP_COUNT } from './views.js'
+import { openAllHelpSections, openStarterProject, STARTER_STEP_COUNT } from './views.js'
 
 const PROJECT_NAME = 'Untitled Project'
 const LONG_PROJECT_NAME_LENGTH = 100
-const HOW_TO_USE_LINES = 5
+const HOW_TO_USE_LINES = 8
 
 const expectStarterViewAccessible = async (page) => {
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
@@ -13,7 +13,7 @@ const expectStarterViewAccessible = async (page) => {
 }
 
 test('the header shows the mark, the brand, a divider, and the project name', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const header = page.getByRole('banner')
   await expect(header.locator('svg.header__mark')).toBeVisible()
   await expect(header.getByText('AI Enabler', { exact: true })).toBeVisible()
@@ -24,12 +24,12 @@ test('the header shows the mark, the brand, a divider, and the project name', as
 })
 
 test('the document title names the project and the app', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(page).toHaveTitle('Untitled Project · AI Enabler')
 })
 
 test('the page has banner, Help navigation, and Value stream map landmarks', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(page.getByRole('banner')).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Help' })).toBeAttached()
   await expect(page.getByRole('main', { name: 'Value stream map' })).toBeVisible()
@@ -37,7 +37,7 @@ test('the page has banner, Help navigation, and Value stream map landmarks', asy
 
 test('a long project name truncates without hiding the brand', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 700 })
-  await page.goto('/')
+  await openStarterProject(page)
   const projectName = page.locator('.header__project')
   await projectName.evaluate((element, length) => {
     element.textContent = 'W'.repeat(length)
@@ -47,27 +47,8 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
   await expect(page.getByText('AI Enabler', { exact: true })).toBeVisible()
 })
 
-test('reloading after deleting Idea restores six steps and stores nothing', async ({ page }) => {
-  await page.goto('/')
-  const steps = cards(page)
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT)
-  await steps.filter({ hasText: 'Idea' }).click()
-  await page.keyboard.press('Backspace')
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT - 1)
-
-  await page.reload()
-
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT)
-  const storage = await page.evaluate(async () => ({
-    local: localStorage.length,
-    session: sessionStorage.length,
-    databases: (await indexedDB.databases()).length,
-  }))
-  expect(storage).toEqual({ local: 0, session: 0, databases: 0 })
-})
-
 test('the default view has no accessibility violations', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expectStarterViewAccessible(page)
 })
 
@@ -108,7 +89,7 @@ const helpSection = (page, title) =>
     .filter({ has: page.locator('summary', { hasText: title }) })
 
 test('the three help sections start collapsed', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const nav = helpNav(page)
   await expect(nav.locator('details')).toHaveCount(HELP_SECTIONS.length)
   await expect(nav.locator('details summary')).toHaveText(HELP_SECTIONS)
@@ -117,7 +98,7 @@ test('the three help sections start collapsed', async ({ page }) => {
 
 test.describe('with every help section expanded', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await openAllHelpSections(page)
   })
 
@@ -143,11 +124,18 @@ test.describe('with every help section expanded', () => {
     })
   }
 
-  test('How to use lists five lines', async ({ page }) => {
+  test('How to use lists eight lines', async ({ page }) => {
     const lines = helpSection(page, 'How to use').locator('p')
     await expect(lines).toHaveCount(HOW_TO_USE_LINES)
     await expect(lines.first()).toBeVisible()
     await expect(lines.last()).toBeVisible()
+  })
+
+  test('How to use explains how projects are saved', async ({ page }) => {
+    const section = helpSection(page, 'How to use')
+    await expect(section).toContainText('Projects save automatically in this browser')
+    await expect(section).toContainText('With one project open in two tabs, the last change wins.')
+    await expect(section).toContainText("Clearing this site's data deletes its projects.")
   })
 
   test('the help menu has no buttons or links', async ({ page }) => {

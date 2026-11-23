@@ -13,6 +13,7 @@ const EXPORTED = new Date('2026-11-14T12:00:00.000Z')
 
 const TOOL_NAMES = [
   'create_project',
+  'rename_project',
   'add_step',
   'update_step',
   'remove_step',
@@ -186,6 +187,7 @@ describe('TOOLS', () => {
     )
     expect(required).toEqual({
       create_project: ['name'],
+      rename_project: ['name'],
       add_step: ['name'],
       update_step: ['stepId', 'name'],
       remove_step: ['stepId'],
@@ -844,6 +846,29 @@ describe('open_project', () => {
     expect(codes(result)).toEqual(['CMD_UNSAVED_CHANGES'])
     expect(result.content.summary).toBe('Rejected open_project: nothing changed (1 problem)')
     expect(reads).toBe(0)
+  })
+})
+
+describe('rename_project', () => {
+  it('renames the open project and counts as an unsaved change', async () => {
+    const { call } = await withOpenProject()
+    const renamed = await call('rename_project', { name: 'Payments' })
+    expect(renamed.isError).toBe(false)
+    expect((await call('get_project')).content.project.project.name).toBe('Payments')
+    expect(codes(await call('create_project', { name: 'Other' }))).toEqual(['CMD_UNSAVED_CHANGES'])
+  })
+
+  it('rejects a call with no name and keeps the name', async () => {
+    const { call } = await withOpenProject()
+    const result = await call('rename_project', {})
+    expect(result.isError).toBe(true)
+    expect(codes(result)).toEqual(['FILE_PROJECT_NAME_EMPTY'])
+    expect((await call('get_project')).content.project.project.name).toBe('Checkout')
+  })
+
+  it('needs an open project', async () => {
+    const { call } = makeHost()
+    expect(codes(await call('rename_project', { name: 'Payments' }))).toEqual(['CMD_NO_PROJECT'])
   })
 })
 

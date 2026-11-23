@@ -109,3 +109,50 @@ export const layoutSteps = (nodes, edges) => {
   const positions = placeRows(nodes, assignColumns(nodes, edges))
   return nodes.map((node, i) => ({ ...node, position: positions[i] }))
 }
+
+/** Where a step starts before anyone places it: the origin. */
+export const START_POSITION = Object.freeze({ x: 0, y: 0 })
+
+/** True when the step is still at the start position, so no one has placed it. */
+export const isUnplaced = ({ position }) =>
+  position?.x === START_POSITION.x && position?.y === START_POSITION.y
+
+// Where layoutUnplacedSteps starts its grid: one gap in from the start position, so a step it
+// lays out is never taken for one still unplaced.
+export const UNPLACED_LAYOUT_ORIGIN = Object.freeze({ x: COLUMN_GAP, y: ROW_GAP })
+
+const cardsOverlap = (a, b) =>
+  Math.abs(a.x - b.x) < STEP_CARD_WIDTH && Math.abs(a.y - b.y) < STEP_ROW_HEIGHT
+
+// The first position at or below `slot`, one row at a time, that overlaps no taken position.
+const firstFreeBelow = (slot, taken) => {
+  const isFree = (y) => !taken.some((position) => cardsOverlap({ x: slot.x, y }, position))
+  let y = slot.y
+  while (!isFree(y)) y += ROW_PITCH
+  return { x: slot.x, y }
+}
+
+/**
+ * Lays out only the steps still at the start position and keeps every other step where the user
+ * put it. Each unplaced step takes the column and row layoutSteps gives it, offset by
+ * UNPLACED_LAYOUT_ORIGIN, moved down a row at a time until it overlaps no other step.
+ *
+ * @param {{ id: string, position: { x: number, y: number } }[]} nodes in file order
+ * @param {{ source: string, target: string }[]} edges
+ * @returns {object[]} new nodes; inputs are not mutated
+ */
+export const layoutUnplacedSteps = (nodes, edges) => {
+  const laidOut = layoutSteps(nodes, edges)
+  const placedPositions = nodes.filter((node) => !isUnplaced(node)).map((node) => node.position)
+  const { result } = nodes.reduce(
+    ({ result: done, taken }, node, i) => {
+      if (!isUnplaced(node)) return { result: [...done, node], taken }
+      const { x, y } = laidOut[i].position
+      const slot = { x: x + UNPLACED_LAYOUT_ORIGIN.x, y: y + UNPLACED_LAYOUT_ORIGIN.y }
+      const position = firstFreeBelow(slot, taken)
+      return { result: [...done, { ...node, position }], taken: [...taken, position] }
+    },
+    { result: [], taken: placedPositions },
+  )
+  return result
+}

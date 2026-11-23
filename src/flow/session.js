@@ -1,7 +1,7 @@
 import { applyCommand, rejectCommand, replacesProject } from './commands/index.js'
 import { problem } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
-import { layoutSteps } from './layout.js'
+import { layoutUnplacedSteps } from './layout.js'
 import { toMemoryProject, toProjectFile, withContentHash } from './projectFile.js'
 
 /**
@@ -97,7 +97,7 @@ export const planSave = (session, name) => {
 }
 
 /**
- * Builds the file to write: the project laid out left to right, at schema 0.1.0, exported at `now`
+ * Builds the file to write: steps still at the start position laid out left to right (placed steps keep their position), at schema 0.1.0, exported at `now`
  * and marked as changed by `tool`. The mark goes in before the hash, so the hash covers it. The
  * session is not changed; pass the result to markSaved once the file is written. `from` is the
  * project the file was built from.
@@ -107,7 +107,7 @@ export const planSave = (session, name) => {
 export const toSaveFile = async (session, { now, tool }) => {
   if (!session.project) return { ok: false, problems: [problem('CMD_NO_PROJECT')] }
   const { project, nodes, edges } = session.project
-  const exported = toProjectFile({ project, nodes: layoutSteps(nodes, edges), edges, now })
+  const exported = toProjectFile({ project, nodes: layoutUnplacedSteps(nodes, edges), edges, now })
   const marked = { ...exported, modifiedBy: { tool, at: now.toISOString() } }
   return { ok: true, file: await withContentHash(marked), from: session.project }
 }

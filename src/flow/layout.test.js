@@ -1,6 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { COLUMN_GAP, layoutSteps, ROW_GAP, STEP_ROW_HEIGHT, STEP_CARD_WIDTH } from './layout.js'
+import {
+  COLUMN_GAP,
+  isUnplaced,
+  layoutSteps,
+  layoutUnplacedSteps,
+  ROW_GAP,
+  STEP_ROW_HEIGHT,
+  STEP_CARD_WIDTH,
+  UNPLACED_LAYOUT_ORIGIN,
+} from './layout.js'
 
 const step = (id) => ({ id, type: 'step', position: { x: 0, y: 0 }, data: { label: id } })
 const edge = (source, target) => ({ id: `${source}->${target}`, source, target })
@@ -173,5 +182,70 @@ describe('layoutSteps', () => {
     const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
     const rem = Number(/--card-width:\s*([\d.]+)rem/.exec(css)?.[1])
     expect(rem * ROOT_FONT_SIZE_PX).toBe(STEP_CARD_WIDTH)
+  })
+})
+
+describe('layoutUnplacedSteps', () => {
+  const placed = (id, x, y) => ({ ...step(id), position: { x, y } })
+  const shifted = ({ x, y }) => ({
+    x: x + UNPLACED_LAYOUT_ORIGIN.x,
+    y: y + UNPLACED_LAYOUT_ORIGIN.y,
+  })
+
+  it('keeps a step the user placed and lays out a step still at the start position', () => {
+    const nodes = [placed('a', 500, 300), step('b')]
+    const edges = [edge('a', 'b')]
+    const result = layoutUnplacedSteps(nodes, edges)
+    expect(at(result, 'a')).toEqual({ x: 500, y: 300 })
+    expect(at(result, 'b')).toEqual(shifted(at(layoutSteps(nodes, edges), 'b')))
+  })
+
+  it('lays out like layoutSteps, one gap in from the origin, when no step is placed', () => {
+    const nodes = [step('a'), step('b'), step('c')]
+    const edges = [edge('a', 'b'), edge('b', 'c')]
+    expect(layoutUnplacedSteps(nodes, edges).map((n) => n.position)).toEqual(
+      layoutSteps(nodes, edges).map((n) => shifted(n.position)),
+    )
+  })
+
+  it('never lays a step out at the start position, so it is placed on the next save', () => {
+    const result = layoutUnplacedSteps([step('a'), step('b')], [edge('a', 'b')])
+    expect(result.filter(isUnplaced)).toEqual([])
+    expect(layoutUnplacedSteps(result, [edge('a', 'b')])).toEqual(result)
+  })
+
+  it('moves a new step down until it clears a step the user placed on its slot', () => {
+    const slot = shifted({ x: 0, y: 0 })
+    const nodes = [placed('a', slot.x + 10, slot.y + 10), step('b')]
+    const result = layoutUnplacedSteps(nodes, [])
+    expect(at(result, 'a')).toEqual({ x: slot.x + 10, y: slot.y + 10 })
+    expect(overlaps(at(result, 'a'), at(result, 'b'))).toBe(false)
+    expect(at(result, 'b').x).toBe(slot.x)
+  })
+
+  it('keeps new steps clear of each other once one has moved down', () => {
+    const slot = shifted({ x: 0, y: 0 })
+    const nodes = [placed('p', slot.x, slot.y), step('a'), step('b'), step('c')]
+    const result = layoutUnplacedSteps(nodes, [])
+    result.forEach((first, i) =>
+      result.slice(i + 1).forEach((second) => {
+        expect(overlaps(first.position, second.position)).toBe(false)
+      }),
+    )
+  })
+
+  it('does not change its inputs', () => {
+    const nodes = [placed('a', 10, 20), step('b')]
+    const copy = structuredClone(nodes)
+    layoutUnplacedSteps(nodes, [edge('a', 'b')])
+    expect(nodes).toEqual(copy)
+  })
+
+  it.each([
+    [{ x: 0, y: 0 }, true],
+    [{ x: 0, y: 1 }, false],
+    [{ x: 1, y: 0 }, false],
+  ])('treats a step at %o as unplaced: %s', (position, expected) => {
+    expect(isUnplaced({ position })).toBe(expected)
   })
 })

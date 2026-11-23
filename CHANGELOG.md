@@ -6,7 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `rename_project` command and MCP tool.
+- Homepage: saved projects are kept in this browser and listed as cards, sorted by last modified or by name. You can create, rename, duplicate, delete and export a project, replace one from a file, or import a file as a new project. Each project has its own link.
+- A lasting "Not saved in this browser" notice while the browser keeps no projects or a save fails, and a prompt before leaving a project whose last change is not saved.
+
 ### Changed
+
+- The app opens on the homepage instead of a six-step starter map.
+- Importing a file into an open project keeps that project's id, and every import confirmation reads "Replace <current name> with <incoming name>?".
+- An MCP save lays out only the steps still at the start position (0, 0) and keeps the steps the user moved.
 
 - Edits run through the command layer; rejected edits and import problems are listed with their fixes; connections drawn in the app get UUID ids (import still accepts any id).
 

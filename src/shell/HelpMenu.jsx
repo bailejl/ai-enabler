@@ -6,6 +6,9 @@ const howToUse = [
   'Export saves the map as a file. Import loads a saved file.',
   'A working day is 8 hours, and all durations use it.',
   'Ratings read On target, Watch, or Needs attention. The Glossary explains each.',
+  'Projects save automatically in this browser after every change.',
+  'With one project open in two tabs, the last change wins.',
+  "Clearing this site's data deletes its projects. Export to keep a copy.",
 ]
 
 const HELP_PLACEHOLDER = 'Help content is coming soon.'

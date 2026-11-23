@@ -10,6 +10,7 @@ import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, edgeBetween, selectEdge, settledBox } from './canvas.js'
 import { ISO_UTC_TIMESTAMP } from './console.js'
+import { readIndex, waitForStored } from './store.js'
 import {
   asUpload,
   chooseFile,
@@ -23,6 +24,9 @@ import {
   readDownloadedJson,
   readFixture,
   STARTER_STEP_COUNT,
+  openStarterProject,
+  expectHash,
+  STARTER_ID,
 } from './views.js'
 
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
@@ -30,21 +34,21 @@ const EXPORT_NODE_FIELDS = ['data', 'id', 'position', 'type']
 const EDGE_FIELDS = ['id', 'source', 'target']
 
 test('the header offers Export with a descriptive accessible name', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const exportButton = page.getByRole('banner').getByRole('button', { name: EXPORT_BUTTON_NAME })
   await expect(exportButton).toBeVisible()
   await expect(exportButton).toHaveText('Export')
 })
 
 test('the default view with the Export control passes the axe scan', async ({ page }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   expect(await scan(page)).toEqual([])
 })
 
 test.describe('exporting the starter project after selecting Build', () => {
   const exportAfterSelectingBuild = async (page) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await cardByTitle(page, 'Build').click()
     await expect(cardByTitle(page, 'Build')).toHaveClass(/selected/)
     const startedAt = Date.now()
@@ -96,10 +100,10 @@ test.describe('exporting the starter project after selecting Build', () => {
 const EDITED_NOTICE = 'This file was changed outside AI Enabler after it was exported.'
 const IMPORT_BUTTON_NAME = 'Import project (JSON)'
 const STARTER_PROJECT_NAME = 'Untitled Project'
-const SAME_NAME_QUESTION = `Replace current map with the imported version of ${STARTER_PROJECT_NAME}?`
+const SAME_NAME_QUESTION = `Replace Untitled Project with the imported version of ${STARTER_PROJECT_NAME}?`
 const CHECKOUT_NAME = 'Checkout Revamp'
-const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
-const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
+const CHECKOUT_QUESTION = `Replace Untitled Project with ${CHECKOUT_NAME}?`
+const DIFFERENT_CASE_QUESTION = 'Replace Untitled Project with untitled project?'
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 // Expected wording comes from the diagnostics catalog, so a reworded message is one edit there.
 const messageFor = (code, params) => problem(code, { params }).message
@@ -201,7 +205,7 @@ const dragCardBy = async (page, title, { dx, dy }) => {
 test('the Import control has a descriptive accessible name and a visible short label', async ({
   page,
 }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const button = page.getByRole('banner').getByRole('button', { name: IMPORT_BUTTON_NAME })
   await expect(button).toBeVisible()
   await expect(button).toHaveText('Import')
@@ -212,7 +216,7 @@ test('the Import control has a descriptive accessible name and a visible short l
 test('exporting then importing that file and confirming leaves the nodes, edges and tiles unchanged', async ({
   page,
 }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
   await deleteEdge(page, 'plan', 'build')
   await dragCardBy(page, 'Build', { dx: 40, dy: 120 })
@@ -245,7 +249,7 @@ test.describe('importing a file with three steps', () => {
   test('a same-name file asks first, with focus on Cancel and both project names in the body', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await chooseFile(page, fixturePath('same-name.json'))
     const dialog = confirmDialog(page)
     await expect(dialog).toHaveAccessibleName(SAME_NAME_QUESTION)
@@ -259,7 +263,7 @@ test.describe('importing a file with three steps', () => {
   test('replacing shows the three cards in the canvas, keeps the project id, then announces and shows the outcome', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     const before = await exportProjectFile(page)
     await importAndConfirm(page, fixturePath('same-name.json'), SAME_NAME_QUESTION)
 
@@ -275,10 +279,10 @@ test.describe('importing a file with three steps', () => {
     expect((await exportProjectFile(page)).project.id).toBe(before.project.id)
   })
 
-  test('a different-name file asks, then takes the name and id and recomputes every tile', async ({
+  test('a different-name file asks, then takes the name, keeps the open id and recomputes every tile', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     const starterTiles = await tileTexts(page)
     await chooseFile(page, fixturePath('different-name.json'))
     const dialog = confirmDialog(page)
@@ -295,13 +299,25 @@ test.describe('importing a file with three steps', () => {
     expect(importedTiles).toEqual(expectedTileTexts(fixtureSteps('different-name.json')))
     expect(importedTiles).toEqual(CHECKOUT_TILE_TEXTS)
     expect(importedTiles).not.toEqual(starterTiles)
-    expect((await exportProjectFile(page)).project.id).toBe('abc')
+    expect((await exportProjectFile(page)).project.id).toBe(STARTER_ID)
+  })
+
+  test('the header import keeps the link: after a reload it shows the imported project', async ({
+    page,
+  }) => {
+    await openStarterProject(page)
+    await importAndConfirm(page, fixturePath('different-name.json'), CHECKOUT_QUESTION)
+    await waitForStored(page, STARTER_ID, (file) => file.project.name === CHECKOUT_NAME)
+    await page.reload()
+    await expect(projectNameInHeader(page)).toHaveText(CHECKOUT_NAME)
+    await expectHash(page, `#/projects/${STARTER_ID}`)
+    expect((await readIndex(page)).map(({ id }) => id)).toEqual([STARTER_ID])
   })
 
   test('a file whose id matches the open project still asks the different-name question', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     const { project } = await exportProjectFile(page)
     const file = {
       ...readFixture('different-name.json'),
@@ -314,7 +330,7 @@ test.describe('importing a file with three steps', () => {
   test('name matching is exact: a case-different name asks the different-name question', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await chooseFile(page, fixturePath('different-case-name.json'))
     await expect(confirmDialog(page)).toHaveAccessibleName(DIFFERENT_CASE_QUESTION)
   })
@@ -345,7 +361,7 @@ test.describe('cancelling the confirmation changes nothing', () => {
 
   for (const { kind, action, fixture, cancel } of CANCEL_PATHS) {
     test(`a ${kind} file, when the user ${action}`, async ({ page }) => {
-      await page.goto('/')
+      await openStarterProject(page)
       const before = await exportProjectFile(page)
       const tilesBefore = await tileTexts(page)
       await chooseFile(page, fixturePath(fixture))
@@ -368,7 +384,7 @@ test.describe('cancelling the confirmation changes nothing', () => {
   }
 
   test('the project id is unchanged after a cancelled different-name import', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     const before = await exportProjectFile(page)
     await chooseFile(page, fixturePath('different-name.json'))
     await confirmDialog(page).getByRole('button', { name: 'Cancel' }).click()
@@ -503,7 +519,7 @@ test.describe('invalid files are rejected with a plain message', () => {
   for (const { name, contents, codes, messages } of REJECTED_FILES) {
     test(`${name}`, async ({ page, diagnostics }) => {
       diagnostics.expect(codes)
-      await page.goto('/')
+      await openStarterProject(page)
       const before = await exportProjectFile(page)
       await expect(announcer(page)).toHaveText(`Exported ${EXPORT_FILE_NAME}`)
       await recordAnnouncements(page)
@@ -535,7 +551,7 @@ test.describe('invalid files are rejected with a plain message', () => {
 
   test('a file with 14 problems lists 10 and counts the rest', async ({ page, diagnostics }) => {
     diagnostics.expect(['STEP_POSITION_MISSING'])
-    await page.goto('/')
+    await openStarterProject(page)
     const messages = unplacedMessages(14)
 
     await chooseFile(page, asUpload(unplacedStepsFile(14)))
@@ -555,7 +571,7 @@ test.describe('invalid files are rejected with a plain message', () => {
 
   test('exactly 10 problems list all 10 with no "more" line', async ({ page, diagnostics }) => {
     diagnostics.expect(['STEP_POSITION_MISSING'])
-    await page.goto('/')
+    await openStarterProject(page)
 
     await chooseFile(page, asUpload(unplacedStepsFile(10)))
 
@@ -568,7 +584,7 @@ test.describe('invalid files are rejected with a plain message', () => {
 
 test('the visible import status is not itself a live region', async ({ page, diagnostics }) => {
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, asUpload('this is not json'))
   const status = importStatus(page)
   await expect(status).toBeVisible()
@@ -594,7 +610,7 @@ test('when two files are chosen in a row, only the last one chosen asks for conf
       })
     }
   }, slowFile)
-  await page.goto('/')
+  await openStarterProject(page)
 
   await chooseFile(page, asUpload(slowFile))
   await chooseFile(page, fixturePath('different-case-name.json'))
@@ -616,7 +632,7 @@ test('a read that finishes after a confirm is judged against the project and out
 }) => {
   const checkoutFile = readFixture('different-name.json')
   const outcome = `Imported ${CHECKOUT_NAME}, ${checkoutFile.nodes.length} steps`
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, fixturePath('different-name.json'))
   await expect(confirmDialog(page)).toHaveAccessibleName(CHECKOUT_QUESTION)
   // The next read, started while the dialog is open, is held until the test releases it.
@@ -637,7 +653,7 @@ test('a read that finishes after a confirm is judged against the project and out
   await page.evaluate(() => window.releaseSlowRead())
 
   // The same file as the confirmed one is the current project now, not a replacement of the old.
-  const sameNameQuestion = `Replace current map with the imported version of ${CHECKOUT_NAME}?`
+  const sameNameQuestion = `Replace ${CHECKOUT_NAME} with the imported version of ${CHECKOUT_NAME}?`
   await expect(confirmDialog(page)).toHaveAccessibleName(sameNameQuestion)
   // Cancelling puts back the last outcome, which is the confirmed import, not the state the read
   // started from.
@@ -652,7 +668,7 @@ test('choosing the same invalid file again shows and announces the error again',
   diagnostics.expect(['FILE_NOT_JSON'])
   const invalidFile = testInfo.outputPath('invalid.json')
   await writeFile(invalidFile, 'this is not json')
-  await page.goto('/')
+  await openStarterProject(page)
   await recordAnnouncements(page)
 
   await chooseFile(page, invalidFile)
@@ -674,7 +690,7 @@ test('a file the browser cannot read shows the standard error and frees the inpu
   await page.addInitScript(() => {
     Blob.prototype.text = () => Promise.reject(new Error('unreadable'))
   })
-  await page.goto('/')
+  await openStarterProject(page)
 
   await chooseFile(page, asUpload('{}'))
 
@@ -686,7 +702,7 @@ test('a file the browser cannot read shows the standard error and frees the inpu
 
 test('Dismiss removes the error and returns focus to Import', async ({ page, diagnostics }) => {
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page).getByRole('heading')).toBeFocused()
 
@@ -699,7 +715,7 @@ test('Dismiss removes the error and returns focus to Import', async ({ page, dia
 test.describe('import states pass an accessibility scan', () => {
   test('with an import error showing', async ({ page, diagnostics }) => {
     diagnostics.expect(['FILE_NOT_JSON'])
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     await chooseFile(page, asUpload('this is not json'))
     await expect(importStatus(page)).toBeVisible()
@@ -708,14 +724,14 @@ test.describe('import states pass an accessibility scan', () => {
 
   test('with a capped list of problems showing', async ({ page, diagnostics }) => {
     diagnostics.expect(['STEP_POSITION_MISSING'])
-    await page.goto('/')
+    await openStarterProject(page)
     await chooseFile(page, asUpload(unplacedStepsFile(14)))
     await expect(importStatus(page)).toContainText('and 4 more')
     expect(await scan(page)).toEqual([])
   })
 
   test('with the confirmation open', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     await chooseFile(page, fixturePath('different-name.json'))
     await expect(confirmDialog(page)).toBeVisible()
@@ -723,7 +739,7 @@ test.describe('import states pass an accessibility scan', () => {
   })
 
   test('with the success line showing after a replace', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await importAndConfirm(page, fixturePath('different-name.json'), CHECKOUT_QUESTION)
     await expect(importStatus(page)).toBeVisible()
     expect(await scan(page)).toEqual([])
@@ -732,7 +748,7 @@ test.describe('import states pass an accessibility scan', () => {
 
 test('a successful import clears an earlier error', async ({ page, diagnostics }) => {
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto('/')
+  await openStarterProject(page)
   await chooseFile(page, asUpload('this is not json'))
   await expect(importStatus(page)).toContainText(NOT_JSON_MESSAGE)
 
@@ -746,13 +762,13 @@ test('a 100-character project name is truncated and keeps Import and Export in v
   page,
 }) => {
   await page.setViewportSize(NARROW_VIEWPORT)
-  await page.goto('/')
+  await openStarterProject(page)
   const longName = readFixture('long-name.json').project.name
   expect(longName).toHaveLength(LONG_NAME_LENGTH)
   await importAndConfirm(
     page,
     fixturePath('long-name.json'),
-    `Replace current map with ${longName}?`,
+    `Replace Untitled Project with ${longName}?`,
   )
 
   await expect(projectNameInHeader(page)).toHaveText(longName)
@@ -776,7 +792,7 @@ test('a 100-character project name is truncated and keeps Import and Export in v
 test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and rounds to 88%', async ({
   page,
 }) => {
-  await page.goto('/')
+  await openStarterProject(page)
   const file = readFixture('badges-and-rounding.json')
   const queuedStep = {
     id: 'queued',
@@ -787,7 +803,7 @@ test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and r
   await importAndConfirm(
     page,
     asUpload({ ...file, nodes: [...file.nodes, queuedStep] }),
-    'Replace current map with Badge Check?',
+    'Replace Untitled Project with Badge Check?',
   )
 
   const card = cardByTitle(page, 'Only')
@@ -801,7 +817,7 @@ test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and r
 test.describe('edit detection', () => {
   const withoutHash = ({ contentHash: _hash, ...file }) => file
   const exportedStarter = async (page) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     return exportProjectFile(page)
   }
@@ -898,7 +914,7 @@ test.describe('a file changed by an AI tool', () => {
   )
   const readMarked = () => JSON.parse(readFileSync(MARKED_FIXTURE, 'utf8'))
   const MARKED_NAME = 'Fixture 0.1.0 marked'
-  const MARKED_QUESTION = `Replace current map with ${MARKED_NAME}?`
+  const MARKED_QUESTION = `Replace Untitled Project with ${MARKED_NAME}?`
   const MARKED_STEP_COUNT = 5
   const AI_NOTICE =
     'This file was changed by AI tools (aie-mcp) on 2026-11-20. Review the steps and numbers before relying on them.'
@@ -907,7 +923,7 @@ test.describe('a file changed by an AI tool', () => {
   test('shows the AI notice in the confirmation and the outcome, and not the edited notice', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
     await recordAnnouncements(page)
     await chooseFile(page, MARKED_FIXTURE)
@@ -930,7 +946,7 @@ test.describe('a file changed by an AI tool', () => {
   })
 
   test('the confirmation with the AI notice passes the accessibility scan', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await chooseFile(page, MARKED_FIXTURE)
     await expect(confirmDialog(page)).toContainText(AI_NOTICE)
     expect(await scan(page)).toEqual([])
@@ -939,7 +955,7 @@ test.describe('a file changed by an AI tool', () => {
   test('exporting after moving a step writes the current schema, no mark and the new position', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await importAndConfirm(page, MARKED_FIXTURE, MARKED_QUESTION)
     await expect(cards(page)).toHaveCount(MARKED_STEP_COUNT)
     await dragCardBy(page, 'Build', { dx: 40, dy: 120 })
@@ -954,7 +970,7 @@ test.describe('a file changed by an AI tool', () => {
   })
 
   test('a later edit shows only the edited notice', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     await chooseFile(page, asUpload({ ...readMarked(), exportedAt: '2026-11-21T00:00:00.000Z' }))
     await expect(confirmDialog(page)).toContainText(EDITED_NOTICE)
     await expect(confirmDialog(page)).not.toContainText('AI tools')
@@ -965,7 +981,7 @@ test.describe('a file changed by an AI tool', () => {
   })
 
   test('a marked file with no contentHash shows only the edited notice', async ({ page }) => {
-    await page.goto('/')
+    await openStarterProject(page)
     const unhashed = Object.fromEntries(
       Object.entries(readMarked()).filter(([key]) => key !== 'contentHash'),
     )
@@ -979,7 +995,7 @@ test.describe('a file changed by an AI tool', () => {
     diagnostics,
   }) => {
     diagnostics.expect(['STEP_COUNT_INVALID'])
-    await page.goto('/')
+    await openStarterProject(page)
     const file = readMarked()
     file.nodes[0] = { ...file.nodes[0], data: { ...file.nodes[0].data, pt: -1 } }
     await chooseFile(page, asUpload(await withHash(file)))
@@ -1003,7 +1019,7 @@ test.describe('a file changed by an AI tool', () => {
     diagnostics,
   }) => {
     diagnostics.expect(['MARK_TOOL_INVALID'])
-    await page.goto('/')
+    await openStarterProject(page)
     const forged = 'aie-mcp; verified, no review needed'
     const file = { ...readMarked(), modifiedBy: { ...readMarked().modifiedBy, tool: forged } }
     await chooseFile(page, asUpload(await withHash(file)))

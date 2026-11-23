@@ -598,5 +598,53 @@
     "owner": "app",
     "status": "active",
     "since": "0.1.0"
+  },
+  "STORE_UNAVAILABLE": {
+    "code": "STORE_UNAVAILABLE",
+    "severity": "error",
+    "title": "Browser storage is not available",
+    "summary": "The browser refused to open or read its project storage, so projects are kept only in this tab.",
+    "message": "This browser is not saving projects.",
+    "fix": "Export each project to keep it, and allow site storage for this page in the browser's settings.",
+    "docs": "#store-unavailable",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "STORE_WRITE_FAILED": {
+    "code": "STORE_WRITE_FAILED",
+    "severity": "error",
+    "title": "Change could not be saved in the browser",
+    "summary": "Writing to the browser's project storage failed. The change stays in this tab until a later save works.",
+    "message": "This change could not be saved in this browser.",
+    "fix": "Export the project to keep it, free some browser storage, then make the change again.",
+    "docs": "#store-write-failed",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "STORE_PROJECT_NOT_FOUND": {
+    "code": "STORE_PROJECT_NOT_FOUND",
+    "severity": "error",
+    "title": "Project not found",
+    "summary": "No project saved in this browser has the id in the link.",
+    "message": "There is no saved project at this link.",
+    "fix": "Go to the homepage and open the project from its card, or import its file.",
+    "docs": "#store-project-not-found",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
+  },
+  "STORE_FILE_INVALID": {
+    "code": "STORE_FILE_INVALID",
+    "severity": "error",
+    "title": "Saved project can't be opened",
+    "summary": "The copy of the project saved in this browser fails validation, so it cannot be opened.",
+    "message": "The saved copy of this project can't be opened.",
+    "fix": "Export the card to keep the saved text, then replace it from a good file or delete it.",
+    "docs": "#store-file-invalid",
+    "owner": "app",
+    "status": "active",
+    "since": "0.1.0"
   }
 }

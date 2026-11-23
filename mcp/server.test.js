@@ -12,6 +12,7 @@ const SERVER = fileURLToPath(new URL('./server.js', import.meta.url))
 
 const TOOL_NAMES = [
   'create_project',
+  'rename_project',
   'add_step',
   'update_step',
   'remove_step',

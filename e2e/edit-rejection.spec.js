@@ -11,6 +11,7 @@ import {
   openStarterView,
   readFixture,
   replaceQuestion,
+  sendEdit,
   STARTER_STEP_COUNT,
   waitForDevHook,
 } from './views.js'
@@ -32,14 +33,6 @@ const COUNT_INVALID_MESSAGE = 'process time (pt) must be a whole number, 0 or mo
 const editPanel = (page) => page.getByRole('region', { name: 'Edit problems' })
 const announcer = (page) => page.locator('[aria-live="polite"]')
 const canvas = (page) => page.getByRole('main', { name: 'Value stream map' })
-
-const sendEdit = async (page, commands) => {
-  await waitForDevHook(page, DEV_COMMAND_READY_ATTRIBUTE)
-  await page.evaluate(
-    ([eventName, detail]) => window.dispatchEvent(new CustomEvent(eventName, { detail })),
-    [DEV_COMMAND_EVENT, { commands }],
-  )
-}
 
 // Dispatches one event per entry of `batches` in a single task, so the page handles them with no
 // render in between.
