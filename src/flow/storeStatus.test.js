@@ -26,6 +26,12 @@ describe('reduceStoreStatus', () => {
     expect(run(failed('p1'), succeeded('p1'))).toEqual(INITIAL_STORE_STATUS)
   })
 
+  it('keeps the failure of each project until that project saves', () => {
+    const state = run(failed('p1'), failed('p2'), succeeded('p2'))
+    expect(storeProblemsOf(state, 'p1')).toEqual(writeFailed)
+    expect(storeProblemsOf(state, 'p2')).toEqual([])
+  })
+
   it('keeps them when a save of another project works', () => {
     expect(storeProblemsOf(run(failed('p1'), succeeded('p2')), 'p1')).toEqual(writeFailed)
   })

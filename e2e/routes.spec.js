@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
-import { seedProjects } from './store.js'
+import { readIndex, readStored, seedProjects } from './store.js'
 import {
   STARTER_STEP_COUNT,
   expectHash,
@@ -139,20 +139,9 @@ test('opening a file saved at an older schema upgrades it and writes nothing', a
   await expectStarterSteps(page)
   await page.reload()
   await expectStarterSteps(page)
-  const stored = await page.evaluate(async () => {
-    const opening = indexedDB.open('ai-enabler')
-    await new Promise((resolve) => {
-      opening.onsuccess = resolve
-    })
-    const db = opening.result
-    const request = db.transaction('index').objectStore('index').get('old')
-    await new Promise((resolve) => {
-      request.onsuccess = resolve
-    })
-    db.close()
-    return request.result
-  })
-  expect(stored.modifiedAt).toBe(old.modifiedAt)
+  expect(await readStored(page, 'old')).toBe(old.text)
+  const [entry] = await readIndex(page)
+  expect(entry.modifiedAt).toBe(old.modifiedAt)
 })
 
 test('a project id with reserved characters is not rewritten', async ({ page }) => {

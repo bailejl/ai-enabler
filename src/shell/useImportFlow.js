@@ -40,13 +40,15 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
     previousState.current = importState
     const keepsFocus = importState.type === IMPORT_CONFIRMING || importState.type === IMPORT_ERROR
     if (hasChanged && !keepsFocus) returnFocusRef.current?.focus()
-    if (hasChanged && importState.type === IMPORT_ERROR) importState.problems.forEach(report)
   }, [importState, returnFocusRef])
 
   const dispatchImport = useCallback(
     (event) => {
-      const { state, announcement, replacement } = reduceImport(latestImportState.current, event)
+      const previous = latestImportState.current
+      const { state, announcement, replacement } = reduceImport(previous, event)
       latestImportState.current = state
+      // Reported where the rejection happens, never in an effect, so each problem is written once.
+      if (state !== previous && state.type === IMPORT_ERROR) state.problems.forEach(report)
       setImportState(state)
       if (announcement) announce(announcement)
       if (replacement) onReplace(replacement)

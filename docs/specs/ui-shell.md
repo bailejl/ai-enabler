@@ -25,14 +25,14 @@ Metrics are always computed from the steps on the canvas, so the cards and the b
 
 The map can be exported to a JSON file whose schema version follows SemVer, starting at `0.0.0`, and imported back. Import accepts every released schema version and upgrades the data to the current version. CI checks every upgrade path. Importing a file replaces the map, and the app always asks first.
 
-The app keeps one project in memory. A reload returns to the starter project.
+The app keeps one project in memory. A reload returns to the starter project. _Superseded by `docs/specs/homepage.md` (E1)._
 
 The shell meets WCAG 2.1 AA, with one exception: a keyboard path for creating connections is deferred to its own spec.
 
 These items are out of scope, and each gets a separate spec:
 
 - Step editing, adding steps, and renaming the project.
-- Saving the map across reloads, and keeping several projects (switch, new, delete).
+- Saving the map across reloads, and keeping several projects (switch, new, delete). _Superseded by `docs/specs/homepage.md` (E1)._
 - The keyboard connect path.
 
 ## Architecture Specification
@@ -276,7 +276,7 @@ At 8-hour days, these values give the following metrics:
 | Decision                                                                       | Classification               | Resolved By        | Rationale / Answer                                                                                                                                                                                                                                                      |
 | ------------------------------------------------------------------------------ | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S1. Are step editing and adding steps in scope?                                | `requires-stakeholder-input` | human              | Separate spec, done later. This spec has no editing.                                                                                                                                                                                                                    |
-| S2. Does the map persist across reload?                                        | `requires-stakeholder-input` | human              | Separate spec. Here, nothing persists and a reload opens the starter project.                                                                                                                                                                                           |
+| S2. Does the map persist across reload?                                        | `requires-stakeholder-input` | human              | Separate spec. Here, nothing persists and a reload opens the starter project. _Superseded by `docs/specs/homepage.md` (E1)._                                                                                                                                            |
 | S3. What accessibility bar applies?                                            | `requires-stakeholder-input` | human              | WCAG 2.1 AA. The keyboard connect path is a separate spec, to design together.                                                                                                                                                                                          |
 | S4. How does the user switch projects?                                         | `requires-stakeholder-input` | human              | Separate spec, together with S2.                                                                                                                                                                                                                                        |
 | S5. How does import treat the current project?                                 | `requires-stakeholder-input` | human              | Rationale confirmed. A matching name replaces with no prompt; a different name asks first (S14).                                                                                                                                                                        |
@@ -319,7 +319,7 @@ At 8-hour days, these values give the following metrics:
 | Completeness: Project CRUD                                                     | `inferable`                  | inference          | Create follows AC27. Read is the header (AC1–3). Update is import (AC33–34); rename belongs to the editing spec. Delete belongs to the projects spec (S4).                                                                                                              |
 | Completeness: Project file                                                     | `inferable`                  | inference          | Create is Export (AC28–29). Read is Import (AC31–37, with upgrades per AC41–46). Update and delete are not applicable, because the file lives outside the app.                                                                                                          |
 | Completeness: Metric                                                           | `inferable`                  | inference          | A read-only projection, so it has no create, update, or delete.                                                                                                                                                                                                         |
-| Completeness: unsaved work on reload                                           | `inferable`                  | inference          | The user deferred persistence (S2), so a reload discards changes by design. No warning is required in this spec.                                                                                                                                                        |
+| Completeness: unsaved work on reload                                           | `inferable`                  | inference          | The user deferred persistence (S2), so a reload discards changes by design. No warning is required in this spec. _Superseded by `docs/specs/homepage.md` (E1)._                                                                                                         |
 | LOW_VALUE skip: hide the MiniMap for small maps                                | n/a                          | inference          | A cosmetic suggestion with no observable rule worth a test. It is not an acceptance criterion.                                                                                                                                                                          |
 
 ## Deferred specs

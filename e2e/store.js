@@ -12,6 +12,7 @@ const storeOperation = async ({ layout, operation, value }) => {
     new Promise((resolve, reject) => {
       target[done] = () => resolve(target.result)
       target.onerror = () => reject(target.error)
+      target.onabort = () => reject(target.error ?? new Error('transaction aborted'))
     })
   const opening = indexedDB.open(layout.database, layout.version)
   opening.onupgradeneeded = () => {

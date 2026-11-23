@@ -1,7 +1,7 @@
 // The storage problems the app shows: the problems of the last failed save, kept until a save of
 // the same project works, and shown only with that project open.
 
-export const INITIAL_STORE_STATUS = Object.freeze({ failedSave: null })
+export const INITIAL_STORE_STATUS = Object.freeze({ failedSaves: Object.freeze({}) })
 
 export const STORE_STATUS_EVENT = Object.freeze({
   saveFailed: 'saveFailed',
@@ -9,15 +9,21 @@ export const STORE_STATUS_EVENT = Object.freeze({
 })
 
 /**
- * State: `{ failedSave: { id, problems } | null }`.
+ * State: `{ failedSaves: { [id]: problems } }`, one entry per project whose last save failed.
  * Events: `{ type: 'saveFailed', id, problems }`, `{ type: 'saveSucceeded', id }`.
  */
 export const reduceStoreStatus = (state, event) => {
   if (event.type === STORE_STATUS_EVENT.saveFailed) {
-    return { failedSave: { id: event.id, problems: event.problems } }
+    return { failedSaves: { ...state.failedSaves, [event.id]: event.problems } }
   }
-  if (event.type === STORE_STATUS_EVENT.saveSucceeded && state.failedSave?.id === event.id) {
-    return INITIAL_STORE_STATUS
+  if (
+    event.type === STORE_STATUS_EVENT.saveSucceeded &&
+    Object.hasOwn(state.failedSaves, event.id)
+  ) {
+    const failedSaves = Object.fromEntries(
+      Object.entries(state.failedSaves).filter(([id]) => id !== event.id),
+    )
+    return { failedSaves }
   }
   return state
 }
@@ -30,4 +36,4 @@ export const toStoreStatusEvent = (id, saved) =>
 
 /** The storage problems to list with project `id` open, empty when its last save worked. */
 export const storeProblemsOf = (state, id) =>
-  state.failedSave?.id === id ? state.failedSave.problems : []
+  Object.hasOwn(state.failedSaves, id) ? state.failedSaves[id] : []
