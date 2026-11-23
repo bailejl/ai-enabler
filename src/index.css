@@ -176,6 +176,7 @@ body,
   text-overflow: ellipsis;
   font-weight: 600;
   white-space: nowrap;
+  color: inherit;
 }
 
 .header__divider {

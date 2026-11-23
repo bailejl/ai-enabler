@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures.js'
+import { scan } from './axe.js'
 import { FILES_STORE, abortFileWrites, readIndex, seedProjects } from './store.js'
-import { starterRecordAs } from './views.js'
+import { openStarterProject, starterRecordAs } from './views.js'
 
 test.use({ timezoneId: 'UTC' })
 
@@ -145,5 +146,61 @@ test.describe('creating a project', () => {
     await expect(dialog(page)).toHaveCount(0)
     await expect(newProject(page)).toBeFocused()
     expect(await readIndex(page)).toEqual([])
+  })
+})
+
+test('the header brand leads home, with focus on its heading', async ({ page }) => {
+  await openStarterProject(page)
+  await page.getByRole('banner').getByRole('link', { name: 'AI Enabler' }).click()
+  await expect(page).toHaveURL(/#\/$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'AI Enabler' })).toBeFocused()
+})
+
+test.describe('homepage accessibility', () => {
+  const LONG_NAME = 'W'.repeat(200)
+  const THREE = [
+    ['a', 'Alpha', '2026-11-20T10:00:00.000Z'],
+    ['b', 'Beta', '2026-11-21T10:00:00.000Z'],
+    ['c', LONG_NAME, '2026-11-22T10:00:00.000Z'],
+  ]
+
+  test('with no projects there are no violations', async ({ page }) => {
+    await page.goto('/#/')
+    await expect(projectsRegion(page)).toContainText(EMPTY_TEXT)
+    expect(await scan(page)).toEqual([])
+  })
+
+  test('with three projects there are no violations, and every control is reachable by Tab', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, THREE)
+    await expect(cardItems(page)).toHaveCount(3)
+    expect(await scan(page)).toEqual([])
+    const reached = []
+    for (let press = 0; press < 8; press += 1) {
+      await page.keyboard.press('Tab')
+      reached.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''))
+    }
+    expect(reached).toEqual(expect.arrayContaining(['New project', 'Alpha', 'Beta', LONG_NAME]))
+  })
+
+  test('a 200-character name wraps inside its card at 320px', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await page.setViewportSize({ width: 320, height: 640 })
+    await openHomeWith(page, THREE)
+    const card = cardItems(page).first()
+    await expect(card).toContainText(LONG_NAME)
+    const fits = await card.evaluate((element) => element.scrollWidth <= element.clientWidth)
+    expect(fits).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  })
+
+  test('with the create dialog open there are no violations', async ({ page }) => {
+    await page.goto('/#/')
+    await page.getByRole('button', { name: 'New project' }).click()
+    await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible()
+    expect(await scan(page)).toEqual([])
   })
 })
