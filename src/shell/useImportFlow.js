@@ -81,5 +81,10 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
     [dispatchImport],
   )
 
-  return { importState, importFile, confirmImport, cancelImport, dismissImportError }
+  const resetImport = useCallback(
+    () => dispatchImport({ type: IMPORT_EVENT.reset }),
+    [dispatchImport],
+  )
+
+  return { importState, importFile, confirmImport, cancelImport, dismissImportError, resetImport }
 }

@@ -5,6 +5,7 @@ import {
   IMPORT_EVENT,
   INITIAL_IMPORT_STATE,
   describeImportStatus,
+  importNotices,
   reduceImport,
 } from './importFlow.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
@@ -216,6 +217,43 @@ describe('reduceImport outcomes', () => {
   it('ignores dismiss while confirming', () => {
     const confirming = confirmFor(sameNameFile).state
     expect(reduceImport(confirming, { type: IMPORT_EVENT.dismiss }).state).toBe(confirming)
+  })
+})
+
+describe('reduceImport from a card', () => {
+  const card = { id: 'p1', name: 'Checkout' }
+  const fromCard = (file) => ({ ...parsed(file), project: card })
+
+  it('asks to replace the card by its name, and keeps its id', () => {
+    const file = projectFile({ id: 'file-id', name: 'Payments' })
+    const { state } = reduceImport(INITIAL_IMPORT_STATE, fromCard(file))
+    expect(state.message).toBe('Replace Checkout with Payments?')
+    const { replacement } = reduceImport(state, { type: IMPORT_EVENT.confirm, project: card })
+    expect(replacement.project).toEqual({ id: 'p1', name: 'Payments' })
+  })
+})
+
+describe('reduceImport reset', () => {
+  it.each([
+    ['idle with an outcome', { type: 'idle', status: 'Imported A, 1 step' }],
+    ['an error', { type: 'error', problems: [problemOf(NOT_JSON)] }],
+  ])('clears %s without announcing', (_, state) => {
+    expect(reduceImport(state, { type: IMPORT_EVENT.reset })).toEqual({
+      state: INITIAL_IMPORT_STATE,
+      announcement: null,
+      replacement: null,
+    })
+  })
+})
+
+describe('importNotices', () => {
+  it('lists the edited notice, then the AI notice, for a parsed file', () => {
+    const changedBy = { tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' }
+    expect(importNotices({ edited: false })).toEqual([])
+    expect(importNotices({ edited: true, changedBy })).toEqual([
+      EDITED_NOTICE,
+      AI_NOTICE('aie-mcp', '2026-11-20'),
+    ])
   })
 })
 

@@ -224,6 +224,17 @@ describe('project library duplicate', () => {
   })
 })
 
+describe('project library save over a file that cannot be opened', () => {
+  it('replaces it, so the project opens', async () => {
+    const { library } = await libraryWith([['b', 'Broken', BROKEN]])
+    expect((await library.save(memoryProject('b', 'Fixed'))).ok).toBe(true)
+    expect((await library.open('b')).project).toEqual(memoryProject('b', 'Fixed'))
+    expect(
+      (await library.list()).projects.map(({ name, openable }) => ({ name, openable })),
+    ).toEqual([{ name: 'Fixed', openable: true }])
+  })
+})
+
 describe('project library remove', () => {
   it('removes a project, even one that cannot be opened', async () => {
     const { library } = await libraryWith([['b', 'Broken', BROKEN]])

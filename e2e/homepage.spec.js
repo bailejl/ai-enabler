@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { test, expect } from './fixtures.js'
 import { problem } from '../src/flow/diagnostics/problem.js'
 import { withContentHash } from '../src/flow/projectFile.js'
@@ -6,6 +7,7 @@ import { flushConsole, recordsIn } from './console.js'
 import { FILES_STORE, abortFileWrites, readIndex, readStored, seedProjects } from './store.js'
 import {
   EXPORT_BUTTON_NAME,
+  asUpload,
   exportProjectFile,
   openStarterProject,
   readDownloadedJson,
@@ -316,7 +318,7 @@ test.describe('card actions', () => {
     await expect(button).toHaveAttribute('aria-expanded', 'false')
     await expect(button).toBeFocused()
     await page.keyboard.press('Enter')
-    for (const label of ['Rename', 'Duplicate', 'Export', 'Delete']) {
+    for (const label of ['Rename', 'Duplicate', 'Replace from file', 'Export', 'Delete']) {
       await page.keyboard.press('Tab')
       await expect(page.getByRole('button', { name: label, exact: true })).toBeFocused()
     }
@@ -469,7 +471,11 @@ test.describe('card actions', () => {
     await expect(page.getByRole('heading', { level: 1, name: "Can't open Broken" })).toBeVisible()
     await page.goto('/#/')
     await menuButton(page, 'Broken').click()
-    await expect(cardFor(page, 'Broken').getByRole('listitem')).toHaveText(['Export', 'Delete'])
+    await expect(cardFor(page, 'Broken').getByRole('listitem')).toHaveText([
+      'Replace from file',
+      'Export',
+      'Delete',
+    ])
   })
 
   test('a project that cannot be opened can still be deleted', async ({ page, diagnostics }) => {
@@ -503,5 +509,120 @@ test.describe('card actions', () => {
     const downloadPromise = page.waitForEvent('download')
     await chooseAction(page, 'Broken', 'Export')
     expect(await downloadedText(await downloadPromise)).toBe(BROKEN_TEXT)
+  })
+})
+
+test.describe('replacing a card from a file', () => {
+  const CHECKOUT = [['p1', 'Checkout', '2026-11-22T10:00:00.000Z']]
+  const MARKED_FIXTURE = path.join(
+    import.meta.dirname,
+    '../src/flow/schema/fixtures/0.1.0-marked.json',
+  )
+  const confirm = (page) => page.getByRole('dialog')
+  const importStatus = (page) => page.getByRole('region', { name: 'Import status' })
+  // The starter file named `name`, as a file to choose.
+  const fileNamed = async (name) => asUpload((await starterRecordAs('file-id', { name })).text)
+  const replaceWith = async (page, name, file) => {
+    const chooser = page.waitForEvent('filechooser')
+    await chooseAction(page, name, 'Replace from file')
+    await (await chooser).setFiles(file)
+  }
+
+  test('replacing a card from a file keeps its link', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await replaceWith(page, 'Checkout', await fileNamed('Payments'))
+    await expect(confirm(page)).toHaveAccessibleName('Replace Checkout with Payments?')
+    await confirm(page).getByRole('button', { name: 'Replace map' }).click()
+    await expect(cardNames(page)).toHaveText(['Payments'])
+    await expect(cardLink(page, 'Payments')).toHaveAttribute('href', '#/projects/p1')
+    await expect(menuButton(page, 'Payments')).toBeFocused()
+    await cardLink(page, 'Payments').click()
+    await expect(page.getByRole('banner')).toContainText('Payments')
+  })
+
+  test('an edited file shows its notice before replacing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    const file = JSON.parse((await starterRecordAs('file-id', { name: 'Payments' })).text)
+    const [first, ...rest] = file.nodes
+    const edited = {
+      ...file,
+      nodes: [{ ...first, data: { ...first.data, label: 'Edited' } }, ...rest],
+    }
+    await replaceWith(page, 'Checkout', asUpload(edited))
+    await expect(confirm(page)).toContainText(
+      'This file was changed outside AI Enabler after it was exported.',
+    )
+  })
+
+  test('a file marked by an AI tool shows the AI notice before replacing', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await replaceWith(page, 'Checkout', MARKED_FIXTURE)
+    await expect(confirm(page)).toContainText(
+      'This file was changed by AI tools (aie-mcp) on 2026-11-20. Review the steps and numbers before relying on them.',
+    )
+  })
+
+  test('cancelling a replace changes nothing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    const before = { index: await readIndex(page), text: await readStored(page, 'p1') }
+    await replaceWith(page, 'Checkout', await fileNamed('Payments'))
+    await confirm(page).getByRole('button', { name: 'Cancel' }).click()
+    await expect(confirm(page)).toHaveCount(0)
+    await expect(cardNames(page)).toHaveText(['Checkout'])
+    await expect(menuButton(page, 'Checkout')).toBeFocused()
+    expect({ index: await readIndex(page), text: await readStored(page, 'p1') }).toEqual(before)
+  })
+
+  test('a rejected replace changes nothing and lists its problems', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND', 'STEP_POSITION_MISSING'])
+    await openHomeWith(page, CHECKOUT)
+    const before = await readStored(page, 'p1')
+    await replaceWith(page, 'Checkout', asUpload(BROKEN_FILE))
+    await expect(importStatus(page)).toContainText(
+      problem('STEP_POSITION_MISSING', { params: { step: 'Step "Plan" (#1)' } }).message,
+    )
+    await expect(confirm(page)).toHaveCount(0)
+    await expect(cardNames(page)).toHaveText(['Checkout'])
+    expect(await readStored(page, 'p1')).toBe(before)
+  })
+
+  test('replacing an unopenable card repairs it', async ({ page }) => {
+    await seedBroken(page)
+    await replaceWith(page, 'Broken', await fileNamed('Fixed'))
+    await expect(confirm(page)).toHaveAccessibleName('Replace Broken with Fixed?')
+    await confirm(page).getByRole('button', { name: 'Replace map' }).click()
+    await expect(cardNames(page)).toHaveText(['Fixed'])
+    await cardLink(page, 'Fixed').click()
+    await expect(page).toHaveURL(/#\/projects\/broken$/)
+    await expect(page.locator('.react-flow__node')).toHaveCount(6)
+  })
+
+  test('a replace the browser refuses changes nothing', async ({ page, capture, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await page.addInitScript(abortFileWrites, FILES_STORE)
+    await page.goto('/#/')
+    await allowWrites(page, true)
+    await seedProjects(page, [await starterRecordAs('p1', { name: 'Checkout' })])
+    await page.reload()
+    await replaceWith(page, 'Checkout', await fileNamed('Payments'))
+    await confirm(page).getByRole('button', { name: 'Replace map' }).click()
+    await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
+    await expect(cardNames(page)).toHaveText(['Checkout'])
+    await expect(menuButton(page, 'Checkout')).toBeFocused()
+    await flushConsole(page)
+    const failures = recordsIn(capture.messages).filter(
+      ({ record }) => record.code === 'STORE_WRITE_FAILED',
+    )
+    expect(failures).toHaveLength(1)
   })
 })

@@ -4,7 +4,10 @@ import { toCardItems } from '../flow/homepageView.js'
 import { SORT } from '../flow/projectStore.js'
 import Announcer from './Announcer.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
+import FileInput from './FileInput.jsx'
 import { APP_NAME } from './Header.jsx'
+import ImportConfirm from './ImportConfirm.jsx'
+import ImportStatus from './ImportStatus.jsx'
 import ProjectCard from './ProjectCard.jsx'
 import ProjectNameDialog from './ProjectNameDialog.jsx'
 import { ROUTE } from './routes.js'
@@ -42,10 +45,16 @@ export default function HomePage({
   onDuplicate,
   onConfirmDelete,
   onExport,
+  replace,
 }) {
   const headingRef = useRef(null)
   const newProjectRef = useRef(null)
   const bodyRef = useRef(null)
+  const replaceInputRef = useRef(null)
+  const chooseReplaceFile = (id, name) => {
+    replace.chooseTarget(id, name)
+    replaceInputRef.current.click()
+  }
   const sortId = useId()
   useEffect(() => {
     document.title = APP_NAME
@@ -79,6 +88,7 @@ export default function HomePage({
             New project
           </button>
         </div>
+        <ImportStatus state={replace.importState} onDismiss={replace.dismissImportError} />
         <StoreProblems problems={storeProblems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">
@@ -103,6 +113,7 @@ export default function HomePage({
                   item={item}
                   onRename={onOpenRename}
                   onDuplicate={onDuplicate}
+                  onReplaceFromFile={chooseReplaceFile}
                   onExport={onExport}
                   onDelete={onOpenDelete}
                 />
@@ -111,7 +122,13 @@ export default function HomePage({
           )}
         </section>
       </main>
+      <FileInput ref={replaceInputRef} onFile={replace.importFile} />
       <Announcer message={message} />
+      <ImportConfirm
+        state={replace.importState}
+        onConfirm={replace.confirmImport}
+        onCancel={replace.cancelImport}
+      />
       {dialog?.type === DIALOG.create && (
         <ProjectNameDialog
           title="New project"

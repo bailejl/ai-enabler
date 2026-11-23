@@ -11,6 +11,7 @@ import {
 import { projectHref } from '../flow/homepageView.js'
 import { downloadTextFile } from './download.js'
 import { STORE_STATUS, useStore } from './StoreProvider.jsx'
+import { useImportFlow } from './useImportFlow.js'
 
 /**
  * Wires the homepage reducer to the library: loads the list once the store is ready, again after
@@ -143,6 +144,35 @@ export const useHomepage = ({ announce }) => {
     [library, failed, announce],
   )
 
+  // A card's "Replace from file": the shared import flow, with the card as the project it replaces.
+  // The file's map is saved under the card's id, which also repairs a card that cannot be opened.
+  const replaceTarget = useRef(null)
+  const replaceFocusRef = useRef(null)
+  const getReplaceTarget = useCallback(() => replaceTarget.current, [])
+  const saveReplacement = useCallback(
+    async (replacement) => {
+      const { id } = replacement.project
+      const saved = await library.save(replacement)
+      if (!saved.ok) {
+        announce(`Not saved. ${saved.problems[0].message}`)
+        return failed(id, saved.problems)
+      }
+      await reload()
+    },
+    [library, announce, failed, reload],
+  )
+  const replaceFlow = useImportFlow({
+    getCurrentProject: getReplaceTarget,
+    onReplace: saveReplacement,
+    announce,
+    returnFocusRef: replaceFocusRef,
+  })
+  // Called as the card's menu hands focus back to its button, so focus returns there afterwards.
+  const chooseReplaceTarget = useCallback((id, name) => {
+    replaceTarget.current = { id, name }
+    replaceFocusRef.current = document.activeElement
+  }, [])
+
   return {
     state,
     setSort,
@@ -155,5 +185,6 @@ export const useHomepage = ({ announce }) => {
     duplicate: (id, name) => runExclusive(() => duplicate(id, name)),
     confirmDelete: () => runExclusive(confirmDelete),
     exportProject: (id) => runExclusive(() => exportProject(id)),
+    replace: { ...replaceFlow, chooseTarget: chooseReplaceTarget },
   }
 }

@@ -11,6 +11,7 @@ export const IMPORT_EVENT = Object.freeze({
   confirm: 'confirm',
   cancel: 'cancel',
   dismiss: 'dismiss',
+  reset: 'reset',
 })
 
 export const IMPORT_CANCELLED = 'Import cancelled'
@@ -32,6 +33,10 @@ const describeChangedBy = (changedBy) =>
 // The notices that apply to an imported file, in the order they are shown and spoken.
 const noticesFor = (isEdited, aiNotice) =>
   [isEdited ? EDITED_NOTICE : null, aiNotice].filter(Boolean)
+
+/** The notice texts for a parsed file (parseImport's ok result): edited first, then the AI mark. */
+export const importNotices = ({ edited, changedBy }) =>
+  noticesFor(edited === true, describeChangedBy(changedBy))
 
 export const INITIAL_IMPORT_STATE = Object.freeze({ type: IMPORT_IDLE, status: null })
 
@@ -66,7 +71,7 @@ const rejectFile = (problems) =>
   )
 
 const acceptFile = (state, { result: { file, edited, changedBy }, project }) => {
-  const notices = noticesFor(edited === true, describeChangedBy(changedBy))
+  const notices = importNotices({ edited, changedBy })
   const isSame = isSameName(project, file.project)
   const message = describeConfirmation(isSame, project.name, file.project.name)
   return transition(
@@ -118,6 +123,8 @@ const HANDLERS = {
   [IMPORT_EVENT.confirm]: { from: IMPORT_CONFIRMING, run: confirmReplace },
   [IMPORT_EVENT.cancel]: { from: IMPORT_CONFIRMING, run: cancelConfirmation },
   [IMPORT_EVENT.dismiss]: { from: IMPORT_ERROR, run: () => transition(INITIAL_IMPORT_STATE) },
+  // Another status took the place of this one's, so it shows nothing.
+  [IMPORT_EVENT.reset]: { from: null, run: () => transition(INITIAL_IMPORT_STATE) },
 }
 
 /**
@@ -142,7 +149,7 @@ export const describeImportStatus = (state) => {
  * `notices` is the notice texts for the file, the edited notice first, then the AI notice.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
  *   { type: 'confirm', project?: { id, name } } (the open project now; the one read with the file
- *   when absent), { type: 'cancel' }, { type: 'dismiss' }.
+ *   when absent), { type: 'cancel' }, { type: 'dismiss' }, { type: 'reset' } (from any state).
  * @returns {{ state: object, announcement: string | null,
  *   replacement: { project: { id: string, name: string }, nodes: object[], edges: object[] } | null }}
  *   `replacement` is an in-memory project: the allowlisted fields of the file's steps and connections.

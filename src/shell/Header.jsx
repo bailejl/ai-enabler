@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
+import FileInput from './FileInput.jsx'
 
 export const APP_NAME = 'AI Enabler'
-const IMPORT_ACCEPT = '.json,application/json'
 
 export const toDocumentTitle = (projectName) => `${projectName} · ${APP_NAME}`
 
@@ -11,17 +11,6 @@ export default function Header({ projectName, onExport, onImportFile, importButt
   useEffect(() => {
     document.title = toDocumentTitle(projectName)
   }, [projectName])
-
-  // Clearing the value once the file is read lets the same file be chosen again.
-  const handleFileChosen = async (event) => {
-    const input = event.target
-    const [file] = input.files
-    try {
-      if (file) await onImportFile(file)
-    } finally {
-      input.value = ''
-    }
-  }
 
   return (
     <header className="header">
@@ -47,13 +36,7 @@ export default function Header({ projectName, onExport, onImportFile, importButt
         >
           Import
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={IMPORT_ACCEPT}
-          hidden
-          onChange={handleFileChosen}
-        />
+        <FileInput ref={fileInputRef} onFile={onImportFile} />
         <button
           type="button"
           className="button"

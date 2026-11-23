@@ -17,14 +17,13 @@ import { OPENING, useStoredProject } from './shell/useStoredProject.js'
 import { OPEN_OUTCOME } from './flow/projectLibrary.js'
 import { storeProblemsOf } from './flow/storeStatus.js'
 import Announcer from './shell/Announcer.jsx'
-import ConfirmDialog from './shell/ConfirmDialog.jsx'
+import ImportConfirm from './shell/ImportConfirm.jsx'
 import DevCommandTrigger from './shell/DevCommandTrigger.jsx'
 import ImportStatus from './shell/ImportStatus.jsx'
 import HelpMenu from './shell/HelpMenu.jsx'
 import MetricsBar from './shell/MetricsBar.jsx'
 import ProblemsPanel from './shell/ProblemsPanel.jsx'
 import { isValidConnection } from './flow/connections.js'
-import { IMPORT_CONFIRMING } from './flow/importFlow.js'
 import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
 import StoreProblems from './shell/StoreProblems.jsx'
@@ -100,22 +99,7 @@ function Shell({ routeName, initial }) {
         />
       )}
       <Announcer message={message} />
-      {importState.type === IMPORT_CONFIRMING && (
-        <ConfirmDialog
-          message={importState.message}
-          confirmText="Replace map"
-          onConfirm={confirmImport}
-          onCancel={cancelImport}
-        >
-          <p>
-            Current project: <strong>{importState.currentName}</strong>. Incoming project:{' '}
-            <strong>{importState.incomingName}</strong>.
-          </p>
-          {importState.notices.map((notice) => (
-            <p key={notice}>{notice}</p>
-          ))}
-        </ConfirmDialog>
-      )}
+      <ImportConfirm state={importState} onConfirm={confirmImport} onCancel={cancelImport} />
       {import.meta.env.DEV && <DevCommandTrigger onCommands={applyEdit} />}
       <HelpMenu />
       <MetricsBar steps={steps} />
@@ -193,6 +177,7 @@ function HomeRoute() {
       onDuplicate={home.duplicate}
       onConfirmDelete={home.confirmDelete}
       onExport={home.exportProject}
+      replace={home.replace}
     />
   )
 }

@@ -116,7 +116,9 @@ export const openBadgesView = async (page) => {
   await importAndConfirm(page, asUpload({ ...fixture, nodes }), replaceQuestion('Badge Check'))
 }
 
+// Waits for the map to draw first: counting before the project opens would delete nothing.
 export const deleteAllSteps = async (page) => {
+  await expect(cards(page).first()).toBeVisible()
   for (let remaining = await cards(page).count(); remaining > 0; remaining -= 1) {
     await cards(page).first().click()
     await page.keyboard.press('Backspace')
