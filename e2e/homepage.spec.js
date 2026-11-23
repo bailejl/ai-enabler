@@ -430,7 +430,6 @@ test.describe('card actions', () => {
   const REFUSED = [
     ['delete', (page) => deleteAndConfirm(page, 'A')],
     ['duplicate', (page) => chooseAction(page, 'A', 'Duplicate')],
-    ['rename to "A2"', (page) => renameTo(page, 'A', 'A2')],
   ]
   for (const [action, run] of REFUSED) {
     test(`a card action the browser refuses changes nothing: ${action}`, async ({
@@ -452,6 +451,7 @@ test.describe('card actions', () => {
       await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
       await expect(cardNames(page)).toHaveText(['A', 'B'])
       await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(menuButton(page, 'A')).toBeFocused()
       await expect(announcer(page)).toHaveText('')
       await flushConsole(page)
       const failures = recordsIn(capture.messages).filter(
@@ -460,6 +460,26 @@ test.describe('card actions', () => {
       expect(failures).toHaveLength(1)
     })
   }
+
+  test('a rename the browser refuses keeps its dialog open with the problem', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await page.addInitScript(abortFileWrites, FILES_STORE)
+    await page.goto('/#/')
+    await allowWrites(page, true)
+    await seedProjects(page, [
+      await starterRecordAs('a', { name: 'A', modifiedAt: '2026-11-22T10:00:00.000Z' }),
+    ])
+    await page.reload()
+    await renameTo(page, 'A', 'A2')
+    await expect(renameDialog(page)).toContainText(problem('STORE_WRITE_FAILED').message)
+    await expect(renameDialog(page).getByLabel('Project name')).toHaveValue('A2')
+    await expect(cardNames(page)).toHaveText(['A'])
+    await expect(announcer(page)).toHaveText('')
+    expect((await readIndex(page)).map(({ name }) => name)).toEqual(['A'])
+  })
 
   test('a project that cannot be opened offers only repair actions', async ({
     page,

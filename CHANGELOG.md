@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The app opens on the homepage instead of a six-step starter map.
+- Importing a file into an open project keeps that project's id, and every import confirmation reads "Replace <current name> with <incoming name>?".
 - An MCP save lays out only the steps still at the start position (0, 0) and keeps the steps the user moved.
 
 - Edits run through the command layer; rejected edits and import problems are listed with their fixes; connections drawn in the app get UUID ids (import still accepts any id).

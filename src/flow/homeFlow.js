@@ -1,3 +1,4 @@
+import { toRejection } from './problemsView.js'
 import { SORT } from './projectStore.js'
 import { formatCount } from './text.js'
 
@@ -18,6 +19,7 @@ export const HOME_EVENT = Object.freeze({
   duplicated: 'duplicated',
   deleted: 'deleted',
   actionFailed: 'actionFailed',
+  actionSucceeded: 'actionSucceeded',
   imported: 'imported',
   importRejected: 'importRejected',
   importDismissed: 'importDismissed',
@@ -25,7 +27,10 @@ export const HOME_EVENT = Object.freeze({
 
 export const DIALOG = Object.freeze({ create: 'create', rename: 'rename', delete: 'delete' })
 
-/** Where focus goes next: New project, a card's link, or a card's "More actions" button. */
+/**
+ * Where focus goes next: New project, Import project, a card's link, or a card's "More actions"
+ * button.
+ */
 export const FOCUS = Object.freeze({
   newProject: 'newProject',
   importProject: 'importProject',
@@ -50,8 +55,16 @@ const focusOnClose = (dialog) =>
     ? { target: FOCUS.newProject }
     : { target: FOCUS.menu, id: dialog?.id }
 
-// An action that worked closes its dialog and clears the problems of one that did not.
-const done = (state, focus) => ({ ...state, dialog: null, actionProblems: [], focus })
+// The dialog left open once the action on card `id` ends: one opened for another card since stays.
+const dialogAfter = (state, id) => (state.dialog?.id === id ? null : state.dialog)
+
+// An action on card `id` that worked closes its dialog and clears the problems of one that did not.
+const closeAfterSuccess = (state, id, focus) => ({
+  ...state,
+  dialog: dialogAfter(state, id),
+  actionProblems: [],
+  focus,
+})
 
 const HANDLERS = {
   [HOME_EVENT.listLoaded]: (state, { projects, problems = [] }) => ({
@@ -79,19 +92,23 @@ const HANDLERS = {
     NAME_DIALOGS.includes(state.dialog?.type)
       ? { ...state, dialog: { ...state.dialog, problems } }
       : state,
-  [HOME_EVENT.renamed]: (state, { id }) => done(state, { target: FOCUS.menu, id }),
-  [HOME_EVENT.duplicated]: (state, { id }) => done(state, { target: FOCUS.card, id }),
-  [HOME_EVENT.deleted]: (state, { focus }) => done(state, focus),
+  [HOME_EVENT.renamed]: (state, { id }) => closeAfterSuccess(state, id, { target: FOCUS.menu, id }),
+  [HOME_EVENT.duplicated]: (state, { id, copyId }) =>
+    closeAfterSuccess(state, id, { target: FOCUS.card, id: copyId }),
+  [HOME_EVENT.deleted]: (state, { id, focus }) => closeAfterSuccess(state, id, focus),
   // A card action the store refused: its dialog closes, its problems show, focus returns to it.
   [HOME_EVENT.actionFailed]: (state, { id, problems, focus = { target: FOCUS.menu, id } }) => ({
     ...state,
-    dialog: null,
+    dialog: dialogAfter(state, id),
     actionProblems: problems,
     focus,
   }),
+  // A card action with no dialog and no focus move (export, replace) that worked.
+  [HOME_EVENT.actionSucceeded]: (state) =>
+    state.actionProblems.length === 0 ? state : { ...state, actionProblems: [] },
   // A homepage import: its outcome line stays until dismissed or the next import's.
   [HOME_EVENT.imported]: (state, { id, text }) => ({
-    ...done(state, { target: FOCUS.card, id }),
+    ...closeAfterSuccess(state, null, { target: FOCUS.card, id }),
     importStatus: { text },
   }),
   [HOME_EVENT.importRejected]: (state, { problems }) => ({
@@ -115,12 +132,14 @@ const HANDLERS = {
  * problems of a list that could not be read), `{ type: 'sortChanged', sort }`,
  * `{ type: 'createOpened' }`, `{ type: 'renameOpened', id, name }`,
  * `{ type: 'deleteOpened', id, name }`, `{ type: 'dialogCancelled' }`,
- * `{ type: 'nameRefused', problems }`, `{ type: 'renamed', id }`, `{ type: 'duplicated', id }`
- * (the copy's id), `{ type: 'deleted', focus }` (see `focusAfterRemove`) and
- * `{ type: 'actionFailed', id, problems, focus? }`, `{ type: 'imported', id, text }`,
+ * `{ type: 'nameRefused', problems }`, `{ type: 'renamed', id }`,
+ * `{ type: 'duplicated', id, copyId }`, `{ type: 'deleted', id, focus }` (see `focusAfterRemove`),
+ * `{ type: 'actionFailed', id, problems, focus? }`, `{ type: 'actionSucceeded' }`,
+ * `{ type: 'imported', id, text }`,
  * `{ type: 'importRejected', problems }` and `{ type: 'importDismissed', focus? }`. `importStatus`
  * is null, `{ text }` or `{ problems }`. A create that works leaves the homepage, so it needs no
- * event.
+ * event. An action's end closes the dialog only when it is that card's (`id`), so a late result
+ * never closes a dialog opened since for another card.
  */
 export const reduceHome = (state, event) => HANDLERS[event.type]?.(state, event) ?? state
 
@@ -142,12 +161,6 @@ export const focusAfterRemove = (ids, removedId) => {
   return id === undefined ? { target: FOCUS.newProject } : { target: FOCUS.card, id }
 }
 
-/**
- * True when the store refused the action: a write it could not make or a stored file it could not
- * open (STORE_FILE_INVALID leads that file's own problems). Otherwise the input was refused.
- */
-export const isStoreRefusal = (problems) => problems[0]?.code.startsWith('STORE_') === true
-
 /** True when the stored file could not be opened, so the list is stale and its card must change. */
 export const isUnopenable = (problems) => problems[0]?.code === 'STORE_FILE_INVALID'
 
@@ -159,6 +172,18 @@ export const describeHomeImport = ({ name, stepCount, isNewId, notices }) => {
   const as = isNewId ? ' as a new project' : ''
   const outcome = `Imported ${name}${as}, ${formatCount(stepCount, 'step')}`
   return notices.length > 0 ? `${outcome}. ${notices.join(' ')}` : outcome
+}
+
+/**
+ * The homepage import's outcome line as the import status shows it (see describeImportStatus):
+ * `{ text, isError: false }`, `{ isError: true, view }` or null.
+ */
+export const describeHomeImportStatus = (importStatus) => {
+  if (!importStatus) return null
+  if (importStatus.problems) {
+    return { isError: true, view: toRejection('Import', importStatus.problems).view }
+  }
+  return { text: importStatus.text, isError: false }
 }
 
 /** What a card action that worked announces, such as "Duplicated Checkout". */

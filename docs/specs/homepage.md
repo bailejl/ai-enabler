@@ -27,7 +27,7 @@ A new project is an empty map with a one-line hint; the six starter steps go awa
 
 1. **Project store, pure part** (`src/flow/`). Operations over an injected key-value adapter: `list`, `read(id)`, `write(id, text, meta)`, `remove(id)`, `has(id)`. It builds the index entry `{ id, name, modifiedAt }`, sorts the list, derives the duplicate's name, and picks the id for a homepage import. Unit tested with an in-memory adapter.
 2. **IndexedDB adapter** (`src/shell/`, thin). One database, `ai-enabler`, version 1, with two object stores in one transaction per write: `files` (id → save-file text) and `index` (id → `{ id, name, modifiedAt }`). The list reads only `index`, so it never loads every file. Its failures map to `STORE_` codes. Proven by e2e against the real browser.
-3. **Homepage** (React). A heading "AI Enabler", a "Projects" list of cards, a sort control, "New project" and "Import project" buttons, and an empty state when nothing is saved. Each card shows the name and the modified date, opens the project, and has a menu: Rename, Duplicate, Import, Export, Delete.
+3. **Homepage** (React). A heading "AI Enabler", a "Projects" list of cards, a sort control, "New project" and "Import project" buttons, and an empty state when nothing is saved. Each card shows the name and the modified date, opens the project, and has a menu: Rename, Duplicate, Replace from file, Export, Delete.
 4. **Project dialog** (React). One name field, used for create and rename. A rejected command shows its problems in the dialog and keeps it open.
 5. **Project route.** `#/projects/<id>` reads the stored text and runs the import pipeline (parse, upgrade, validate) into the in-memory project from R4. A missing id shows the not-found state; a stored file that fails the pipeline shows the cannot-open state. Both link home.
 6. **Save after change.** After each accepted edit (R4's `applyEdit`), confirmed import, create and rename, the in-memory project is serialized to the export form (`toProjectFile`, then `withContentHash`) and written with `modifiedAt` set to the time of the change. Writes for one project run in order, so the newest change is the one stored.
@@ -48,8 +48,7 @@ A new project is an empty map with a one-line hint; the six starter steps go awa
 
 **Dependencies**
 
-- Merged: N13 (routes), E13 PR1–PR3 (commands, validator, `llms.txt`, plugin), D1 (diagnostics sink and gates).
-- Not merged, needed before build: R4 (commands for UI edits, `applyEdit`, `ProblemsPanel`), D2 (guide files and the test that fails on a code with no guide).
+- Merged: N13 (routes), E13 PR1–PR3 (commands, validator, `llms.txt`, plugin), D1 (diagnostics sink and gates), D2 (guide files and the test that fails on a code with no guide, #52), R4 (commands for UI edits, `applyEdit`, `ProblemsPanel`, #53).
 
 ## Acceptance Criteria
 

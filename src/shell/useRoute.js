@@ -11,7 +11,8 @@ export const addRouteGuard = (guard) => {
   return () => routeGuards.delete(guard)
 }
 
-const isHeld = (event) => [...routeGuards].some((guard) => guard(event))
+// Runs the guards in turn until one holds the change; true when one did.
+const runRouteGuards = (event) => [...routeGuards].some((guard) => guard(event))
 
 // The current hash route. A non-canonical hash is rewritten in place after mount and on every
 // hashchange, so a bad link on load adds no history entry, and a bad hash typed later is
@@ -27,7 +28,7 @@ export const useRoute = () => {
       setRoute(resolveHash(hash).route)
     }
     const follow = (event) => {
-      if (!isHeld(event)) sync()
+      if (!runRouteGuards(event)) sync()
     }
     sync()
     window.addEventListener('hashchange', follow)

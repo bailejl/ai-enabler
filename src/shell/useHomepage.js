@@ -6,13 +6,13 @@ import {
   actionAnnouncement,
   describeHomeImport,
   focusAfterRemove,
-  isStoreRefusal,
   isUnopenable,
   reduceHome,
 } from '../flow/homeFlow.js'
 import { projectHref } from '../flow/homepageView.js'
 import { importNotices } from '../flow/importFlow.js'
 import { toRejection } from '../flow/problemsView.js'
+import { notSavedAnnouncement } from '../flow/storeStatus.js'
 import { report } from './diagnostics.js'
 import { downloadTextFile } from './download.js'
 import { STORE_STATUS, useStore } from './StoreProvider.jsx'
@@ -104,18 +104,22 @@ export const useHomepage = ({ announce }) => {
     [library, dispatch],
   )
 
-  // A refused name keeps the dialog open; a refused write closes it and shows the problem.
+  // A refused rename, of the name or of the write, keeps the dialog open with the problems, as
+  // create does. A file found unopenable since the list loaded reloads it, so its card offers only
+  // repairs.
   const rename = useCallback(
     async (name) => {
       const { id } = latestState.current.dialog
       const renamed = await library.rename(id, name)
-      if (renamed.ok) {
-        await reload()
-        dispatch({ type: HOME_EVENT.renamed, id })
-      } else if (isStoreRefusal(renamed.problems)) failed(id, renamed.problems)
-      else dispatch({ type: HOME_EVENT.nameRefused, problems: renamed.problems })
+      if (!renamed.ok) {
+        if (isUnopenable(renamed.problems)) await reload()
+        dispatch({ type: HOME_EVENT.nameRefused, problems: renamed.problems })
+        return
+      }
+      await reload()
+      dispatch({ type: HOME_EVENT.renamed, id })
     },
-    [library, reload, dispatch, failed],
+    [library, reload, dispatch],
   )
 
   const duplicate = useCallback(
@@ -123,7 +127,7 @@ export const useHomepage = ({ announce }) => {
       const copied = await library.duplicate(id)
       if (!copied.ok) return failed(id, copied.problems)
       await reload()
-      dispatch({ type: HOME_EVENT.duplicated, id: copied.project.project.id })
+      dispatch({ type: HOME_EVENT.duplicated, id, copyId: copied.project.project.id })
       announce(actionAnnouncement('Duplicated', name))
     },
     [library, reload, dispatch, failed, announce],
@@ -135,7 +139,7 @@ export const useHomepage = ({ announce }) => {
     const removed = await library.remove(id)
     if (!removed.ok) return failed(id, removed.problems)
     await reload()
-    dispatch({ type: HOME_EVENT.deleted, focus: focusAfterRemove(shownIds, id) })
+    dispatch({ type: HOME_EVENT.deleted, id, focus: focusAfterRemove(shownIds, id) })
     announce(actionAnnouncement('Deleted', name))
   }, [library, reload, dispatch, failed, announce])
 
@@ -144,9 +148,10 @@ export const useHomepage = ({ announce }) => {
       const exported = await library.exportFile(id)
       if (!exported.ok) return failed(id, exported.problems)
       downloadTextFile(exported.fileName, exported.text)
+      dispatch({ type: HOME_EVENT.actionSucceeded })
       announce(actionAnnouncement('Exported', exported.fileName))
     },
-    [library, failed, announce],
+    [library, failed, dispatch, announce],
   )
 
   // A card's "Replace from file": the shared import flow, with the card as the project it replaces.
@@ -159,14 +164,15 @@ export const useHomepage = ({ announce }) => {
       const { id } = replacement.project
       const saved = await library.save(replacement)
       if (!saved.ok) {
-        announce(`Not saved. ${saved.problems[0].message}`)
+        announce(notSavedAnnouncement(saved.problems))
         await failed(id, saved.problems)
         return false
       }
       await reload()
+      dispatch({ type: HOME_EVENT.actionSucceeded })
       return true
     },
-    [library, announce, failed, reload],
+    [library, announce, failed, reload, dispatch],
   )
   const replaceFlow = useImportFlow({
     getCurrentProject: getReplaceTarget,
@@ -204,7 +210,8 @@ export const useHomepage = ({ announce }) => {
       }
       const imported = await library.importNew(result.file)
       if (!imported.ok) {
-        announce(`Not saved. ${imported.problems[0].message}`)
+        announce(notSavedAnnouncement(imported.problems))
+        resetImport()
         dispatch({ type: HOME_EVENT.importDismissed })
         dispatch({
           type: HOME_EVENT.actionFailed,
@@ -234,6 +241,7 @@ export const useHomepage = ({ announce }) => {
 
   return {
     state,
+    isStoreReady: status === STORE_STATUS.ready,
     importNew,
     dismissImport,
     setSort,

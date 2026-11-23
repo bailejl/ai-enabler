@@ -1,11 +1,17 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
-import { DIALOG, FOCUS, isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
+import {
+  DIALOG,
+  FOCUS,
+  describeHomeImportStatus,
+  isEmptyList,
+  LIST_STATUS,
+} from '../flow/homeFlow.js'
 import { toCardItems } from '../flow/homepageView.js'
+import { describeImportStatus } from '../flow/importFlow.js'
 import { SORT } from '../flow/projectStore.js'
 import Announcer from './Announcer.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
 import FileInput from './FileInput.jsx'
-import HomeStatus from './HomeStatus.jsx'
 import { APP_NAME } from './Header.jsx'
 import ImportConfirm from './ImportConfirm.jsx'
 import ImportStatus from './ImportStatus.jsx'
@@ -50,6 +56,7 @@ export default function HomePage({
   onImportNew,
   onDismissImport,
   replace,
+  isStoreReady,
 }) {
   const headingRef = useRef(null)
   const newProjectRef = useRef(null)
@@ -81,6 +88,14 @@ export default function HomePage({
   }, [focus])
   const isLoading = list.status === LIST_STATUS.loading
   const cardItems = useMemo(() => toCardItems(list.projects), [list.projects])
+  const replaceStatus = useMemo(
+    () => describeImportStatus(replace.importState),
+    [replace.importState],
+  )
+  const importStatus = useMemo(
+    () => describeHomeImportStatus(state.importStatus),
+    [state.importStatus],
+  )
   const storeProblems = useMemo(
     () => [...list.problems, ...actionProblems],
     [list.problems, actionProblems],
@@ -93,21 +108,28 @@ export default function HomePage({
         </h1>
         <StoreNotice />
         <div className="projects__actions">
-          <button ref={newProjectRef} type="button" className="button" onClick={onOpenCreate}>
+          <button
+            ref={newProjectRef}
+            type="button"
+            className="button"
+            disabled={!isStoreReady}
+            onClick={onOpenCreate}
+          >
             New project
           </button>
           <button
             ref={importButtonRef}
             type="button"
             className="button"
+            disabled={!isStoreReady}
             onClick={() => importInputRef.current.click()}
           >
             Import project
           </button>
           <FileInput ref={importInputRef} onFile={onImportNew} />
         </div>
-        <ImportStatus state={replace.importState} onDismiss={replace.dismissImportError} />
-        <HomeStatus status={state.importStatus} onDismiss={onDismissImport} />
+        <ImportStatus status={replaceStatus} onDismiss={replace.dismissImportError} />
+        <ImportStatus status={importStatus} onDismiss={onDismissImport} dismissesText />
         <StoreProblems problems={storeProblems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">

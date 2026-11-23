@@ -4,10 +4,12 @@ import {
   INITIAL_STORE_STATUS,
   STORE_STATUS_EVENT,
   asksBeforeLeaving,
+  notSavedAnnouncement,
   reduceStoreStatus,
   showsStoreNotice,
   storeProblemsOf,
   toStoreStatusEvent,
+  trackStoredWrites,
 } from './storeStatus.js'
 
 const writeFailed = [problem('STORE_WRITE_FAILED')]
@@ -81,10 +83,68 @@ describe('showsStoreNotice', () => {
 })
 
 describe('asksBeforeLeaving', () => {
-  it('asks only while the open project has a change that is not stored', () => {
+  it('asks while the open project has a change that is not stored', () => {
     expect(asksBeforeLeaving(run(failed('p1')), 'p1')).toBe(true)
+  })
+
+  it('does not ask once a later save of it works', () => {
     expect(asksBeforeLeaving(run(failed('p1'), succeeded('p1')), 'p1')).toBe(false)
+  })
+
+  it('does not ask for a failed save of another project', () => {
     expect(asksBeforeLeaving(run(failed('p2')), 'p1')).toBe(false)
+  })
+
+  it('does not ask when every save worked', () => {
     expect(asksBeforeLeaving(INITIAL_STORE_STATUS, 'p1')).toBe(false)
+  })
+
+  it('does not ask on a page with no project open', () => {
+    expect(asksBeforeLeaving(run(failed('null')), null)).toBe(false)
+  })
+})
+
+describe('notSavedAnnouncement', () => {
+  it('reads as "Not saved." and the first problem', () => {
+    expect(notSavedAnnouncement([problem('STORE_WRITE_FAILED')])).toBe(
+      `Not saved. ${problem('STORE_WRITE_FAILED').message}`,
+    )
+  })
+})
+
+describe('trackStoredWrites', () => {
+  const refused = { ok: false, problems: [problem('STORE_WRITE_FAILED')] }
+  const tracked = (result) => {
+    const stored = []
+    const library = {
+      list: async () => 'listed',
+      save: async () => result,
+      rename: async () => result,
+      remove: async () => result,
+    }
+    return { stored, library: trackStoredWrites(library, (id) => stored.push(id)) }
+  }
+  const CALLS = [
+    ['save', (library) => library.save({ project: { id: 'p1', name: 'Checkout' } })],
+    ['rename', (library) => library.rename('p1', 'Payments')],
+    ['remove', (library) => library.remove('p1')],
+  ]
+
+  it.each(CALLS)('reports the project of a %s that works', async (_name, call) => {
+    const { stored, library } = tracked({ ok: true, problems: [] })
+    expect(await call(library)).toEqual({ ok: true, problems: [] })
+    expect(stored).toEqual(['p1'])
+  })
+
+  it.each(CALLS)('reports nothing for a %s the store refused', async (_name, call) => {
+    const { stored, library } = tracked(refused)
+    expect(await call(library)).toBe(refused)
+    expect(stored).toEqual([])
+  })
+
+  it('passes every other call through', async () => {
+    const { stored, library } = tracked(refused)
+    expect(await library.list()).toBe('listed')
+    expect(stored).toEqual([])
   })
 })

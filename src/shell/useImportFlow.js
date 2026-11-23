@@ -29,7 +29,8 @@ export const readImport = async (file) => {
  * the project keeps its id. The header and a card's "Replace from file" share this hook.
  *
  * `onReplace` may return (or resolve to) false when it could not keep the replacement; the outcome
- * line then clears, so it never says a refused save was imported. `resetImport` clears the line
+ * line then clears and nothing is announced, so it never says a refused save was imported. A
+ * replacement's outcome is announced only once `onReplace` has kept it. `resetImport` clears the line
  * when another status takes its place; neither moves focus, and neither closes a pending question.
  */
 export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFocusRef }) => {
@@ -68,10 +69,13 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
       // Reported where the rejection happens, never in an effect, so each problem is written once.
       if (state !== previous && state.type === IMPORT_ERROR) state.problems.forEach(report)
       setImportState(state)
-      if (announcement) announce(announcement)
-      if (!replacement) return
+      if (!replacement) {
+        if (announcement) announce(announcement)
+        return
+      }
       Promise.resolve(onReplace(replacement)).then((kept) => {
         if (kept === false) resetImport()
+        else if (announcement) announce(announcement)
       })
     },
     [announce, onReplace, resetImport],

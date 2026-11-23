@@ -120,8 +120,9 @@ describe('project store', () => {
     const adapter = withFaults(createMemoryStoreAdapter(), { call: 'put', slow: [1, 2] })
     const store = createProjectStore(adapter)
     await store.save(memoryProject('p1', 'Checkout'))
-    store.save(memoryProject('p1', 'Payments'))
+    const pending = store.save(memoryProject('p1', 'Payments'))
     expect(names(await store.list())).toEqual(['Payments'])
+    expect((await pending).ok).toBe(true)
   })
 
   it('stores the latest state with the next save after a failed one', async () => {

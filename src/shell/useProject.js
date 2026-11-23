@@ -1,6 +1,7 @@
 import { useReactFlow } from '@xyflow/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toExportDownload } from '../flow/projectFile.js'
+import { notSavedAnnouncement } from '../flow/storeStatus.js'
 import { downloadTextFile } from './download.js'
 import { useCanvasEdits } from './useCanvasEdits.js'
 import { useImportFlow } from './useImportFlow.js'
@@ -28,7 +29,7 @@ export const useProject = ({
   const onAccepted = useCallback(
     async (next) => {
       const saved = await saveProject(next)
-      if (!saved.ok) announce(`Not saved. ${saved.problems[0].message}`)
+      if (!saved.ok) announce(notSavedAnnouncement(saved.problems))
     },
     [saveProject, announce],
   )

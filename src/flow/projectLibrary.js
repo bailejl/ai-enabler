@@ -175,7 +175,8 @@ export const toOpenOutcome = (opened) => {
 
 /**
  * Wraps a library so each failed call hands its problems to `onProblems` once, where the call is
- * made, and the first save or create that works calls `onFirstSave`, once.
+ * made, and the first write that works (create, save, rename, duplicate or import) calls
+ * `onFirstSave`, once.
  * @param {ReturnType<typeof createProjectLibrary>} library
  * @param {{ onProblems: (problems: object[]) => void, onFirstSave: () => void }} hooks
  */

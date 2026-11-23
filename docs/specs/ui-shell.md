@@ -70,7 +70,7 @@ These items are out of scope, and each gets a separate spec:
   - `project.id`: the internal id [S6].
   - `data.batch` is optional [H §Data shape].
 - No backend, no network calls, and no browser storage. [S2] _Superseded by `docs/specs/homepage.md` (E1): projects are saved in this browser (IndexedDB)._
-- The existing `src/flow/initialFlow.js` stays the source of the starter steps. Its tests keep passing, or change with it.
+- The existing `src/flow/initialFlow.js` stays the source of the starter steps. Its tests keep passing, or change with it. _Superseded by `docs/specs/homepage.md` (E1): the starter steps are test data, not the app's default._
 
 - The repo has no CI today. This spec adds a GitHub Actions workflow that runs on every pull request and every push to `main`, so the schema checks in AC45 run in CI. It has two jobs:
   - Lint and unit tests (`npm test`).

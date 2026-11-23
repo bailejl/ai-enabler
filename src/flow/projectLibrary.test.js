@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseImport } from './importFile.js'
 import { createMemoryStoreAdapter } from './memoryStoreAdapter.js'
 import {
   OPEN_OUTCOME,
@@ -432,5 +433,83 @@ describe('observeLibrary', () => {
     expect(seen).toEqual({ problems: ['STORE_WRITE_FAILED'], firstSaves: 0 })
     await observed.save(memoryProject('p1', 'Checkout'))
     expect(seen.firstSaves).toBe(1)
+  })
+})
+
+describe('observeLibrary on each call', () => {
+  const seededLibrary = async () => {
+    const { library } = await libraryWith()
+    await library.save(memoryProject('p1', 'Checkout'))
+    const seen = { problems: [], firstSaves: 0 }
+    const observed = observeLibrary(library, {
+      onProblems: (problems) => seen.problems.push(...problems.map(({ code }) => code)),
+      onFirstSave: () => {
+        seen.firstSaves += 1
+      },
+    })
+    return { library, observed, seen }
+  }
+  const importedCopy = async (library) =>
+    (await parseImport((await library.exportFile('p1')).text)).file
+
+  it.each([
+    ['rename', (observed) => observed.rename('p1', 'Payments')],
+    ['duplicate', (observed) => observed.duplicate('p1')],
+    ['importNew', async (observed, library) => observed.importNew(await importedCopy(library))],
+  ])('counts a %s that works as the first save', async (_name, call) => {
+    const { library, observed, seen } = await seededLibrary()
+    expect((await call(observed, library)).ok).toBe(true)
+    expect(seen).toEqual({ problems: [], firstSaves: 1 })
+  })
+
+  it.each([
+    ['list', (observed) => observed.list()],
+    ['remove', (observed) => observed.remove('p1')],
+    ['exportFile', (observed) => observed.exportFile('p1')],
+  ])('does not count a %s as a save', async (_name, call) => {
+    const { observed, seen } = await seededLibrary()
+    expect((await call(observed)).ok).toBe(true)
+    expect(seen).toEqual({ problems: [], firstSaves: 0 })
+  })
+
+  it.each([
+    ['rename', (observed) => observed.rename('nope', 'Payments')],
+    ['duplicate', (observed) => observed.duplicate('nope')],
+    ['remove', (observed) => observed.remove('nope')],
+    ['exportFile', (observed) => observed.exportFile('nope')],
+  ])('hands over the problems of a refused %s once', async (_name, call) => {
+    const { observed, seen } = await seededLibrary()
+    await call(observed)
+    expect(seen).toEqual({ problems: ['STORE_PROJECT_NOT_FOUND'], firstSaves: 0 })
+  })
+})
+
+describe('project library when the store fails', () => {
+  const failingWith = async (overrides) => {
+    const adapter = createMemoryStoreAdapter()
+    await adapter.put({ id: 'p1', name: 'Checkout', modifiedAt: DAY_ONE }, 'unused')
+    return createProjectLibrary(createProjectStore({ ...adapter, ...overrides }))
+  }
+  const gone = async () => {
+    throw new Error('gone')
+  }
+
+  it('returns the failure of a list it cannot read', async () => {
+    const library = await failingWith({ listIndex: gone })
+    expect(codes(await library.list())).toEqual(['STORE_UNAVAILABLE'])
+  })
+
+  it('keeps a card openable when its file cannot be read for now', async () => {
+    const library = await failingWith({ getFile: gone })
+    const listed = await library.list()
+    expect(listed.projects.map(({ id, openable }) => [id, openable])).toEqual([['p1', true]])
+  })
+
+  it('imports nothing when the list it picks an id from cannot be read', async () => {
+    const { library: source } = await libraryWith()
+    await source.save(memoryProject('p2', 'Payments'))
+    const file = (await parseImport((await source.exportFile('p2')).text)).file
+    const library = await failingWith({ listIndex: gone })
+    expect(codes(await library.importNew(file))).toEqual(['STORE_UNAVAILABLE'])
   })
 })

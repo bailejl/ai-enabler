@@ -6,7 +6,7 @@ import {
   MarkerType,
   MiniMap,
 } from '@xyflow/react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import '@xyflow/react/dist/style.css'
 import Header, { APP_NAME } from './shell/Header.jsx'
 import HomePage from './shell/HomePage.jsx'
@@ -14,6 +14,7 @@ import ProjectMissing from './shell/ProjectMissing.jsx'
 import { useHomepage } from './shell/useHomepage.js'
 import { ROUTE } from './shell/routes.js'
 import { OPENING, useStoredProject } from './shell/useStoredProject.js'
+import { describeImportStatus } from './flow/importFlow.js'
 import { OPEN_OUTCOME } from './flow/projectLibrary.js'
 import { asksBeforeLeaving, storeProblemsOf } from './flow/storeStatus.js'
 import Announcer from './shell/Announcer.jsx'
@@ -84,6 +85,8 @@ function Shell({ routeName, initial }) {
     [announce, exportProject],
   )
 
+  const importStatus = useMemo(() => describeImportStatus(importState), [importState])
+
   const isValidForEdges = useCallback((connection) => isValidConnection(edges)(connection), [edges])
 
   return (
@@ -96,7 +99,7 @@ function Shell({ routeName, initial }) {
         onHomeClick={leaveGuard.guardLink}
       />
       <StoreNotice openId={openId} className="shell__notice" />
-      <ImportStatus state={importState} onDismiss={dismissImportError} />
+      <ImportStatus status={importStatus} onDismiss={dismissImportError} />
       <StoreProblems problems={storeProblems} />
       {editRejection && (
         <ProblemsPanel
@@ -202,6 +205,7 @@ function HomeRoute() {
       onImportNew={home.importNew}
       onDismissImport={home.dismissImport}
       replace={home.replace}
+      isStoreReady={home.isStoreReady}
     />
   )
 }

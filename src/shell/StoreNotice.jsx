@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { showsStoreNotice } from '../flow/storeStatus.js'
-import { useStore } from './StoreProvider.jsx'
+import { STORE_STATUS, useStore } from './StoreProvider.jsx'
 
 export const STORE_NOTICE_TEXT = 'Not saved in this browser. Export to keep your work.'
 
@@ -18,7 +18,7 @@ const askBeforeUnload = (event) => {
  */
 export default function StoreNotice({ openId = null, className = '' }) {
   const store = useStore()
-  const isShown = store.status === 'ready' && showsStoreNotice(store, openId)
+  const isShown = store.status === STORE_STATUS.ready && showsStoreNotice(store, openId)
   useEffect(() => {
     if (!isShown) return undefined
     window.addEventListener('beforeunload', askBeforeUnload)

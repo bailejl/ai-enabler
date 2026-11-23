@@ -7,9 +7,9 @@ import {
   LIST_STATUS,
   actionAnnouncement,
   describeHomeImport,
+  describeHomeImportStatus,
   focusAfterRemove,
   isEmptyList,
-  isStoreRefusal,
   isUnopenable,
   reduceHome,
 } from './homeFlow.js'
@@ -137,7 +137,7 @@ describe('reduceHome card actions', () => {
   })
 
   it('focuses the new card after a duplicate', () => {
-    expect(run({ type: HOME_EVENT.duplicated, id: 'copy' }).focus).toEqual({
+    expect(run({ type: HOME_EVENT.duplicated, id: 'p1', copyId: 'copy' }).focus).toEqual({
       target: FOCUS.card,
       id: 'copy',
     })
@@ -147,10 +147,33 @@ describe('reduceHome card actions', () => {
     const focus = { target: FOCUS.card, id: 'c' }
     const state = run(
       { type: HOME_EVENT.deleteOpened, id: 'b', name: 'B' },
-      { type: HOME_EVENT.deleted, focus },
+      { type: HOME_EVENT.deleted, id: 'b', focus },
     )
     expect(state.dialog).toBeNull()
     expect(state.focus).toEqual(focus)
+  })
+
+  it('keeps a dialog opened for another card when an earlier action ends', () => {
+    const renamingB = { type: HOME_EVENT.renameOpened, id: 'b', name: 'B' }
+    const afterDelete = run(renamingB, { type: HOME_EVENT.deleted, id: 'a', focus: null })
+    expect(afterDelete.dialog).toEqual({ type: DIALOG.rename, id: 'b', name: 'B', problems: [] })
+    const afterFailure = run(renamingB, {
+      type: HOME_EVENT.actionFailed,
+      id: 'a',
+      problems: writeFailed,
+    })
+    expect(afterFailure.dialog).toEqual(afterDelete.dialog)
+  })
+
+  it('clears the problems of a refused action once an export or replace works', () => {
+    const failed = run({ type: HOME_EVENT.actionFailed, id: 'p1', problems: writeFailed })
+    const state = reduceHome(failed, { type: HOME_EVENT.actionSucceeded })
+    expect(state.actionProblems).toEqual([])
+    expect(state.focus).toEqual(failed.focus)
+  })
+
+  it('leaves the state as it is when a working action had no problems to clear', () => {
+    expect(run({ type: HOME_EVENT.actionSucceeded })).toBe(INITIAL_HOME_STATE)
   })
 
   it('shows the problems of a refused action until one works', () => {
@@ -158,7 +181,8 @@ describe('reduceHome card actions', () => {
     expect(failed.dialog).toBeNull()
     expect(failed.actionProblems).toEqual(writeFailed)
     expect(failed.focus).toEqual({ target: FOCUS.menu, id: 'p1' })
-    expect(reduceHome(failed, { type: HOME_EVENT.duplicated, id: 'x' }).actionProblems).toEqual([])
+    const copied = reduceHome(failed, { type: HOME_EVENT.duplicated, id: 'p1', copyId: 'x' })
+    expect(copied.actionProblems).toEqual([])
   })
 })
 
@@ -181,16 +205,7 @@ describe('focusAfterRemove', () => {
   })
 })
 
-describe('isStoreRefusal', () => {
-  it('is true when the store leads the problems', () => {
-    expect(isStoreRefusal([{ code: 'STORE_WRITE_FAILED' }])).toBe(true)
-    expect(
-      isStoreRefusal([{ code: 'STORE_FILE_INVALID' }, { code: 'STEP_POSITION_MISSING' }]),
-    ).toBe(true)
-    expect(isStoreRefusal([{ code: 'FILE_PROJECT_NAME_EMPTY' }])).toBe(false)
-    expect(isStoreRefusal([])).toBe(false)
-  })
-
+describe('isUnopenable', () => {
   it('tells a file that cannot be opened from a failed write', () => {
     expect(isUnopenable([{ code: 'STORE_FILE_INVALID' }, { code: 'STEP_POSITION_MISSING' }])).toBe(
       true,
@@ -236,6 +251,25 @@ describe('reduceHome homepage import', () => {
     const focus = { target: FOCUS.importProject }
     const state = run({ type: HOME_EVENT.actionFailed, id: null, problems: [], focus })
     expect(state.focus).toEqual(focus)
+  })
+})
+
+describe('describeHomeImportStatus', () => {
+  it('is nothing with no import shown', () => {
+    expect(describeHomeImportStatus(null)).toBeNull()
+  })
+
+  it('gives the outcome line', () => {
+    expect(describeHomeImportStatus({ text: 'Imported Payments, 6 steps' })).toEqual({
+      text: 'Imported Payments, 6 steps',
+      isError: false,
+    })
+  })
+
+  it('gives the rejection view of a refused file', () => {
+    const status = describeHomeImportStatus({ problems: [{ code: 'FILE_NOT_JSON' }] })
+    expect(status.isError).toBe(true)
+    expect(status.view.items.map(({ code }) => code)).toEqual(['FILE_NOT_JSON'])
   })
 })
 

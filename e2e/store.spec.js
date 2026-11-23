@@ -387,6 +387,51 @@ test.describe('leaving a project with a change that is not saved', () => {
     await expectStillOnMap(page)
   })
 
+  test("the browser's Back, then Leave, shows the homepage", async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await page.goBack()
+    await leaveDialog(page).getByRole('button', { name: 'Leave' }).click()
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(leaveDialog(page)).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1, name: 'AI Enabler' })).toBeFocused()
+  })
+
+  test('after Stay, leaving again asks again', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await page.goBack()
+    await leaveDialog(page).getByRole('button', { name: 'Stay' }).click()
+    await expectStillOnMap(page)
+    await homeLink(page).click()
+    await expect(leaveDialog(page)).toBeVisible()
+  })
+
+  test('a rename from the homepage that works clears the failed save', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await homeLink(page).click()
+    await leaveDialog(page).getByRole('button', { name: 'Leave' }).click()
+    await page.evaluate(() => {
+      window.allowFileWrites = true
+    })
+    await page.getByRole('button', { name: 'More actions for Checkout' }).click()
+    await page.getByRole('button', { name: 'Rename', exact: true }).click()
+    const renameDialog = page.getByRole('dialog', { name: 'Rename project' })
+    await renameDialog.getByLabel('Project name').fill('Payments')
+    await renameDialog.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('link', { name: 'Open Payments' }).click()
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    await expect(storeNotice(page)).toHaveCount(0)
+    await expect(storageProblems(page)).toHaveCount(0)
+    await homeLink(page).click()
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(leaveDialog(page)).toHaveCount(0)
+  })
+
   test('leaving a fully saved project does not ask', async ({ page }) => {
     await page.goto('/#/')
     await seedProjects(page, [await starterRecordAs('p1', { name: 'Checkout' })])

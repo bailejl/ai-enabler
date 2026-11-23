@@ -9,7 +9,13 @@ import {
 } from 'react'
 import { createProjectLibrary, observeLibrary } from '../flow/projectLibrary.js'
 import { createProjectStore } from '../flow/projectStore.js'
-import { INITIAL_STORE_STATUS, reduceStoreStatus, toStoreStatusEvent } from '../flow/storeStatus.js'
+import {
+  INITIAL_STORE_STATUS,
+  STORE_STATUS_EVENT,
+  reduceStoreStatus,
+  toStoreStatusEvent,
+  trackStoredWrites,
+} from '../flow/storeStatus.js'
 import { report } from './diagnostics.js'
 import { openStoreAdapter, requestDurableStorage } from './storeAdapter.js'
 
@@ -63,7 +69,15 @@ export function StoreProvider({ children }) {
       live.current = false
     }
   }, [])
-  const { library } = store
+  // Every write that works clears that project's failed save, whichever page made it.
+  const library = useMemo(
+    () =>
+      store.library &&
+      trackStoredWrites(store.library, (id) =>
+        dispatchStoreStatus({ type: STORE_STATUS_EVENT.saveSucceeded, id }),
+      ),
+    [store.library],
+  )
   const saveProject = useCallback(
     async (memoryProject) => {
       const saved = await library.save(memoryProject)
@@ -73,8 +87,8 @@ export function StoreProvider({ children }) {
     [library],
   )
   const value = useMemo(
-    () => ({ ...store, storeStatus, saveProject }),
-    [store, storeStatus, saveProject],
+    () => ({ ...store, library, storeStatus, saveProject }),
+    [store, library, storeStatus, saveProject],
   )
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

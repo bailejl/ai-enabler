@@ -877,6 +877,7 @@ Feature: Working when the browser is not saving
       | the header home link    | Stay   | the map still shows "Checkout" without "Idea", at the same link          |
       | the header home link    | Leave  | the homepage shows                                                      |
       | the browser's Back      | Stay   | the map still shows "Checkout" without "Idea", at the same link          |
+      | the browser's Back      | Leave  | the homepage shows                                                      |
 
   Scenario: Leaving a fully saved project does not ask
     # Still passes if: the homepage loads more slowly

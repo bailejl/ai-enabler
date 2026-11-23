@@ -34,6 +34,30 @@ export const toStoreStatusEvent = (id, saved) =>
     ? { type: STORE_STATUS_EVENT.saveSucceeded, id }
     : { type: STORE_STATUS_EVENT.saveFailed, id, problems: saved.problems }
 
+/** What a write the store refused announces, such as "Not saved. This change could not be ...". */
+export const notSavedAnnouncement = (problems) => `Not saved. ${problems[0].message}`
+
+/**
+ * Wraps a library so a write that works for project `id` (a save, a rename or a remove, from any
+ * page) calls `onStored(id)`: that project's stored file is now what the user last kept, so an
+ * earlier failed save of it no longer stands.
+ * @param {{ save: Function, rename: Function, remove: Function }} library
+ * @param {(id: string) => void} onStored
+ */
+export const trackStoredWrites = (library, onStored) => {
+  const stored = (id, result) => {
+    if (result.ok) onStored(id)
+    return result
+  }
+  return {
+    ...library,
+    save: async (memoryProject) =>
+      stored(memoryProject.project.id, await library.save(memoryProject)),
+    rename: async (id, name) => stored(id, await library.rename(id, name)),
+    remove: async (id) => stored(id, await library.remove(id)),
+  }
+}
+
 /** The storage problems to list with project `id` open, empty when its last save worked. */
 export const storeProblemsOf = (state, id) =>
   Object.hasOwn(state.failedSaves, id) ? state.failedSaves[id] : []
@@ -52,4 +76,4 @@ export const showsStoreNotice = ({ persistent, storeStatus }, openId) =>
  * In a tab that keeps projects in memory, moving between pages loses nothing, so it does not ask.
  */
 export const asksBeforeLeaving = (storeStatus, openId) =>
-  Object.hasOwn(storeStatus.failedSaves, openId)
+  openId !== null && Object.hasOwn(storeStatus.failedSaves, openId)
