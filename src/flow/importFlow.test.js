@@ -54,37 +54,31 @@ const reduceAll = (events, state = INITIAL_IMPORT_STATE) =>
 const confirmFor = (file) => reduceImport(INITIAL_IMPORT_STATE, parsed(file))
 
 describe('reduceImport confirmation', () => {
-  it('asks the same-name question and keeps the open id', () => {
+  it('asks the same-name question, naming the open project', () => {
     const file = projectFile({ id: 'file-id', name: 'Untitled Project' })
     const { state, announcement, replacement } = confirmFor(file)
 
     expect(state).toMatchObject({
       type: 'confirming',
-      message: 'Replace current map with the imported version of Untitled Project?',
+      message: 'Replace Untitled Project with the imported version of Untitled Project?',
       currentName: 'Untitled Project',
       incomingName: 'Untitled Project',
-      project: { id: 'open-id', name: 'Untitled Project' },
+      project: OPEN_PROJECT,
     })
     expect(announcement).toBeNull()
     expect(replacement).toBeNull()
   })
 
-  it('asks the different-name question and takes the file name, even with the same id', () => {
+  it('asks the different-name question, naming both projects', () => {
     const file = projectFile({ id: 'open-id', name: 'Checkout Revamp' })
     const { state } = confirmFor(file)
 
     expect(state).toMatchObject({
       type: 'confirming',
-      message: 'Replace current map with Checkout Revamp?',
+      message: 'Replace Untitled Project with Checkout Revamp?',
       currentName: 'Untitled Project',
       incomingName: 'Checkout Revamp',
-      project: { id: 'open-id', name: 'Checkout Revamp' },
     })
-  })
-
-  it('takes a different file id when the name differs', () => {
-    const { state } = confirmFor(projectFile({ id: 'abc', name: 'Checkout Revamp' }))
-    expect(state.project).toEqual({ id: 'abc', name: 'Checkout Revamp' })
   })
 
   it.each([
@@ -93,8 +87,7 @@ describe('reduceImport confirmation', () => {
     ['a leading space', ' Untitled Project'],
   ])('treats %s as a different name', (_label, name) => {
     const { state } = confirmFor(projectFile({ id: 'open-id', name }))
-    expect(state.message).toBe(`Replace current map with ${name}?`)
-    expect(state.project).toEqual({ id: 'open-id', name })
+    expect(state.message).toBe(`Replace Untitled Project with ${name}?`)
   })
 })
 
@@ -116,10 +109,23 @@ describe('reduceImport outcomes', () => {
     expect(state).toEqual({ type: 'idle', status: 'Imported Untitled Project, 2 steps' })
   })
 
-  it('replaces the project name and id on confirm for a different-name file', () => {
+  it('keeps the open id and takes the file name for a file with another name and id', () => {
     const file = projectFile({ id: 'abc', name: 'Checkout Revamp' })
     const { replacement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
-    expect(replacement.project).toEqual({ id: 'abc', name: 'Checkout Revamp' })
+    expect(replacement.project).toEqual({ id: 'open-id', name: 'Checkout Revamp' })
+  })
+
+  it('keeps the id of the project open at confirm, not the one open when the file was read', () => {
+    const file = projectFile({ id: 'abc', name: 'Checkout Revamp' })
+    const renamed = { id: 'open-id', name: 'Renamed While Asking' }
+    const { replacement } = reduceAll([
+      parsed(file),
+      { type: IMPORT_EVENT.confirm, project: renamed },
+    ])
+    expect(replacement.project).toEqual({ id: 'open-id', name: 'Checkout Revamp' })
+    const moved = { id: 'other-id', name: 'Untitled Project' }
+    const second = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm, project: moved }])
+    expect(second.replacement.project).toEqual({ id: 'other-id', name: 'Checkout Revamp' })
   })
 
   it('says "1 step" for a single step', () => {
@@ -231,7 +237,7 @@ describe('reduceImport with an edited file', () => {
   it('announces the question and the notice when the confirmation opens', () => {
     const { announcement } = reduceImport(INITIAL_IMPORT_STATE, parsed(file, true))
     expect(announcement).toBe(
-      `Replace current map with the imported version of Untitled Project? ${EDITED_NOTICE}`,
+      `Replace Untitled Project with the imported version of Untitled Project? ${EDITED_NOTICE}`,
     )
   })
 
@@ -271,7 +277,7 @@ describe('reduceImport with a file changed by an AI tool', () => {
   const changedBy = { tool: 'aie-mcp', at: '2026-11-20T09:30:00.000Z' }
   const NOTICE =
     'This file was changed by AI tools (aie-mcp) on 2026-11-20. Review the steps and numbers before relying on them.'
-  const QUESTION = 'Replace current map with the imported version of Untitled Project?'
+  const QUESTION = 'Replace Untitled Project with the imported version of Untitled Project?'
   const OUTCOME = `Imported Untitled Project, 2 steps. ${NOTICE}`
 
   it('builds the notice from a tool and a date', () => {
@@ -386,7 +392,7 @@ describe('the replacement of a confirmed import', () => {
     const { replacement } = reduceAll([parsed(file), { type: IMPORT_EVENT.confirm }])
 
     expect(replacement).toEqual({
-      project: { id: 'p', name: 'P' },
+      project: { id: 'open-id', name: 'P' },
       nodes: [
         {
           id: 'a',

@@ -10,6 +10,7 @@ import { CURRENT_SCHEMA_VERSION } from '../src/flow/schema/version.js'
 import { scan } from './axe.js'
 import { cardByTitle, cards, edgeBetween, selectEdge, settledBox } from './canvas.js'
 import { ISO_UTC_TIMESTAMP } from './console.js'
+import { readIndex, waitForStored } from './store.js'
 import {
   asUpload,
   chooseFile,
@@ -24,6 +25,8 @@ import {
   readFixture,
   STARTER_STEP_COUNT,
   openStarterProject,
+  expectHash,
+  STARTER_ID,
 } from './views.js'
 
 const EXPORT_FILE_NAME = 'untitled-project.ai-enabler.json'
@@ -97,10 +100,10 @@ test.describe('exporting the starter project after selecting Build', () => {
 const EDITED_NOTICE = 'This file was changed outside AI Enabler after it was exported.'
 const IMPORT_BUTTON_NAME = 'Import project (JSON)'
 const STARTER_PROJECT_NAME = 'Untitled Project'
-const SAME_NAME_QUESTION = `Replace current map with the imported version of ${STARTER_PROJECT_NAME}?`
+const SAME_NAME_QUESTION = `Replace Untitled Project with the imported version of ${STARTER_PROJECT_NAME}?`
 const CHECKOUT_NAME = 'Checkout Revamp'
-const CHECKOUT_QUESTION = `Replace current map with ${CHECKOUT_NAME}?`
-const DIFFERENT_CASE_QUESTION = 'Replace current map with untitled project?'
+const CHECKOUT_QUESTION = `Replace Untitled Project with ${CHECKOUT_NAME}?`
+const DIFFERENT_CASE_QUESTION = 'Replace Untitled Project with untitled project?'
 const CANCELLED_ANNOUNCEMENT = 'Import cancelled'
 // Expected wording comes from the diagnostics catalog, so a reworded message is one edit there.
 const messageFor = (code, params) => problem(code, { params }).message
@@ -276,7 +279,7 @@ test.describe('importing a file with three steps', () => {
     expect((await exportProjectFile(page)).project.id).toBe(before.project.id)
   })
 
-  test('a different-name file asks, then takes the name and id and recomputes every tile', async ({
+  test('a different-name file asks, then takes the name, keeps the open id and recomputes every tile', async ({
     page,
   }) => {
     await openStarterProject(page)
@@ -296,7 +299,19 @@ test.describe('importing a file with three steps', () => {
     expect(importedTiles).toEqual(expectedTileTexts(fixtureSteps('different-name.json')))
     expect(importedTiles).toEqual(CHECKOUT_TILE_TEXTS)
     expect(importedTiles).not.toEqual(starterTiles)
-    expect((await exportProjectFile(page)).project.id).toBe('abc')
+    expect((await exportProjectFile(page)).project.id).toBe(STARTER_ID)
+  })
+
+  test('the header import keeps the link: after a reload it shows the imported project', async ({
+    page,
+  }) => {
+    await openStarterProject(page)
+    await importAndConfirm(page, fixturePath('different-name.json'), CHECKOUT_QUESTION)
+    await waitForStored(page, STARTER_ID, (file) => file.project.name === CHECKOUT_NAME)
+    await page.reload()
+    await expect(projectNameInHeader(page)).toHaveText(CHECKOUT_NAME)
+    await expectHash(page, `#/projects/${STARTER_ID}`)
+    expect((await readIndex(page)).map(({ id }) => id)).toEqual([STARTER_ID])
   })
 
   test('a file whose id matches the open project still asks the different-name question', async ({
@@ -638,7 +653,7 @@ test('a read that finishes after a confirm is judged against the project and out
   await page.evaluate(() => window.releaseSlowRead())
 
   // The same file as the confirmed one is the current project now, not a replacement of the old.
-  const sameNameQuestion = `Replace current map with the imported version of ${CHECKOUT_NAME}?`
+  const sameNameQuestion = `Replace ${CHECKOUT_NAME} with the imported version of ${CHECKOUT_NAME}?`
   await expect(confirmDialog(page)).toHaveAccessibleName(sameNameQuestion)
   // Cancelling puts back the last outcome, which is the confirmed import, not the state the read
   // started from.
@@ -753,7 +768,7 @@ test('a 100-character project name is truncated and keeps Import and Export in v
   await importAndConfirm(
     page,
     fixturePath('long-name.json'),
-    `Replace current map with ${longName}?`,
+    `Replace Untitled Project with ${longName}?`,
   )
 
   await expect(projectNameInHeader(page)).toHaveText(longName)
@@ -788,7 +803,7 @@ test('an imported step with queue 0, batch 0 and %C&A 87.6 shows no badges and r
   await importAndConfirm(
     page,
     asUpload({ ...file, nodes: [...file.nodes, queuedStep] }),
-    'Replace current map with Badge Check?',
+    'Replace Untitled Project with Badge Check?',
   )
 
   const card = cardByTitle(page, 'Only')
@@ -899,7 +914,7 @@ test.describe('a file changed by an AI tool', () => {
   )
   const readMarked = () => JSON.parse(readFileSync(MARKED_FIXTURE, 'utf8'))
   const MARKED_NAME = 'Fixture 0.1.0 marked'
-  const MARKED_QUESTION = `Replace current map with ${MARKED_NAME}?`
+  const MARKED_QUESTION = `Replace Untitled Project with ${MARKED_NAME}?`
   const MARKED_STEP_COUNT = 5
   const AI_NOTICE =
     'This file was changed by AI tools (aie-mcp) on 2026-11-20. Review the steps and numbers before relying on them.'

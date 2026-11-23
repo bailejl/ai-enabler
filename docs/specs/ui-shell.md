@@ -69,7 +69,7 @@ These items are out of scope, and each gets a separate spec:
 - The file format is `schemaVersion: "0.0.0"`, a SemVer string [S15], with these additions to H §Data shape:
   - `project.id`: the internal id [S6].
   - `data.batch` is optional [H §Data shape].
-- No backend, no network calls, and no browser storage. [S2]
+- No backend, no network calls, and no browser storage. [S2] _Superseded by `docs/specs/homepage.md` (E1): projects are saved in this browser (IndexedDB)._
 - The existing `src/flow/initialFlow.js` stays the source of the starter steps. Its tests keep passing, or change with it.
 
 - The repo has no CI today. This spec adds a GitHub Actions workflow that runs on every pull request and every push to `main`, so the schema checks in AC45 run in CI. It has two jobs:
@@ -154,7 +154,7 @@ These items are out of scope, and each gets a separate spec:
 
 ### Project
 
-- **AC27:** On every load, the app opens a starter project named "Untitled Project" with a new internal id. It uses the six starter steps with the sample data in the Starter data table. Nothing persists across reloads. [S2, S9, H §Behavior 1]
+- **AC27:** On every load, the app opens a starter project named "Untitled Project" with a new internal id. It uses the six starter steps with the sample data in the Starter data table. Nothing persists across reloads. [S2, S9, H §Behavior 1] _Superseded by `docs/specs/homepage.md` (E1): the homepage lists saved projects, a new project is an empty map, and every change is saved._
 
 ### Export
 
@@ -186,8 +186,8 @@ These items are out of scope, and each gets a separate spec:
   [H §UX notes exploratory-testing Critical and Major findings]
 
 - **AC32:** If validation fails, nothing changes. An in-page error message, announced through a live region, names the first problem in plain terms, such as "Step 2 is missing a position." `null` and non-object JSON are reported as "not a project file", not as invalid JSON. [H §UX notes a11y 4.1.3, exploratory-testing]
-- **AC33:** If the file's project name equals the open project's name, the app asks "Replace current map with the imported version of <name>?". On confirm, the map (steps, positions, connections) is replaced, the view re-fits, and the project id is kept. [S5, S16]
-- **AC34:** If the file's project name differs from the open project's name, the app asks "Replace current map with <name>?". On confirm, the map, the project name, and the project id are replaced with the file's, and the view re-fits. [S5, S14]
+- **AC33:** If the file's project name equals the open project's name, the app asks "Replace current map with the imported version of <name>?". On confirm, the map (steps, positions, connections) is replaced, the view re-fits, and the project id is kept. [S5, S16] _Wording superseded by `docs/specs/homepage.md` (E1): "Replace <current name> with the imported version of <name>?"._
+- **AC34:** If the file's project name differs from the open project's name, the app asks "Replace current map with <name>?". On confirm, the map, the project name, and the project id are replaced with the file's, and the view re-fits. [S5, S14] _Superseded by `docs/specs/homepage.md` (E1): the question reads "Replace <current name> with <name>?", and the open project keeps its id; only the map and the name are replaced._
 - **AC35:** Cancelling either import confirmation changes nothing.
 - **AC36:** The `project.id` in an imported file never decides matching. Matching is by name, per AC33–34. [S5, S6]
 - **AC37:** Every outcome of an import (replaced, cancelled, or error) is announced in a polite live region. Focus returns to the Import control. [H §UX notes a11y 4.1.3]

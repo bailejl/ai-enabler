@@ -88,7 +88,9 @@ export const asUpload = (value) => ({
   buffer: Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)),
 })
 
-export const replaceQuestion = (incomingName) => `Replace current map with ${incomingName}?`
+// The import question for `incomingName` replacing the open project, the starter by default.
+export const replaceQuestion = (incomingName, currentName = 'Untitled Project') =>
+  `Replace ${currentName} with ${incomingName}?`
 
 // Chooses the file, checks the dialog asks `question`, confirms, and waits for the dialog to go.
 export const importAndConfirm = async (page, file, question) => {

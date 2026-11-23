@@ -5,7 +5,7 @@ import { openAllHelpSections, openStarterProject, STARTER_STEP_COUNT } from './v
 
 const PROJECT_NAME = 'Untitled Project'
 const LONG_PROJECT_NAME_LENGTH = 100
-const HOW_TO_USE_LINES = 5
+const HOW_TO_USE_LINES = 8
 
 const expectStarterViewAccessible = async (page) => {
   await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
@@ -124,11 +124,18 @@ test.describe('with every help section expanded', () => {
     })
   }
 
-  test('How to use lists five lines', async ({ page }) => {
+  test('How to use lists eight lines', async ({ page }) => {
     const lines = helpSection(page, 'How to use').locator('p')
     await expect(lines).toHaveCount(HOW_TO_USE_LINES)
     await expect(lines.first()).toBeVisible()
     await expect(lines.last()).toBeVisible()
+  })
+
+  test('How to use explains how projects are saved', async ({ page }) => {
+    const section = helpSection(page, 'How to use')
+    await expect(section).toContainText('Projects save automatically in this browser')
+    await expect(section).toContainText('With one project open in two tabs, the last change wins.')
+    await expect(section).toContainText("Clearing this site's data deletes its projects.")
   })
 
   test('the help menu has no buttons or links', async ({ page }) => {

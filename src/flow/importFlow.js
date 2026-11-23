@@ -43,10 +43,11 @@ const describeImported = (name, stepCount, notices) => {
 // D2: exact match, no case folding, no trimming. The file's id never decides.
 const isSameName = (current, incoming) => current.name === incoming.name
 
-const describeConfirmation = (isSame, incomingName) =>
+// The question names the open project as the target, so a card's import and the header's read alike.
+const describeConfirmation = (isSame, currentName, incomingName) =>
   isSame
-    ? `Replace current map with the imported version of ${incomingName}?`
-    : `Replace current map with ${incomingName}?`
+    ? `Replace ${currentName} with the imported version of ${incomingName}?`
+    : `Replace ${currentName} with ${incomingName}?`
 
 // A transition returns the next state plus what to do about it: the text to speak (or null) and
 // the in-memory project to apply (or null). Only `confirm` from `confirming` replaces anything.
@@ -67,7 +68,7 @@ const rejectFile = (problems) =>
 const acceptFile = (state, { result: { file, edited, changedBy }, project }) => {
   const notices = noticesFor(edited === true, describeChangedBy(changedBy))
   const isSame = isSameName(project, file.project)
-  const message = describeConfirmation(isSame, file.project.name)
+  const message = describeConfirmation(isSame, project.name, file.project.name)
   return transition(
     {
       type: IMPORT_CONFIRMING,
@@ -78,10 +79,8 @@ const acceptFile = (state, { result: { file, edited, changedBy }, project }) => 
       currentName: project.name,
       incomingName: file.project.name,
       message,
-      // Same name keeps the open project's id; a different name takes the file's name and id.
-      project: isSame
-        ? { id: project.id, name: project.name }
-        : { id: file.project.id, name: file.project.name },
+      // The open project when the file was read: the confirm event brings the newest one.
+      project: { id: project.id, name: project.name },
     },
     // The dialog shows the notices, so a file with one speaks it when the dialog opens.
     { announcement: notices.length > 0 ? `${message} ${notices.join(' ')}` : null },
@@ -91,8 +90,11 @@ const acceptFile = (state, { result: { file, edited, changedBy }, project }) => 
 const receiveFile = (state, event) =>
   event.result.ok ? acceptFile(state, event) : rejectFile(event.result.problems)
 
-const confirmReplace = (state) => {
-  const announcement = describeImported(state.project.name, state.file.nodes.length, state.notices)
+// The replacement keeps the open project's id and takes the file's name. The open project is the
+// one the confirm event brings, so a rename or edit while the dialog was open is not undone.
+const confirmReplace = (state, { project: current = state.project }) => {
+  const project = { id: current.id, name: state.file.project.name }
+  const announcement = describeImported(project.name, state.file.nodes.length, state.notices)
   return transition(
     { type: IMPORT_IDLE, status: announcement },
     {
@@ -100,7 +102,7 @@ const confirmReplace = (state) => {
       // The allowlist an export writes is the allowlist an import reads: unknown keys in the file
       // (style, className, hidden, ...) never reach the project.
       replacement: toMemoryProject({
-        project: state.project,
+        project,
         nodes: state.file.nodes,
         edges: state.file.edges,
       }),
@@ -139,7 +141,8 @@ export const describeImportStatus = (state) => {
  *   incomingName, message, project } | { type: 'error', problems: object[] }.
  * `notices` is the notice texts for the file, the edited notice first, then the AI notice.
  * Events: { type: 'fileParsed', result: parseImport's result, project: { id, name } },
- *   { type: 'confirm' }, { type: 'cancel' }, { type: 'dismiss' }.
+ *   { type: 'confirm', project?: { id, name } } (the open project now; the one read with the file
+ *   when absent), { type: 'cancel' }, { type: 'dismiss' }.
  * @returns {{ state: object, announcement: string | null,
  *   replacement: { project: { id: string, name: string }, nodes: object[], edges: object[] } | null }}
  *   `replacement` is an in-memory project: the allowlisted fields of the file's steps and connections.
