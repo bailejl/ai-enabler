@@ -617,6 +617,8 @@ test.describe('replacing a card from a file', () => {
     await replaceWith(page, 'Checkout', await fileNamed('Payments'))
     await confirm(page).getByRole('button', { name: 'Replace map' }).click()
     await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
+    await expect(importStatus(page)).toHaveCount(0)
+    await expect(announcer(page)).toHaveText(`Not saved. ${problem('STORE_WRITE_FAILED').message}`)
     await expect(cardNames(page)).toHaveText(['Checkout'])
     await expect(menuButton(page, 'Checkout')).toBeFocused()
     await flushConsole(page)
@@ -659,10 +661,21 @@ test.describe('importing a project on the homepage', () => {
 
   test('two quick imports of one id both land', async ({ page }) => {
     await page.goto('/#/')
-    const file = await starterFile('abc', 'Payments')
-    const input = page.locator('input[type="file"]').first()
-    await input.setInputFiles(file)
-    await input.setInputFiles(file)
+    const { text } = await starterRecordAs('abc', { name: 'Payments' })
+    // Both files arrive in one task, so the second import starts before the first can finish.
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .evaluate((input, fileText) => {
+        const choose = () => {
+          const files = new DataTransfer()
+          files.items.add(new File([fileText], 'payments.json', { type: 'application/json' }))
+          Object.defineProperty(input, 'files', { value: files.files, configurable: true })
+          input.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+        choose()
+        choose()
+      }, text)
     await expect(cardItems(page)).toHaveCount(2)
     const ids = (await readIndex(page)).map(({ id }) => id)
     expect(ids).toContain('abc')
@@ -705,7 +718,7 @@ test.describe('importing a project on the homepage', () => {
     await importFile(page, await starterFile('abc', 'Payments'))
     await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
     await expect(cardItems(page)).toHaveCount(0)
-    await expect(announcer(page)).toHaveText('')
+    await expect(announcer(page)).toHaveText(`Not saved. ${problem('STORE_WRITE_FAILED').message}`)
     await expect(importStatus(page)).toHaveCount(0)
     await flushConsole(page)
     const failures = recordsIn(capture.messages).filter(

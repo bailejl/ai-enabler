@@ -160,9 +160,11 @@ export const useHomepage = ({ announce }) => {
       const saved = await library.save(replacement)
       if (!saved.ok) {
         announce(`Not saved. ${saved.problems[0].message}`)
-        return failed(id, saved.problems)
+        await failed(id, saved.problems)
+        return false
       }
       await reload()
+      return true
     },
     [library, announce, failed, reload],
   )
@@ -193,15 +195,17 @@ export const useHomepage = ({ announce }) => {
   const importNew = useCallback(
     async (file) => {
       const result = await readImport(file)
-      resetImport()
       if (!result.ok) {
         result.problems.forEach(report)
         announce(toRejection('Import', result.problems).announcement)
+        resetImport()
         dispatch({ type: HOME_EVENT.importRejected, problems: result.problems })
         return
       }
       const imported = await library.importNew(result.file)
       if (!imported.ok) {
+        announce(`Not saved. ${imported.problems[0].message}`)
+        dispatch({ type: HOME_EVENT.importDismissed })
         dispatch({
           type: HOME_EVENT.actionFailed,
           id: null,
@@ -217,6 +221,7 @@ export const useHomepage = ({ announce }) => {
         isNewId: imported.isNewId,
         notices: importNotices(result),
       })
+      resetImport()
       dispatch({ type: HOME_EVENT.imported, id: imported.project.project.id, text })
       announce(text)
     },

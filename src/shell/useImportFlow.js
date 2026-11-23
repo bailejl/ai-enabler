@@ -27,6 +27,10 @@ export const readImport = async (file) => {
  * `getCurrentProject()` returns the `{ id, name }` of the project the import replaces, read when
  * a file is parsed and again at confirm, so a change while the dialog is open is not undone and
  * the project keeps its id. The header and a card's "Replace from file" share this hook.
+ *
+ * `onReplace` may return (or resolve to) false when it could not keep the replacement; the outcome
+ * line then clears, so it never says a refused save was imported. `resetImport` clears the line
+ * when another status takes its place; neither moves focus, and neither closes a pending question.
  */
 export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFocusRef }) => {
   const [importState, setImportState] = useState(INITIAL_IMPORT_STATE)
@@ -35,12 +39,26 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
   // state a callback captured at render time, so a dispatch after an `await` sees every earlier one.
   const latestImportState = useRef(importState)
   const latestRequestId = useRef(0)
+  // Set by a reset, which leaves focus where the user is.
+  const isQuietReset = useRef(false)
   useEffect(() => {
     const hasChanged = previousState.current !== importState
     previousState.current = importState
     const keepsFocus = importState.type === IMPORT_CONFIRMING || importState.type === IMPORT_ERROR
-    if (hasChanged && !keepsFocus) returnFocusRef.current?.focus()
+    const isQuiet = isQuietReset.current
+    isQuietReset.current = false
+    if (hasChanged && !keepsFocus && !isQuiet) returnFocusRef.current?.focus()
   }, [importState, returnFocusRef])
+
+  const resetImport = useCallback(() => {
+    const previous = latestImportState.current
+    if (previous.type === IMPORT_CONFIRMING) return
+    const { state } = reduceImport(previous, { type: IMPORT_EVENT.reset })
+    if (state === previous) return
+    isQuietReset.current = true
+    latestImportState.current = state
+    setImportState(state)
+  }, [])
 
   const dispatchImport = useCallback(
     (event) => {
@@ -51,9 +69,12 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
       if (state !== previous && state.type === IMPORT_ERROR) state.problems.forEach(report)
       setImportState(state)
       if (announcement) announce(announcement)
-      if (replacement) onReplace(replacement)
+      if (!replacement) return
+      Promise.resolve(onReplace(replacement)).then((kept) => {
+        if (kept === false) resetImport()
+      })
     },
-    [announce, onReplace],
+    [announce, onReplace, resetImport],
   )
 
   // When two reads overlap, only the one started last may change the state.
@@ -78,11 +99,6 @@ export const useImportFlow = ({ getCurrentProject, onReplace, announce, returnFo
   )
   const dismissImportError = useCallback(
     () => dispatchImport({ type: IMPORT_EVENT.dismiss }),
-    [dispatchImport],
-  )
-
-  const resetImport = useCallback(
-    () => dispatchImport({ type: IMPORT_EVENT.reset }),
     [dispatchImport],
   )
 

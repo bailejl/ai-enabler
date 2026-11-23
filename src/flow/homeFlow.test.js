@@ -218,8 +218,12 @@ describe('reduceHome homepage import', () => {
 
   it('shows the problems of a rejected file until dismissed', () => {
     const problems = [{ code: 'FILE_NOT_JSON' }]
-    const rejected = run({ type: HOME_EVENT.importRejected, problems })
+    const rejected = run(
+      { type: HOME_EVENT.actionFailed, id: 'a', problems: [{ code: 'STORE_WRITE_FAILED' }] },
+      { type: HOME_EVENT.importRejected, problems },
+    )
     expect(rejected.importStatus).toEqual({ problems })
+    expect(rejected.actionProblems).toEqual([])
     const dismissed = reduceHome(rejected, {
       type: HOME_EVENT.importDismissed,
       focus: { target: FOCUS.importProject },

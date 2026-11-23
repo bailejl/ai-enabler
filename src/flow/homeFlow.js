@@ -96,6 +96,7 @@ const HANDLERS = {
   }),
   [HOME_EVENT.importRejected]: (state, { problems }) => ({
     ...state,
+    actionProblems: [],
     importStatus: { problems },
   }),
   [HOME_EVENT.importDismissed]: (state, { focus = null }) => ({
