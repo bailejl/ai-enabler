@@ -73,6 +73,14 @@ export const useHomepage = ({ announce }) => {
     (id, problems) => dispatch({ type: HOME_EVENT.actionFailed, id, problems }),
     [dispatch],
   )
+  // A refused write from a card (duplicate, delete) also says it was not saved.
+  const notSaved = useCallback(
+    (id, problems) => {
+      announce(notSavedAnnouncement(problems))
+      failed(id, problems)
+    },
+    [announce, failed],
+  )
 
   const setSort = useCallback(
     (next) => dispatch({ type: HOME_EVENT.sortChanged, sort: next }),
@@ -118,23 +126,23 @@ export const useHomepage = ({ announce }) => {
   const duplicate = useCallback(
     async (id, name) => {
       const copied = await library.duplicate(id)
-      if (!copied.ok) return failed(id, copied.problems)
+      if (!copied.ok) return notSaved(id, copied.problems)
       await reload()
       dispatch({ type: HOME_EVENT.duplicated, id, copyId: copied.project.project.id })
       announce(actionAnnouncement('Duplicated', name))
     },
-    [library, reload, dispatch, failed, announce],
+    [library, reload, dispatch, notSaved, announce],
   )
 
   const confirmDelete = useCallback(async () => {
     const { id, name } = latestState.current.dialog
     const shownIds = latestState.current.list.projects.map((entry) => entry.id)
     const removed = await library.remove(id)
-    if (!removed.ok) return failed(id, removed.problems)
+    if (!removed.ok) return notSaved(id, removed.problems)
     await reload()
     dispatch({ type: HOME_EVENT.deleted, id, focus: focusAfterRemove(shownIds, id) })
     announce(actionAnnouncement('Deleted', name))
-  }, [library, reload, dispatch, failed, announce])
+  }, [library, reload, dispatch, notSaved, announce])
 
   const exportProject = useCallback(
     async (id) => {

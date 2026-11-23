@@ -462,7 +462,9 @@ test.describe('card actions', () => {
       await expect(cardNames(page)).toHaveText(['A', 'B'])
       await expect(page.getByRole('dialog')).toHaveCount(0)
       await expect(menuButton(page, 'A')).toBeFocused()
-      await expect(announcer(page)).toHaveText('')
+      await expect(announcer(page)).toHaveText(
+        `Not saved. ${problem('STORE_WRITE_FAILED').message}`,
+      )
       await flushConsole(page)
       const failures = recordsIn(capture.messages).filter(
         ({ record }) => record.code === 'STORE_WRITE_FAILED',
