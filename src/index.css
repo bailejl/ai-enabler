@@ -40,9 +40,10 @@ body,
 .shell {
   display: grid;
   grid-template-columns: var(--menu-width) minmax(0, 1fr);
-  grid-template-rows: var(--header-height) auto auto auto auto minmax(0, 1fr);
+  grid-template-rows: var(--header-height) auto auto auto auto auto minmax(0, 1fr);
   grid-template-areas:
     'header header'
+    'notice notice'
     'store store'
     'status status'
     'edits edits'
@@ -246,6 +247,19 @@ body,
   grid-area: store;
 }
 
+.shell__notice {
+  grid-area: notice;
+}
+
+/* Lasting while the browser is not saving; the words carry it, so it reads the same without colour. */
+.store-notice {
+  margin: 0;
+  padding: var(--status-padding);
+  background: var(--status-watch-background);
+  color: var(--tile-text);
+  font-weight: 600;
+}
+
 .import-status,
 .problems-panel {
   display: flex;
@@ -385,12 +399,13 @@ body,
 @media (max-width: 639px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--header-height) auto auto auto auto auto minmax(
+    grid-template-rows: var(--header-height) auto auto auto auto auto auto minmax(
         var(--canvas-min-height),
         1fr
       );
     grid-template-areas:
       'header'
+      'notice'
       'store'
       'status'
       'edits'

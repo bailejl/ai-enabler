@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures.js'
+import { scan } from './axe.js'
 import { cardByTitle, cards, connect, dragStep, edgeBetween } from './canvas.js'
 import { flushConsole, recordsIn } from './console.js'
 import {
@@ -15,7 +16,12 @@ import {
   STARTER_ID,
   STARTER_STEP_COUNT,
   exportProjectFile,
+  fixturePath,
   fixtureRecord,
+  importAndConfirm,
+  readDownloadedJson,
+  replaceQuestion,
+  starterRecordAs,
   openStarterView,
   sendEdit,
 } from './views.js'
@@ -177,4 +183,234 @@ test('a write the browser aborts halfway stores nothing', async ({ page }) => {
   })
   expect(await readIndex(page)).toEqual([])
   expect(await readStored(page, 'p1')).toBeNull()
+})
+
+const STORE_NOTICE = 'Not saved in this browser. Export to keep your work.'
+const storeNotice = (page) => page.getByText(STORE_NOTICE)
+
+// Init scripts that leave the app no IndexedDB, each in its own way.
+const REFUSED_STORAGE = [
+  [
+    'missing',
+    () => {
+      Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
+    },
+  ],
+  [
+    'throwing on open',
+    () => {
+      IDBFactory.prototype.open = () => {
+        throw new Error('refused')
+      }
+    },
+  ],
+  [
+    'failing to open with an error event',
+    () => {
+      IDBFactory.prototype.open = () => {
+        const request = {}
+        setTimeout(() => request.onerror?.(new Event('error')))
+        return request
+      }
+    },
+  ],
+  [
+    'blocked by another tab',
+    () => {
+      IDBFactory.prototype.open = () => {
+        const request = {}
+        setTimeout(() => request.onblocked?.(new Event('blocked')))
+        return request
+      }
+    },
+  ],
+]
+const [, refuseIndexedDb] = REFUSED_STORAGE[1]
+
+const storeUnavailableCount = async (page, capture) => {
+  await flushConsole(page)
+  return recordsIn(capture.messages).filter(({ record }) => record.code === 'STORE_UNAVAILABLE')
+    .length
+}
+
+test.describe('working when the browser is not saving', () => {
+  for (const [state, refuse] of REFUSED_STORAGE) {
+    test(`storage that is ${state} falls back to this tab, with a lasting notice`, async ({
+      page,
+      capture,
+      diagnostics,
+    }) => {
+      diagnostics.expect(['STORE_UNAVAILABLE'])
+      await page.addInitScript(refuse)
+      await page.goto('/#/')
+      await expect(storeNotice(page)).toBeVisible()
+      await expect(page.getByRole('region', { name: 'Projects' })).toContainText('No projects yet')
+      expect(await storeUnavailableCount(page, capture)).toBe(1)
+    })
+  }
+
+  test('projects still work until the tab closes', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_UNAVAILABLE'])
+    await page.addInitScript(refuseIndexedDb)
+    await page.goto('/#/')
+    await page.getByRole('button', { name: 'New project' }).click()
+    await page.getByRole('dialog').getByLabel('Project name').fill('Checkout')
+    await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click()
+    await expect(page.getByRole('banner')).toContainText('Checkout')
+    await expect(storeNotice(page)).toBeVisible()
+    await importAndConfirm(
+      page,
+      fixturePath(STARTER_FIXTURE),
+      replaceQuestion('Untitled Project', 'Checkout'),
+    )
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    await deleteStep(page, 'Idea')
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT - 1)
+
+    await page.getByRole('banner').getByRole('link', { name: 'AI Enabler' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(storeNotice(page)).toBeVisible()
+    const card = page.locator('.projects__list > li')
+    await page.getByRole('button', { name: 'More actions for Untitled Project' }).click()
+    await card.getByRole('button', { name: 'Rename', exact: true }).click()
+    await page.getByRole('dialog').getByLabel('Project name').fill('Payments')
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'More actions for Payments' }).click()
+    await card.getByRole('button', { name: 'Duplicate', exact: true }).click()
+    await expect(card.getByRole('link')).toHaveText(['Payments (copy)', 'Payments'])
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'More actions for Payments', exact: true }).click()
+    await card.getByRole('button', { name: 'Export', exact: true }).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('payments.ai-enabler.json')
+    const exported = await readDownloadedJson(download)
+    expect(stepIds(exported)).not.toContain('idea')
+    expect(exported.nodes).toHaveLength(STARTER_STEP_COUNT - 1)
+  })
+
+  test('the notice shows on the not-found page too', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_UNAVAILABLE', 'STORE_PROJECT_NOT_FOUND'])
+    await page.addInitScript(refuseIndexedDb)
+    await page.goto('/#/projects/nowhere')
+    await expect(page.getByRole('heading', { level: 1, name: 'Project not found' })).toBeVisible()
+    await expect(storeNotice(page)).toBeVisible()
+  })
+
+  test('leaving the tab while not saved asks first', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_UNAVAILABLE'])
+    await page.addInitScript(refuseIndexedDb)
+    await page.goto('/#/')
+    await expect(storeNotice(page)).toBeVisible()
+    // A browser asks before unload only on a page the user has interacted with.
+    await page.getByRole('heading', { level: 1 }).click()
+    const asked = page.waitForEvent('dialog')
+    await page.close({ runBeforeUnload: true })
+    const dialog = await asked
+    expect(dialog.type()).toBe('beforeunload')
+    await dialog.accept()
+  })
+
+  test('with storage refused, the homepage and the project view have no axe violations', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_UNAVAILABLE'])
+    await page.addInitScript(refuseIndexedDb)
+    await page.goto('/#/')
+    await expect(storeNotice(page)).toBeVisible()
+    expect(await scan(page)).toEqual([])
+    await page.getByRole('button', { name: 'New project' }).click()
+    await page.getByRole('dialog').getByLabel('Project name').fill('Checkout')
+    await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click()
+    await expect(page.getByRole('banner')).toContainText('Checkout')
+    await expect(storeNotice(page)).toBeVisible()
+    expect(await scan(page)).toEqual([])
+  })
+})
+
+test.describe('leaving a project with a change that is not saved', () => {
+  const leaveDialog = (page) => page.getByRole('dialog', { name: 'Leave without saving?' })
+  const homeLink = (page) => page.getByRole('banner').getByRole('link', { name: 'AI Enabler' })
+
+  // Opens the saved "Checkout" from the homepage, then deletes Idea with the write refused.
+  const openWithUnsavedChange = async (page) => {
+    await page.addInitScript(abortFileWrites, FILES_STORE)
+    await page.goto('/#/')
+    await page.evaluate(() => {
+      window.allowFileWrites = true
+    })
+    await seedProjects(page, [await starterRecordAs('p1', { name: 'Checkout' })])
+    await page.evaluate(() => {
+      window.allowFileWrites = false
+    })
+    await page.reload()
+    await page.getByRole('link', { name: 'Open Checkout' }).click()
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    await deleteStep(page, 'Idea')
+    await expect(storageProblems(page)).toBeVisible()
+  }
+  const expectStillOnMap = async (page) => {
+    await expect(leaveDialog(page)).toHaveCount(0)
+    await expect(page).toHaveURL(/#\/projects\/p1$/)
+    await expect(page.getByRole('banner')).toContainText('Checkout')
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT - 1)
+    await expect(cardByTitle(page, 'Idea')).toHaveCount(0)
+  }
+
+  test('the header home link, then Stay, keeps the map', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await expect(storeNotice(page)).toBeVisible()
+    await homeLink(page).click()
+    await expect(leaveDialog(page)).toContainText(
+      'Your last change to Checkout is not saved in this browser. Export first to keep it.',
+    )
+    await leaveDialog(page).getByRole('button', { name: 'Stay' }).click()
+    await expectStillOnMap(page)
+  })
+
+  test('the header home link, then Leave, shows the homepage', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await homeLink(page).click()
+    await leaveDialog(page).getByRole('button', { name: 'Leave' }).click()
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'AI Enabler' })).toBeFocused()
+  })
+
+  test("the browser's Back, then Stay, keeps the map", async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await page.goBack()
+    await expect(leaveDialog(page)).toBeVisible()
+    await leaveDialog(page).getByRole('button', { name: 'Stay' }).click()
+    await expectStillOnMap(page)
+  })
+
+  test('leaving a fully saved project does not ask', async ({ page }) => {
+    await page.goto('/#/')
+    await seedProjects(page, [await starterRecordAs('p1', { name: 'Checkout' })])
+    await page.goto('/#/projects/p1')
+    await expect(cards(page)).toHaveCount(STARTER_STEP_COUNT)
+    await deleteStep(page, 'Idea')
+    await waitForStored(page, 'p1', (file) => !stepIds(file).includes('idea'))
+    await homeLink(page).click()
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(leaveDialog(page)).toHaveCount(0)
+    await expect(storeNotice(page)).toHaveCount(0)
+  })
+
+  test('a failed save shows the lasting notice until a save works', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await openWithUnsavedChange(page)
+    await expect(storeNotice(page)).toBeVisible()
+    await page.evaluate(() => {
+      window.allowFileWrites = true
+    })
+    await deleteStep(page, 'Plan')
+    await expect(storeNotice(page)).toHaveCount(0)
+  })
 })

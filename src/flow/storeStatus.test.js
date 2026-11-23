@@ -3,7 +3,9 @@ import { problem } from './diagnostics/problem.js'
 import {
   INITIAL_STORE_STATUS,
   STORE_STATUS_EVENT,
+  asksBeforeLeaving,
   reduceStoreStatus,
+  showsStoreNotice,
   storeProblemsOf,
   toStoreStatusEvent,
 } from './storeStatus.js'
@@ -55,5 +57,34 @@ describe('toStoreStatusEvent', () => {
   it('turns a save result into its event', () => {
     expect(toStoreStatusEvent('p1', { ok: true, problems: [] })).toEqual(succeeded('p1'))
     expect(toStoreStatusEvent('p1', { ok: false, problems: writeFailed })).toEqual(failed('p1'))
+  })
+})
+
+describe('showsStoreNotice', () => {
+  const store = (persistent, storeStatus = INITIAL_STORE_STATUS) => ({ persistent, storeStatus })
+
+  it('shows on every page while the browser keeps nothing', () => {
+    expect(showsStoreNotice(store(false), null)).toBe(true)
+    expect(showsStoreNotice(store(false), 'p1')).toBe(true)
+  })
+
+  it('shows with a project open whose last save failed, until a save works', () => {
+    expect(showsStoreNotice(store(true, run(failed('p1'))), 'p1')).toBe(true)
+    expect(showsStoreNotice(store(true, run(failed('p1'), succeeded('p1'))), 'p1')).toBe(false)
+  })
+
+  it('does not show for another project, or on a page with no map, while the browser saves', () => {
+    expect(showsStoreNotice(store(true, run(failed('p2'))), 'p1')).toBe(false)
+    expect(showsStoreNotice(store(true, run(failed('p2'))), null)).toBe(false)
+    expect(showsStoreNotice(store(true), 'p1')).toBe(false)
+  })
+})
+
+describe('asksBeforeLeaving', () => {
+  it('asks only while the open project has a change that is not stored', () => {
+    expect(asksBeforeLeaving(run(failed('p1')), 'p1')).toBe(true)
+    expect(asksBeforeLeaving(run(failed('p1'), succeeded('p1')), 'p1')).toBe(false)
+    expect(asksBeforeLeaving(run(failed('p2')), 'p1')).toBe(false)
+    expect(asksBeforeLeaving(INITIAL_STORE_STATUS, 'p1')).toBe(false)
   })
 })

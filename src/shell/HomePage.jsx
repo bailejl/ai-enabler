@@ -12,6 +12,7 @@ import ImportStatus from './ImportStatus.jsx'
 import ProjectCard from './ProjectCard.jsx'
 import ProjectNameDialog from './ProjectNameDialog.jsx'
 import { ROUTE } from './routes.js'
+import StoreNotice from './StoreNotice.jsx'
 import StoreProblems from './StoreProblems.jsx'
 import { themeStyle } from './tokens.js'
 
@@ -90,6 +91,7 @@ export default function HomePage({
         <h1 ref={headingRef} tabIndex={-1} className="page__heading">
           {APP_NAME}
         </h1>
+        <StoreNotice />
         <div className="projects__actions">
           <button ref={newProjectRef} type="button" className="button" onClick={onOpenCreate}>
             New project

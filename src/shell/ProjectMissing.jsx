@@ -5,6 +5,7 @@ import { formatCount } from '../flow/text.js'
 import { toDocumentTitle } from './Header.jsx'
 import ProblemsPanel from './ProblemsPanel.jsx'
 import { ROUTE } from './routes.js'
+import StoreNotice from './StoreNotice.jsx'
 import { themeStyle } from './tokens.js'
 
 const themeProperties = themeStyle()
@@ -32,6 +33,7 @@ export default function ProjectMissing({ outcome }) {
         <h1 ref={headingRef} tabIndex={-1} className="page__heading">
           {heading}
         </h1>
+        <StoreNotice />
         <p>
           <a href="#/">Go to the homepage</a>
         </p>

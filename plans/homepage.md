@@ -1042,5 +1042,5 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 7
 
-- [ ] Slice 7: Blocked storage notice
-  - [ ] Step 7.1: Lasting notice and leave guard
+- [x] Slice 7: Blocked storage notice
+  - [x] Step 7.1: Lasting notice and leave guard

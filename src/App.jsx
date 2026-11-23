@@ -15,7 +15,7 @@ import { useHomepage } from './shell/useHomepage.js'
 import { ROUTE } from './shell/routes.js'
 import { OPENING, useStoredProject } from './shell/useStoredProject.js'
 import { OPEN_OUTCOME } from './flow/projectLibrary.js'
-import { storeProblemsOf } from './flow/storeStatus.js'
+import { asksBeforeLeaving, storeProblemsOf } from './flow/storeStatus.js'
 import Announcer from './shell/Announcer.jsx'
 import ImportConfirm from './shell/ImportConfirm.jsx'
 import DevCommandTrigger from './shell/DevCommandTrigger.jsx'
@@ -26,10 +26,13 @@ import ProblemsPanel from './shell/ProblemsPanel.jsx'
 import { isValidConnection } from './flow/connections.js'
 import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
+import ConfirmDialog from './shell/ConfirmDialog.jsx'
+import StoreNotice from './shell/StoreNotice.jsx'
 import StoreProblems from './shell/StoreProblems.jsx'
 import { StoreProvider, useStore } from './shell/StoreProvider.jsx'
 import { themeStyle, tokens } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
+import { useLeaveGuard } from './shell/useLeaveGuard.js'
 import { useProject } from './shell/useProject.js'
 import { useRoute } from './shell/useRoute.js'
 
@@ -44,7 +47,11 @@ const EMPTY_MAP_MESSAGE = 'This map has no steps yet. Import a project file to f
 function Shell({ routeName, initial }) {
   const { message, announce } = useAnnouncer()
   const { saveProject, storeStatus } = useStore()
-  const storeProblems = storeProblemsOf(storeStatus, initial.project.id)
+  const openId = initial.project.id
+  const storeProblems = storeProblemsOf(storeStatus, openId)
+  // Leaving inside the app asks first while the open project's last change is not stored.
+  const shouldAsk = useCallback(() => asksBeforeLeaving(storeStatus, openId), [storeStatus, openId])
+  const leaveGuard = useLeaveGuard({ shouldAsk })
   const importButtonRef = useRef(null)
   const canvasElementRef = useRef(null)
   // The page's heading takes focus when the project opens, as on every route.
@@ -86,7 +93,9 @@ function Shell({ routeName, initial }) {
         onExport={handleExport}
         onImportFile={importFile}
         importButtonRef={importButtonRef}
+        onHomeClick={leaveGuard.guardLink}
       />
+      <StoreNotice openId={openId} className="shell__notice" />
       <ImportStatus state={importState} onDismiss={dismissImportError} />
       <StoreProblems problems={storeProblems} />
       {editRejection && (
@@ -100,6 +109,19 @@ function Shell({ routeName, initial }) {
       )}
       <Announcer message={message} />
       <ImportConfirm state={importState} onConfirm={confirmImport} onCancel={cancelImport} />
+      {leaveGuard.pendingTarget !== null && (
+        <ConfirmDialog
+          message="Leave without saving?"
+          confirmText="Leave"
+          cancelText="Stay"
+          onConfirm={leaveGuard.leave}
+          onCancel={leaveGuard.stay}
+        >
+          <p>
+            Your last change to {projectName} is not saved in this browser. Export first to keep it.
+          </p>
+        </ConfirmDialog>
+      )}
       {import.meta.env.DEV && <DevCommandTrigger onCommands={applyEdit} />}
       <HelpMenu />
       <MetricsBar steps={steps} />

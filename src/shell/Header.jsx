@@ -5,7 +5,13 @@ export const APP_NAME = 'AI Enabler'
 
 export const toDocumentTitle = (projectName) => `${projectName} · ${APP_NAME}`
 
-export default function Header({ projectName, onExport, onImportFile, importButtonRef }) {
+export default function Header({
+  projectName,
+  onExport,
+  onImportFile,
+  importButtonRef,
+  onHomeClick,
+}) {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -19,7 +25,7 @@ export default function Header({ projectName, onExport, onImportFile, importButt
         <circle cx="19" cy="12" r="3" />
         <path d="M8 12h8" />
       </svg>
-      <a className="header__brand" href="#/">
+      <a className="header__brand" href="#/" onClick={onHomeClick}>
         {APP_NAME}
       </a>
       <span className="header__divider" role="separator" aria-orientation="vertical" />

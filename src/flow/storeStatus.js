@@ -37,3 +37,19 @@ export const toStoreStatusEvent = (id, saved) =>
 /** The storage problems to list with project `id` open, empty when its last save worked. */
 export const storeProblemsOf = (state, id) =>
   Object.hasOwn(state.failedSaves, id) ? state.failedSaves[id] : []
+
+/**
+ * True when the page shows the lasting "Not saved in this browser" notice: the browser is not
+ * keeping projects at all (`persistent` false), or the open project's last save failed.
+ * @param {{ persistent: boolean, storeStatus: object }} store
+ * @param {string | null} openId the open project's id, or null on a page with no map
+ */
+export const showsStoreNotice = ({ persistent, storeStatus }, openId) =>
+  !persistent || (openId !== null && Object.hasOwn(storeStatus.failedSaves, openId))
+
+/**
+ * True when leaving the open project inside the app asks first: its last change is not stored.
+ * In a tab that keeps projects in memory, moving between pages loses nothing, so it does not ask.
+ */
+export const asksBeforeLeaving = (storeStatus, openId) =>
+  Object.hasOwn(storeStatus.failedSaves, openId)
