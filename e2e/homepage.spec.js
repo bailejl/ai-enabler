@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js'
-import { seedProjects } from './store.js'
+import { FILES_STORE, abortFileWrites, readIndex, seedProjects } from './store.js'
 import { starterRecordAs } from './views.js'
 
 test.use({ timezoneId: 'UTC' })
@@ -83,4 +83,67 @@ test('with nothing saved, the homepage says so', async ({ page }) => {
   await page.goto('/#/')
   await expect(projectsRegion(page)).toContainText(EMPTY_TEXT)
   await expect(cardItems(page)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'New project' })).toBeVisible()
+})
+
+test.describe('creating a project', () => {
+  const newProject = (page) => page.getByRole('button', { name: 'New project' })
+  const dialog = (page) => page.getByRole('dialog', { name: 'New project' })
+  const nameField = (page) => dialog(page).getByLabel('Project name')
+  const createNamed = async (page, name) => {
+    await newProject(page).click()
+    await nameField(page).fill(name)
+    await dialog(page).getByRole('button', { name: 'Create' }).click()
+  }
+
+  test('opens the empty map at its own link, and lists it on the homepage', async ({ page }) => {
+    await page.goto('/#/')
+    await createNamed(page, 'Checkout')
+    await expect(page).toHaveURL(/#\/projects\/[0-9a-f-]{36}$/)
+    await expect(page.getByRole('banner')).toContainText('Checkout')
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+    await expect(page.getByRole('main').getByRole('status')).toHaveText(
+      'This map has no steps yet. Import a project file to fill it.',
+    )
+    await page.goto('/#/')
+    await expect(cardItems(page).getByRole('link')).toHaveText(['Checkout'])
+  })
+
+  test('keeps the dialog open for a blank name, marks the field and saves nothing', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['FILE_PROJECT_NAME_EMPTY'])
+    await page.goto('/#/')
+    await createNamed(page, '  ')
+    await expect(dialog(page)).toBeVisible()
+    await expect(nameField(page)).toHaveAttribute('aria-invalid', 'true')
+    await expect(nameField(page)).toHaveAccessibleDescription(/\S/)
+    await expect(nameField(page)).toBeFocused()
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+    expect(await readIndex(page)).toEqual([])
+  })
+
+  test('stays on the homepage when the browser refuses the write', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await page.addInitScript(abortFileWrites, FILES_STORE)
+    await page.goto('/#/')
+    await createNamed(page, 'Checkout')
+    await expect(dialog(page)).toContainText('This change could not be saved in this browser.')
+    await expect(page).toHaveURL(/#\/$/)
+    await expect(cardItems(page)).toHaveCount(0)
+  })
+
+  test('cancel saves nothing and returns focus to New project', async ({ page }) => {
+    await page.goto('/#/')
+    await newProject(page).click()
+    await nameField(page).fill('Checkout')
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog(page)).toHaveCount(0)
+    await expect(newProject(page)).toBeFocused()
+    expect(await readIndex(page)).toEqual([])
+  })
 })

@@ -79,6 +79,44 @@ describe('project library open', () => {
   })
 })
 
+describe('project library create', () => {
+  const libraryCreating = (adapter = createMemoryStoreAdapter()) => {
+    const store = createProjectStore(adapter)
+    return { store, library: createProjectLibrary(store, { newId: () => 'new-id' }) }
+  }
+
+  it('creates and saves an empty project with a new id', async () => {
+    const { library, store } = libraryCreating()
+    const created = await library.create('Checkout')
+    const empty = { project: { id: 'new-id', name: 'Checkout' }, nodes: [], edges: [] }
+    expect(created).toEqual({ ok: true, problems: [], project: empty })
+    expect((await store.list()).projects.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: 'new-id', name: 'Checkout' },
+    ])
+    expect((await library.open('new-id')).project).toEqual(empty)
+  })
+
+  it('rejects a blank name and saves nothing', async () => {
+    const { library, store } = libraryCreating()
+    expect(codes(await library.create('  '))).toEqual(['FILE_PROJECT_NAME_EMPTY'])
+    expect((await store.list()).projects).toEqual([])
+  })
+
+  it('reports a failed write and lists nothing', async () => {
+    const adapter = createMemoryStoreAdapter()
+    const { library, store } = libraryCreating({
+      ...adapter,
+      put: async () => {
+        throw new Error('refused')
+      },
+    })
+    const created = await library.create('Checkout')
+    expect(created.ok).toBe(false)
+    expect(codes(created)).toEqual(['STORE_WRITE_FAILED'])
+    expect((await store.list()).projects).toEqual([])
+  })
+})
+
 describe('toOpenOutcome', () => {
   it('is found with the project for an open that worked', async () => {
     const { library } = await libraryWith()
@@ -144,6 +182,13 @@ describe('observeLibrary', () => {
     await observed.save(memoryProject('p1', 'Checkout'))
     await observed.save(memoryProject('p1', 'Checkout'))
     await observed.save(memoryProject('p2', 'Payments'))
+    expect(seen).toEqual({ problems: [], firstSaves: 1 })
+  })
+
+  it('counts a create that works as the first save', async () => {
+    const { observed, seen } = observedLibrary()
+    await observed.create('Checkout')
+    await observed.save(memoryProject('p1', 'Checkout'))
     expect(seen).toEqual({ problems: [], firstSaves: 1 })
   })
 

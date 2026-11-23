@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef } from 'react'
-import { isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
+import { DIALOG, isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
 import { toCardItems } from '../flow/homepageView.js'
 import { SORT } from '../flow/projectStore.js'
 import { APP_NAME } from './Header.jsx'
 import ProjectCard from './ProjectCard.jsx'
+import ProjectNameDialog from './ProjectNameDialog.jsx'
 import { ROUTE } from './routes.js'
 import StoreProblems from './StoreProblems.jsx'
 import { themeStyle } from './tokens.js'
@@ -19,14 +20,22 @@ const SORT_OPTIONS = [
  * The homepage: the saved projects as cards, with the sort. It renders what `useHomepage` gives
  * it. The heading takes focus when the page opens.
  */
-export default function HomePage({ state, onSortChange }) {
+export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCreate, onCreate }) {
   const headingRef = useRef(null)
+  const newProjectRef = useRef(null)
   const sortId = useId()
   useEffect(() => {
     document.title = APP_NAME
     headingRef.current?.focus()
   }, [])
-  const { list, sort } = state
+  const { list, sort, dialog } = state
+  // Once the create dialog has gone (and the browser has put focus back), focus is on New project.
+  const wasCreateOpen = useRef(false)
+  useEffect(() => {
+    const isCreateOpen = dialog?.type === DIALOG.create
+    if (wasCreateOpen.current && !isCreateOpen) newProjectRef.current?.focus()
+    wasCreateOpen.current = isCreateOpen
+  }, [dialog])
   const isLoading = list.status === LIST_STATUS.loading
   return (
     <div className="page" style={themeProperties} data-route={ROUTE.HOME}>
@@ -34,6 +43,11 @@ export default function HomePage({ state, onSortChange }) {
         <h1 ref={headingRef} tabIndex={-1} className="page__heading">
           {APP_NAME}
         </h1>
+        <div className="projects__actions">
+          <button ref={newProjectRef} type="button" className="button" onClick={onOpenCreate}>
+            New project
+          </button>
+        </div>
         <StoreProblems problems={list.problems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">
@@ -59,6 +73,15 @@ export default function HomePage({ state, onSortChange }) {
           )}
         </section>
       </main>
+      {dialog?.type === DIALOG.create && (
+        <ProjectNameDialog
+          title="New project"
+          submitText="Create"
+          problems={dialog.problems}
+          onSubmit={onCreate}
+          onCancel={onCancelCreate}
+        />
+      )}
     </div>
   )
 }

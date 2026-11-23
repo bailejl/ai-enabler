@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HOME_EVENT, INITIAL_HOME_STATE, reduceHome } from '../flow/homeFlow.js'
+import { projectHref } from '../flow/homepageView.js'
 import { STORE_STATUS, useStore } from './StoreProvider.jsx'
 
 /**
@@ -36,5 +37,16 @@ export const useHomepage = () => {
     (next) => dispatch({ type: HOME_EVENT.sortChanged, sort: next }),
     [dispatch],
   )
-  return { state, setSort }
+  const openCreate = useCallback(() => dispatch({ type: HOME_EVENT.createOpened }), [dispatch])
+  const cancelCreate = useCallback(() => dispatch({ type: HOME_EVENT.createCancelled }), [dispatch])
+  // A create that works opens the new project's link; a refused one keeps the dialog open.
+  const create = useCallback(
+    async (name) => {
+      const created = await library.create(name)
+      if (created.ok) window.location.hash = projectHref(created.project.project.id)
+      else dispatch({ type: HOME_EVENT.createRefused, problems: created.problems })
+    },
+    [library, dispatch],
+  )
+  return { state, setSort, openCreate, cancelCreate, create }
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { HOME_EVENT, INITIAL_HOME_STATE, LIST_STATUS, isEmptyList, reduceHome } from './homeFlow.js'
+import {
+  DIALOG,
+  HOME_EVENT,
+  INITIAL_HOME_STATE,
+  LIST_STATUS,
+  isEmptyList,
+  reduceHome,
+} from './homeFlow.js'
 import { SORT } from './projectStore.js'
 
 const entry = (id) => ({ id, name: id.toUpperCase(), modifiedAt: '2026-11-22T10:00:00.000Z' })
@@ -39,5 +46,39 @@ describe('reduceHome list', () => {
 
   it('ignores an event it does not know', () => {
     expect(reduceHome(INITIAL_HOME_STATE, { type: 'other' })).toBe(INITIAL_HOME_STATE)
+  })
+})
+
+describe('reduceHome create dialog', () => {
+  const refused = [{ code: 'FILE_PROJECT_NAME_EMPTY' }]
+
+  it('opens with no problems', () => {
+    expect(run({ type: HOME_EVENT.createOpened }).dialog).toEqual({
+      type: DIALOG.create,
+      problems: [],
+    })
+  })
+
+  it('stays open with the problems of a refused create', () => {
+    const state = run(
+      { type: HOME_EVENT.createOpened },
+      { type: HOME_EVENT.createRefused, problems: refused },
+    )
+    expect(state.dialog).toEqual({ type: DIALOG.create, problems: refused })
+  })
+
+  it('closes on cancel', () => {
+    expect(
+      run({ type: HOME_EVENT.createOpened }, { type: HOME_EVENT.createCancelled }).dialog,
+    ).toBeNull()
+  })
+
+  it('ignores a refusal that arrives after the dialog closed', () => {
+    const state = run(
+      { type: HOME_EVENT.createOpened },
+      { type: HOME_EVENT.createCancelled },
+      { type: HOME_EVENT.createRefused, problems: refused },
+    )
+    expect(state.dialog).toBeNull()
   })
 })

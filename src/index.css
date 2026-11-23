@@ -85,6 +85,16 @@ body,
   gap: var(--header-gap);
 }
 
+.projects__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--header-gap);
+}
+
+.dialog__field {
+  font: inherit;
+}
+
 .projects__toolbar {
   display: flex;
   flex-wrap: wrap;

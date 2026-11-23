@@ -48,6 +48,11 @@ function Shell({ routeName, initial }) {
   const storeProblems = storeProblemsOf(storeStatus, initial.project.id)
   const importButtonRef = useRef(null)
   const canvasElementRef = useRef(null)
+  // The page's heading takes focus when the project opens, as on every route.
+  const headingRef = useRef(null)
+  useEffect(() => {
+    headingRef.current?.focus()
+  }, [])
   const {
     projectName,
     steps,
@@ -109,7 +114,9 @@ function Shell({ routeName, initial }) {
       <HelpMenu />
       <MetricsBar steps={steps} />
       <main ref={canvasElementRef} tabIndex={-1} aria-label="Value stream map" className="canvas">
-        <h1 className="visually-hidden">ai-enabler value stream map</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="visually-hidden">
+          ai-enabler value stream map
+        </h1>
         <p role="status" className="canvas__empty">
           {nodes.length === 0 ? EMPTY_MAP_MESSAGE : ''}
         </p>
@@ -164,8 +171,16 @@ function ProjectRoute({ id }) {
 }
 
 function HomeRoute() {
-  const { state, setSort } = useHomepage()
-  return <HomePage state={state} onSortChange={setSort} />
+  const { state, setSort, openCreate, cancelCreate, create } = useHomepage()
+  return (
+    <HomePage
+      state={state}
+      onSortChange={setSort}
+      onOpenCreate={openCreate}
+      onCancelCreate={cancelCreate}
+      onCreate={create}
+    />
+  )
 }
 
 export default function App() {

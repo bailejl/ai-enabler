@@ -1,3 +1,4 @@
+import { applyCommand } from './commands/index.js'
 import { problem } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
 import { toMemoryProject } from './projectFile.js'
@@ -6,8 +7,9 @@ import { toMemoryProject } from './projectFile.js'
  * The library rules over a project store (see projectStore.js). Every call returns
  * `{ ok, problems, ... }` and never throws.
  * @param {ReturnType<typeof import('./projectStore.js').createProjectStore>} store
+ * @param {{ newId?: () => string }} [options] newId is injected so ids are deterministic in tests.
  */
-export const createProjectLibrary = (store) => {
+export const createProjectLibrary = (store, { newId = () => crypto.randomUUID() } = {}) => {
   // The index entry for `id`, for the name a page shows when the file cannot be opened.
   const entryFor = async (id) => {
     const listed = await store.list()
@@ -39,7 +41,19 @@ export const createProjectLibrary = (store) => {
   /** Every saved project's index entry; see projectStore's `list`. */
   const list = (options) => store.list(options)
 
-  return { open, save, list }
+  /**
+   * Creates an empty project named `name` through `create_project` and saves it. A name the
+   * command rejects or a failed write changes nothing.
+   * @returns {Promise<{ ok: boolean, problems: object[], project?: object }>}
+   */
+  const create = async (name) => {
+    const created = applyCommand(null, { name: 'create_project', args: { name } }, { newId })
+    if (!created.ok) return { ok: false, problems: created.problems }
+    const saved = await store.save(created.project)
+    return saved.ok ? { ok: true, problems: [], project: created.project } : saved
+  }
+
+  return { open, save, list, create }
 }
 
 export const OPEN_OUTCOME = Object.freeze({
@@ -63,7 +77,7 @@ export const toOpenOutcome = (opened) => {
 
 /**
  * Wraps a library so each failed call hands its problems to `onProblems` once, where the call is
- * made, and the first save that works calls `onFirstSave`, once.
+ * made, and the first save or create that works calls `onFirstSave`, once.
  * @param {ReturnType<typeof createProjectLibrary>} library
  * @param {{ onProblems: (problems: object[]) => void, onFirstSave: () => void }} hooks
  */
@@ -73,16 +87,18 @@ export const observeLibrary = (library, { onProblems, onFirstSave }) => {
     if (!result.ok) onProblems(result.problems)
     return result
   }
+  // A call that writes: the first one that works calls onFirstSave.
+  const written = (result) => {
+    if (result.ok && !saved.once) {
+      saved.once = true
+      onFirstSave()
+    }
+    return observed(result)
+  }
   return {
     open: async (id) => observed(await library.open(id)),
     list: async (options) => observed(await library.list(options)),
-    save: async (memoryProject) => {
-      const result = observed(await library.save(memoryProject))
-      if (result.ok && !saved.once) {
-        saved.once = true
-        onFirstSave()
-      }
-      return result
-    },
+    create: async (name) => written(await library.create(name)),
+    save: async (memoryProject) => written(await library.save(memoryProject)),
   }
 }
