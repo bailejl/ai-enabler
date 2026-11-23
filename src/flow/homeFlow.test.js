@@ -6,6 +6,7 @@ import {
   INITIAL_HOME_STATE,
   LIST_STATUS,
   actionAnnouncement,
+  describeHomeImport,
   focusAfterRemove,
   isEmptyList,
   isStoreRefusal,
@@ -201,5 +202,51 @@ describe('isStoreRefusal', () => {
 describe('actionAnnouncement', () => {
   it('reads as the verb and the name', () => {
     expect(actionAnnouncement('Duplicated', 'Checkout')).toBe('Duplicated Checkout')
+  })
+})
+
+describe('reduceHome homepage import', () => {
+  it('shows the outcome, focuses the new card and clears refused-action problems', () => {
+    const state = run(
+      { type: HOME_EVENT.actionFailed, id: 'a', problems: [{ code: 'STORE_WRITE_FAILED' }] },
+      { type: HOME_EVENT.imported, id: 'abc', text: 'Imported Payments, 6 steps' },
+    )
+    expect(state.importStatus).toEqual({ text: 'Imported Payments, 6 steps' })
+    expect(state.focus).toEqual({ target: FOCUS.card, id: 'abc' })
+    expect(state.actionProblems).toEqual([])
+  })
+
+  it('shows the problems of a rejected file until dismissed', () => {
+    const problems = [{ code: 'FILE_NOT_JSON' }]
+    const rejected = run({ type: HOME_EVENT.importRejected, problems })
+    expect(rejected.importStatus).toEqual({ problems })
+    const dismissed = reduceHome(rejected, {
+      type: HOME_EVENT.importDismissed,
+      focus: { target: FOCUS.importProject },
+    })
+    expect(dismissed.importStatus).toBeNull()
+    expect(dismissed.focus).toEqual({ target: FOCUS.importProject })
+  })
+
+  it('sends focus where a failed action says', () => {
+    const focus = { target: FOCUS.importProject }
+    const state = run({ type: HOME_EVENT.actionFailed, id: null, problems: [], focus })
+    expect(state.focus).toEqual(focus)
+  })
+})
+
+describe('describeHomeImport', () => {
+  it('names the project and its steps, and a new id when the file had to take one', () => {
+    const base = { name: 'Payments', stepCount: 6, notices: [] }
+    expect(describeHomeImport({ ...base, isNewId: false })).toBe('Imported Payments, 6 steps')
+    expect(describeHomeImport({ ...base, isNewId: true })).toBe(
+      'Imported Payments as a new project, 6 steps',
+    )
+  })
+
+  it('follows with the notices', () => {
+    expect(
+      describeHomeImport({ name: 'A', stepCount: 1, isNewId: false, notices: ['N1.', 'N2.'] }),
+    ).toBe('Imported A, 1 step. N1. N2.')
   })
 })

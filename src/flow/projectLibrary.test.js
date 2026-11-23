@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryStoreAdapter } from './memoryStoreAdapter.js'
 import {
   OPEN_OUTCOME,
+  chooseImportId,
   createProjectLibrary,
   observeLibrary,
   toOpenOutcome,
@@ -232,6 +233,75 @@ describe('project library save over a file that cannot be opened', () => {
     expect(
       (await library.list()).projects.map(({ name, openable }) => ({ name, openable })),
     ).toEqual([{ name: 'Fixed', openable: true }])
+  })
+})
+
+describe('chooseImportId', () => {
+  it('keeps a free id and replaces a taken one', () => {
+    expect(chooseImportId('abc', ['x'], () => 'new')).toBe('abc')
+    expect(chooseImportId('abc', ['x', 'abc'], () => 'new')).toBe('new')
+  })
+})
+
+describe('project library importNew', () => {
+  const fileOf = (id, name) => ({
+    schemaVersion: '0.1.0',
+    exportedAt: DAY_ONE,
+    ...memoryProject(id, name),
+  })
+
+  it('saves a file under its own id when it is free', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    const imported = await library.importNew(fileOf('abc', 'Payments'))
+    expect(imported).toEqual({
+      ok: true,
+      problems: [],
+      project: memoryProject('abc', 'Payments'),
+      isNewId: false,
+    })
+    expect((await library.open('abc')).project).toEqual(memoryProject('abc', 'Payments'))
+  })
+
+  it('gives a file whose id is taken a new one, and keeps the saved project', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    await library.save(memoryProject('abc', 'Checkout'))
+    const imported = await library.importNew(fileOf('abc', 'Payments'))
+    expect(imported.project).toEqual(memoryProject('id-1', 'Payments'))
+    expect(imported.isNewId).toBe(true)
+    expect((await library.open('abc')).project.project.name).toBe('Checkout')
+  })
+
+  it('lands two imports of one id started together, the second under a new id', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    const both = await Promise.all([
+      library.importNew(fileOf('abc', 'Payments')),
+      library.importNew(fileOf('abc', 'Payments')),
+    ])
+    expect(both.map(({ project }) => project.project.id)).toEqual(['abc', 'id-1'])
+    expect((await library.list()).projects).toHaveLength(2)
+  })
+
+  it('reports a failed write and saves nothing', async () => {
+    const { library } = libraryOver(refusingPut(createMemoryStoreAdapter()))
+    expect(codes(await library.importNew(fileOf('abc', 'Payments')))).toEqual([
+      'STORE_WRITE_FAILED',
+    ])
+    expect((await library.list()).projects).toEqual([])
+  })
+
+  it('keeps importing after a failed import', async () => {
+    const adapter = createMemoryStoreAdapter()
+    const calls = { count: 0 }
+    const { library } = libraryOver({
+      ...adapter,
+      put: async (...args) => {
+        calls.count += 1
+        if (calls.count === 1) throw new Error('refused')
+        return adapter.put(...args)
+      },
+    })
+    await library.importNew(fileOf('abc', 'Payments'))
+    expect((await library.importNew(fileOf('abc', 'Payments'))).ok).toBe(true)
   })
 })
 

@@ -626,3 +626,91 @@ test.describe('replacing a card from a file', () => {
     expect(failures).toHaveLength(1)
   })
 })
+
+test.describe('importing a project on the homepage', () => {
+  const importStatus = (page) => page.getByRole('region', { name: 'Import status' })
+  // The starter file with `id` and `name`, as a file to choose.
+  const starterFile = async (id, name) => asUpload((await starterRecordAs(id, { name })).text)
+  const importFile = async (page, file) => {
+    const chooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Import project' }).click()
+    await (await chooser).setFiles(file)
+  }
+
+  test('adds a project with the file id, without a confirmation', async ({ page }) => {
+    await page.goto('/#/')
+    await importFile(page, await starterFile('abc', 'Payments'))
+    await expect(cardLink(page, 'Payments')).toBeFocused()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(cardLink(page, 'Payments')).toHaveAttribute('href', '#/projects/abc')
+    await expect(importStatus(page)).toContainText('Imported Payments, 6 steps')
+    await expect(announcer(page)).toHaveText('Imported Payments, 6 steps')
+    await expect(page).toHaveURL(/#\/$/)
+  })
+
+  test('a taken id gets a new one', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, [['abc', 'Checkout', '2026-11-20T10:00:00.000Z']])
+    await importFile(page, await starterFile('abc', 'Payments'))
+    await expect(cardNames(page)).toHaveText(['Payments', 'Checkout'])
+    await expect(cardLink(page, 'Payments')).not.toHaveAttribute('href', '#/projects/abc')
+    await expect(importStatus(page)).toContainText('Imported Payments as a new project, 6 steps')
+  })
+
+  test('two quick imports of one id both land', async ({ page }) => {
+    await page.goto('/#/')
+    const file = await starterFile('abc', 'Payments')
+    const input = page.locator('input[type="file"]').first()
+    await input.setInputFiles(file)
+    await input.setInputFiles(file)
+    await expect(cardItems(page)).toHaveCount(2)
+    const ids = (await readIndex(page)).map(({ id }) => id)
+    expect(ids).toContain('abc')
+    expect(new Set(ids).size).toBe(2)
+  })
+
+  test('a homepage import shows its notices', async ({ page }) => {
+    await page.goto('/#/')
+    const file = JSON.parse((await starterRecordAs('abc', { name: 'Payments' })).text)
+    const [first, ...rest] = file.nodes
+    const edited = {
+      ...file,
+      nodes: [{ ...first, data: { ...first.data, label: 'Edited' } }, ...rest],
+    }
+    await importFile(page, asUpload(edited))
+    const notice = 'This file was changed outside AI Enabler after it was exported.'
+    await expect(importStatus(page)).toContainText(notice)
+    await expect(announcer(page)).toContainText(notice)
+  })
+
+  test('a rejected homepage import adds nothing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['FILE_NOT_JSON'])
+    await page.goto('/#/')
+    await importFile(page, asUpload('not json'))
+    await expect(importStatus(page)).toContainText(problem('FILE_NOT_JSON').message)
+    await expect(cardItems(page)).toHaveCount(0)
+    await importStatus(page).getByRole('button', { name: 'Dismiss' }).click()
+    await expect(importStatus(page)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Import project' })).toBeFocused()
+  })
+
+  test('a homepage import the browser refuses adds nothing', async ({
+    page,
+    capture,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_WRITE_FAILED'])
+    await page.addInitScript(abortFileWrites, FILES_STORE)
+    await page.goto('/#/')
+    await importFile(page, await starterFile('abc', 'Payments'))
+    await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
+    await expect(cardItems(page)).toHaveCount(0)
+    await expect(announcer(page)).toHaveText('')
+    await expect(importStatus(page)).toHaveCount(0)
+    await flushConsole(page)
+    const failures = recordsIn(capture.messages).filter(
+      ({ record }) => record.code === 'STORE_WRITE_FAILED',
+    )
+    expect(failures).toHaveLength(1)
+  })
+})

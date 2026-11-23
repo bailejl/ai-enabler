@@ -2,16 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   HOME_EVENT,
   INITIAL_HOME_STATE,
+  FOCUS,
   actionAnnouncement,
+  describeHomeImport,
   focusAfterRemove,
   isStoreRefusal,
   isUnopenable,
   reduceHome,
 } from '../flow/homeFlow.js'
 import { projectHref } from '../flow/homepageView.js'
+import { importNotices } from '../flow/importFlow.js'
+import { toRejection } from '../flow/problemsView.js'
+import { report } from './diagnostics.js'
 import { downloadTextFile } from './download.js'
 import { STORE_STATUS, useStore } from './StoreProvider.jsx'
-import { useImportFlow } from './useImportFlow.js'
+import { readImport, useImportFlow } from './useImportFlow.js'
 
 /**
  * Wires the homepage reducer to the library: loads the list once the store is ready, again after
@@ -173,8 +178,59 @@ export const useHomepage = ({ announce }) => {
     replaceFocusRef.current = document.activeElement
   }, [])
 
+  // A file chosen for a card replaces the homepage import's outcome line, and the reverse.
+  const { resetImport } = replaceFlow
+  const replaceFromFile = useCallback(
+    (file) => {
+      dispatch({ type: HOME_EVENT.importDismissed })
+      return replaceFlow.importFile(file)
+    },
+    [dispatch, replaceFlow],
+  )
+
+  // "Import project": a new project, no confirmation, under the file's id unless it is taken. Not
+  // one at a time: two imports both land, the library picks their ids in turn.
+  const importNew = useCallback(
+    async (file) => {
+      const result = await readImport(file)
+      resetImport()
+      if (!result.ok) {
+        result.problems.forEach(report)
+        announce(toRejection('Import', result.problems).announcement)
+        dispatch({ type: HOME_EVENT.importRejected, problems: result.problems })
+        return
+      }
+      const imported = await library.importNew(result.file)
+      if (!imported.ok) {
+        dispatch({
+          type: HOME_EVENT.actionFailed,
+          id: null,
+          problems: imported.problems,
+          focus: { target: FOCUS.importProject },
+        })
+        return
+      }
+      await reload()
+      const text = describeHomeImport({
+        name: imported.project.project.name,
+        stepCount: imported.project.nodes.length,
+        isNewId: imported.isNewId,
+        notices: importNotices(result),
+      })
+      dispatch({ type: HOME_EVENT.imported, id: imported.project.project.id, text })
+      announce(text)
+    },
+    [library, reload, dispatch, announce, resetImport],
+  )
+  const dismissImport = useCallback(
+    () => dispatch({ type: HOME_EVENT.importDismissed, focus: { target: FOCUS.importProject } }),
+    [dispatch],
+  )
+
   return {
     state,
+    importNew,
+    dismissImport,
     setSort,
     openCreate,
     openRename,
@@ -185,6 +241,6 @@ export const useHomepage = ({ announce }) => {
     duplicate: (id, name) => runExclusive(() => duplicate(id, name)),
     confirmDelete: () => runExclusive(confirmDelete),
     exportProject: (id) => runExclusive(() => exportProject(id)),
-    replace: { ...replaceFlow, chooseTarget: chooseReplaceTarget },
+    replace: { ...replaceFlow, importFile: replaceFromFile, chooseTarget: chooseReplaceTarget },
   }
 }

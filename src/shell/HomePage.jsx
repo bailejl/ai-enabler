@@ -5,6 +5,7 @@ import { SORT } from '../flow/projectStore.js'
 import Announcer from './Announcer.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
 import FileInput from './FileInput.jsx'
+import HomeStatus from './HomeStatus.jsx'
 import { APP_NAME } from './Header.jsx'
 import ImportConfirm from './ImportConfirm.jsx'
 import ImportStatus from './ImportStatus.jsx'
@@ -45,12 +46,16 @@ export default function HomePage({
   onDuplicate,
   onConfirmDelete,
   onExport,
+  onImportNew,
+  onDismissImport,
   replace,
 }) {
   const headingRef = useRef(null)
   const newProjectRef = useRef(null)
   const bodyRef = useRef(null)
   const replaceInputRef = useRef(null)
+  const importInputRef = useRef(null)
+  const importButtonRef = useRef(null)
   const chooseReplaceFile = (id, name) => {
     replace.chooseTarget(id, name)
     replaceInputRef.current.click()
@@ -65,10 +70,12 @@ export default function HomePage({
     if (!focus) return
     // A card that is not shown (a newer list replaced the one the action reloaded) hands focus to
     // New project rather than dropping it.
+    const buttons = {
+      [FOCUS.newProject]: newProjectRef.current,
+      [FOCUS.importProject]: importButtonRef.current,
+    }
     const element =
-      focus.target === FOCUS.newProject
-        ? newProjectRef.current
-        : (markedElement(bodyRef.current, focus) ?? newProjectRef.current)
+      buttons[focus.target] ?? markedElement(bodyRef.current, focus) ?? newProjectRef.current
     element?.focus()
   }, [focus])
   const isLoading = list.status === LIST_STATUS.loading
@@ -87,8 +94,18 @@ export default function HomePage({
           <button ref={newProjectRef} type="button" className="button" onClick={onOpenCreate}>
             New project
           </button>
+          <button
+            ref={importButtonRef}
+            type="button"
+            className="button"
+            onClick={() => importInputRef.current.click()}
+          >
+            Import project
+          </button>
+          <FileInput ref={importInputRef} onFile={onImportNew} />
         </div>
         <ImportStatus state={replace.importState} onDismiss={replace.dismissImportError} />
+        <HomeStatus status={state.importStatus} onDismiss={onDismissImport} />
         <StoreProblems problems={storeProblems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">

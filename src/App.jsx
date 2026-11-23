@@ -177,6 +177,8 @@ function HomeRoute() {
       onDuplicate={home.duplicate}
       onConfirmDelete={home.confirmDelete}
       onExport={home.exportProject}
+      onImportNew={home.importNew}
+      onDismissImport={home.dismissImport}
       replace={home.replace}
     />
   )

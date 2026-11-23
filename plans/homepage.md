@@ -1036,9 +1036,9 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 6
 
-- [ ] Slice 6: Imports from the homepage
-  - [ ] Step 6.1: Replace a card from a file
-  - [ ] Step 6.2: Import a new project on the homepage
+- [x] Slice 6: Imports from the homepage
+  - [x] Step 6.1: Replace a card from a file
+  - [x] Step 6.2: Import a new project on the homepage
 
 #### Wave 7
 

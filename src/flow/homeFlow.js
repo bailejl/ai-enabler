@@ -1,4 +1,5 @@
 import { SORT } from './projectStore.js'
+import { formatCount } from './text.js'
 
 // The homepage as a pure reducer: the list and its sort, the dialogs, the problems of a refused
 // card action and the focus target. React only renders what it returns.
@@ -17,18 +18,27 @@ export const HOME_EVENT = Object.freeze({
   duplicated: 'duplicated',
   deleted: 'deleted',
   actionFailed: 'actionFailed',
+  imported: 'imported',
+  importRejected: 'importRejected',
+  importDismissed: 'importDismissed',
 })
 
 export const DIALOG = Object.freeze({ create: 'create', rename: 'rename', delete: 'delete' })
 
 /** Where focus goes next: New project, a card's link, or a card's "More actions" button. */
-export const FOCUS = Object.freeze({ newProject: 'newProject', card: 'card', menu: 'menu' })
+export const FOCUS = Object.freeze({
+  newProject: 'newProject',
+  importProject: 'importProject',
+  card: 'card',
+  menu: 'menu',
+})
 
 export const INITIAL_HOME_STATE = Object.freeze({
   list: Object.freeze({ status: LIST_STATUS.loading, projects: [], problems: [] }),
   sort: SORT.modified,
   dialog: null,
   actionProblems: [],
+  importStatus: null,
   focus: null,
 })
 
@@ -73,11 +83,25 @@ const HANDLERS = {
   [HOME_EVENT.duplicated]: (state, { id }) => done(state, { target: FOCUS.card, id }),
   [HOME_EVENT.deleted]: (state, { focus }) => done(state, focus),
   // A card action the store refused: its dialog closes, its problems show, focus returns to it.
-  [HOME_EVENT.actionFailed]: (state, { id, problems }) => ({
+  [HOME_EVENT.actionFailed]: (state, { id, problems, focus = { target: FOCUS.menu, id } }) => ({
     ...state,
     dialog: null,
     actionProblems: problems,
-    focus: { target: FOCUS.menu, id },
+    focus,
+  }),
+  // A homepage import: its outcome line stays until dismissed or the next import's.
+  [HOME_EVENT.imported]: (state, { id, text }) => ({
+    ...done(state, { target: FOCUS.card, id }),
+    importStatus: { text },
+  }),
+  [HOME_EVENT.importRejected]: (state, { problems }) => ({
+    ...state,
+    importStatus: { problems },
+  }),
+  [HOME_EVENT.importDismissed]: (state, { focus = null }) => ({
+    ...state,
+    importStatus: null,
+    focus,
   }),
 }
 
@@ -92,8 +116,10 @@ const HANDLERS = {
  * `{ type: 'deleteOpened', id, name }`, `{ type: 'dialogCancelled' }`,
  * `{ type: 'nameRefused', problems }`, `{ type: 'renamed', id }`, `{ type: 'duplicated', id }`
  * (the copy's id), `{ type: 'deleted', focus }` (see `focusAfterRemove`) and
- * `{ type: 'actionFailed', id, problems }`. A create that works leaves the homepage, so it needs
- * no event.
+ * `{ type: 'actionFailed', id, problems, focus? }`, `{ type: 'imported', id, text }`,
+ * `{ type: 'importRejected', problems }` and `{ type: 'importDismissed', focus? }`. `importStatus`
+ * is null, `{ text }` or `{ problems }`. A create that works leaves the homepage, so it needs no
+ * event.
  */
 export const reduceHome = (state, event) => HANDLERS[event.type]?.(state, event) ?? state
 
@@ -123,6 +149,16 @@ export const isStoreRefusal = (problems) => problems[0]?.code.startsWith('STORE_
 
 /** True when the stored file could not be opened, so the list is stale and its card must change. */
 export const isUnopenable = (problems) => problems[0]?.code === 'STORE_FILE_INVALID'
+
+/**
+ * The outcome line of a homepage import, such as "Imported Payments, 6 steps", or "Imported
+ * Payments as a new project, 6 steps" when the file's id was taken, then the file's notices.
+ */
+export const describeHomeImport = ({ name, stepCount, isNewId, notices }) => {
+  const as = isNewId ? ' as a new project' : ''
+  const outcome = `Imported ${name}${as}, ${formatCount(stepCount, 'step')}`
+  return notices.length > 0 ? `${outcome}. ${notices.join(' ')}` : outcome
+}
 
 /** What a card action that worked announces, such as "Duplicated Checkout". */
 export const actionAnnouncement = (verb, name) => `${verb} ${name}`

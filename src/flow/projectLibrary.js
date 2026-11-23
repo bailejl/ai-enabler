@@ -5,6 +5,10 @@ import { projectFileName, toExportDownload, toMemoryProject } from './projectFil
 
 const COPY_SUFFIX = ' (copy)'
 
+/** The id an imported file is saved under: its own, unless a saved project already has it. */
+export const chooseImportId = (fileId, takenIds, newId) =>
+  takenIds.includes(fileId) ? newId() : fileId
+
 /**
  * The library rules over a project store (see projectStore.js). Every call returns
  * `{ ok, problems, ... }` and never throws.
@@ -16,6 +20,15 @@ export const createProjectLibrary = (
   store,
   { newId = () => crypto.randomUUID(), now = () => new Date() } = {},
 ) => {
+  // Imports choose their id and save in one turn each, so two imports of one id cannot both
+  // find it free.
+  const importTurns = { last: Promise.resolve() }
+  const inImportTurn = (task) => {
+    const turn = importTurns.last.then(task)
+    importTurns.last = turn.catch(() => undefined)
+    return turn
+  }
+
   // The index entry for `id`, for the name a page shows when the file cannot be opened.
   const entryFor = async (id) => {
     const listed = await store.list()
@@ -121,7 +134,24 @@ export const createProjectLibrary = (
     return saved.ok ? { ok: true, problems: [], project: created.project } : saved
   }
 
-  return { open, save, list, create, rename, duplicate, remove, exportFile }
+  /**
+   * Saves a parsed project file (parseImport's `file`) as a new project under its own id, or a new
+   * one when that id is taken. `isNewId` says which.
+   * @returns {Promise<{ ok: boolean, problems: object[], project?: object, isNewId?: boolean }>}
+   */
+  const importNew = (file) =>
+    inImportTurn(async () => {
+      const listed = await store.list()
+      if (!listed.ok) return listed
+      const takenIds = listed.projects.map((entry) => entry.id)
+      const id = chooseImportId(file.project.id, takenIds, newId)
+      const project = toMemoryProject({ ...file, project: { id, name: file.project.name } })
+      const saved = await store.save(project)
+      if (!saved.ok) return saved
+      return { ok: true, problems: [], project, isNewId: id !== file.project.id }
+    })
+
+  return { open, save, list, create, rename, duplicate, remove, exportFile, importNew }
 }
 
 export const OPEN_OUTCOME = Object.freeze({
@@ -172,5 +202,6 @@ export const observeLibrary = (library, { onProblems, onFirstSave }) => {
     duplicate: async (id) => written(await library.duplicate(id)),
     remove: async (id) => observed(await library.remove(id)),
     exportFile: async (id) => observed(await library.exportFile(id)),
+    importNew: async (file) => written(await library.importNew(file)),
   }
 }
