@@ -1012,12 +1012,12 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 - [x] Slice 2: rename_project
   - [x] Step 2.1: The rename_project command and tool
-- [ ] Slice 3: Open and save from the browser store
-  - [ ] Step 3.1: IndexedDB adapter, adapter choice and provider
-  - [ ] Step 3.2: Seed e2e projects while the starter still exists
-  - [ ] Step 3.3: The project route loads from the store
-  - [ ] Step 3.4: Save after every accepted change
-  - [ ] Step 3.5: Shared import flow that keeps the id; help and spec notes
+- [x] Slice 3: Open and save from the browser store
+  - [x] Step 3.1: IndexedDB adapter, adapter choice and provider
+  - [x] Step 3.2: Seed e2e projects while the starter still exists
+  - [x] Step 3.3: The project route loads from the store
+  - [x] Step 3.4: Save after every accepted change
+  - [x] Step 3.5: Shared import flow that keeps the id; help and spec notes
 
 #### Wave 4
 
