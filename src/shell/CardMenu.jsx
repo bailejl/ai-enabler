@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 /**
  * A card's "More actions for <name>" disclosure: a button that shows a list of action buttons.
@@ -11,22 +11,41 @@ import { useId, useRef, useState } from 'react'
 export default function CardMenu({ name, focusKey, actions }) {
   const [isOpen, setOpen] = useState(false)
   const buttonRef = useRef(null)
+  const menuRef = useRef(null)
   const listId = useId()
 
+  // A press outside closes it. Not blur: Safari does not focus a clicked button, so a click on an
+  // item could blur the menu with no target and hide the item before the click lands.
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const closeOnOutsidePress = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePress)
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePress)
+  }, [isOpen])
+
   const handleKeyDown = (event) => {
-    if (event.key !== 'Escape' || !isOpen) return
-    event.stopPropagation()
-    setOpen(false)
-    buttonRef.current.focus()
+    if (!isOpen) return
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      setOpen(false)
+      buttonRef.current.focus()
+    }
+    // Tab past the last item leaves the menu even when nothing on the page follows it.
+    const items = menuRef.current.querySelectorAll('.card-menu__item')
+    const isLastItem = event.target === items[items.length - 1]
+    if (event.key === 'Tab' && !event.shiftKey && isLastItem) setOpen(false)
   }
 
-  // Focus that leaves the menu and its button, by Tab or a click elsewhere, closes it.
+  // Focus that moves to an element outside, by Tab, closes it.
   const handleBlur = (event) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
+    const next = event.relatedTarget
+    if (next && !event.currentTarget.contains(next)) setOpen(false)
   }
 
   return (
-    <div className="card-menu" onKeyDown={handleKeyDown} onBlur={handleBlur}>
+    <div ref={menuRef} className="card-menu" onKeyDown={handleKeyDown} onBlur={handleBlur}>
       <button
         ref={buttonRef}
         type="button"

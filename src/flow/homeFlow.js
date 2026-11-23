@@ -115,9 +115,14 @@ export const focusAfterRemove = (ids, removedId) => {
   return id === undefined ? { target: FOCUS.newProject } : { target: FOCUS.card, id }
 }
 
-/** True when every problem is the store's, so the input was fine and the browser refused it. */
-export const isStoreRefusal = (problems) =>
-  problems.length > 0 && problems.every(({ code }) => code.startsWith('STORE_'))
+/**
+ * True when the store refused the action: a write it could not make or a stored file it could not
+ * open (STORE_FILE_INVALID leads that file's own problems). Otherwise the input was refused.
+ */
+export const isStoreRefusal = (problems) => problems[0]?.code.startsWith('STORE_') === true
+
+/** True when the stored file could not be opened, so the list is stale and its card must change. */
+export const isUnopenable = (problems) => problems[0]?.code === 'STORE_FILE_INVALID'
 
 /** What a card action that worked announces, such as "Duplicated Checkout". */
 export const actionAnnouncement = (verb, name) => `${verb} ${name}`

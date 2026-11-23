@@ -54,10 +54,12 @@ export default function HomePage({
   const { list, sort, dialog, actionProblems, focus } = state
   useEffect(() => {
     if (!focus) return
+    // A card that is not shown (a newer list replaced the one the action reloaded) hands focus to
+    // New project rather than dropping it.
     const element =
       focus.target === FOCUS.newProject
         ? newProjectRef.current
-        : markedElement(bodyRef.current, focus)
+        : (markedElement(bodyRef.current, focus) ?? newProjectRef.current)
     element?.focus()
   }, [focus])
   const isLoading = list.status === LIST_STATUS.loading

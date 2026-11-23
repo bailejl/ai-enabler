@@ -5,6 +5,7 @@ import {
   actionAnnouncement,
   focusAfterRemove,
   isStoreRefusal,
+  isUnopenable,
   reduceHome,
 } from '../flow/homeFlow.js'
 import { projectHref } from '../flow/homepageView.js'
@@ -62,10 +63,14 @@ export const useHomepage = ({ announce }) => {
       pending.current = false
     }
   }, [])
-  // A refused card action: its problems show under "Storage problems" and focus returns to it.
+  // A refused card action: its problems show under "Storage problems" and focus returns to it. A
+  // file found unopenable since the list loaded reloads it, so its card offers only repairs.
   const failed = useCallback(
-    (id, problems) => dispatch({ type: HOME_EVENT.actionFailed, id, problems }),
-    [dispatch],
+    async (id, problems) => {
+      if (isUnopenable(problems)) await reload()
+      dispatch({ type: HOME_EVENT.actionFailed, id, problems })
+    },
+    [dispatch, reload],
   )
 
   const setSort = useCallback(

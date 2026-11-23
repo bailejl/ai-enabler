@@ -324,6 +324,15 @@ test.describe('card actions', () => {
     await expect(button).toHaveAttribute('aria-expanded', 'false')
   })
 
+  test('a press outside closes the card menu', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await menuButton(page, 'Checkout').click()
+    await expect(menuButton(page, 'Checkout')).toHaveAttribute('aria-expanded', 'true')
+    await page.getByRole('heading', { level: 1 }).click()
+    await expect(menuButton(page, 'Checkout')).toHaveAttribute('aria-expanded', 'false')
+  })
+
   test('renaming from a card', async ({ page, diagnostics }) => {
     diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
     await openHomeWith(page, CHECKOUT)
@@ -450,8 +459,15 @@ test.describe('card actions', () => {
     })
   }
 
-  test('a project that cannot be opened offers only repair actions', async ({ page }) => {
+  test('a project that cannot be opened offers only repair actions', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_FILE_INVALID', 'STEP_POSITION_MISSING'])
     await seedBroken(page)
+    await page.goto('/#/projects/broken')
+    await expect(page.getByRole('heading', { level: 1, name: "Can't open Broken" })).toBeVisible()
+    await page.goto('/#/')
     await menuButton(page, 'Broken').click()
     await expect(cardFor(page, 'Broken').getByRole('listitem')).toHaveText(['Export', 'Delete'])
   })

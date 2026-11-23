@@ -30,8 +30,12 @@ export const createProjectLibrary = (
    */
   const open = async (id) => {
     const read = await store.read(id)
-    if (!read.ok) return read
-    const imported = await parseImport(read.text)
+    return read.ok ? openText(id, read.text) : read
+  }
+
+  // Opens text already read from the store as project `id`; see `open`.
+  const openText = async (id, text) => {
+    const imported = await parseImport(text)
     if (imported.ok) return { ok: true, problems: [], project: toMemoryProject(imported.file) }
     const name = (await entryFor(id))?.name
     return {
@@ -96,7 +100,8 @@ export const createProjectLibrary = (
   const exportFile = async (id) => {
     const read = await store.read(id)
     if (!read.ok) return read
-    const opened = await open(id)
+    // The text read once decides both what opens and what downloads.
+    const opened = await openText(id, read.text)
     if (!opened.ok) {
       const name = opened.name ?? ''
       return { ok: true, problems: [], fileName: projectFileName(name), text: read.text }

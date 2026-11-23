@@ -9,6 +9,7 @@ import {
   focusAfterRemove,
   isEmptyList,
   isStoreRefusal,
+  isUnopenable,
   reduceHome,
 } from './homeFlow.js'
 import { SORT } from './projectStore.js'
@@ -180,13 +181,20 @@ describe('focusAfterRemove', () => {
 })
 
 describe('isStoreRefusal', () => {
-  it('is true only when every problem comes from the store', () => {
+  it('is true when the store leads the problems', () => {
     expect(isStoreRefusal([{ code: 'STORE_WRITE_FAILED' }])).toBe(true)
-    expect(isStoreRefusal([{ code: 'FILE_PROJECT_NAME_EMPTY' }])).toBe(false)
     expect(
       isStoreRefusal([{ code: 'STORE_FILE_INVALID' }, { code: 'STEP_POSITION_MISSING' }]),
-    ).toBe(false)
+    ).toBe(true)
+    expect(isStoreRefusal([{ code: 'FILE_PROJECT_NAME_EMPTY' }])).toBe(false)
     expect(isStoreRefusal([])).toBe(false)
+  })
+
+  it('tells a file that cannot be opened from a failed write', () => {
+    expect(isUnopenable([{ code: 'STORE_FILE_INVALID' }, { code: 'STEP_POSITION_MISSING' }])).toBe(
+      true,
+    )
+    expect(isUnopenable([{ code: 'STORE_WRITE_FAILED' }])).toBe(false)
   })
 })
 
