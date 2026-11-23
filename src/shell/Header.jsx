@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-const APP_NAME = 'AI Enabler'
+export const APP_NAME = 'AI Enabler'
 const IMPORT_ACCEPT = '.json,application/json'
 
 export const toDocumentTitle = (projectName) => `${projectName} · ${APP_NAME}`

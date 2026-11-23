@@ -3,7 +3,8 @@ import { useEffect, useId, useRef } from 'react'
 // Not a live region: the Announcer speaks every rejection, this only keeps it visible. With
 // `takesFocus` the heading takes focus each time `view` is a new rejection, so the list is read
 // where the user lands. `view` comes from toProblemsView. `label` names the panel's region, which
-// is how two panels shown at once are told apart; `ref` is the panel's element.
+// is how two panels shown at once are told apart; `ref` is the panel's element. Without
+// `onDismiss` the panel has no Dismiss button, for problems the page itself is about.
 export default function ProblemsPanel({
   view,
   label,
@@ -42,9 +43,11 @@ export default function ProblemsPanel({
         </ul>
         {view.more && <p className="problems-panel__more">{view.more}</p>}
       </div>
-      <button type="button" className="button" onClick={onDismiss}>
-        Dismiss
-      </button>
+      {onDismiss && (
+        <button type="button" className="button" onClick={onDismiss}>
+          Dismiss
+        </button>
+      )}
     </section>
   )
 }

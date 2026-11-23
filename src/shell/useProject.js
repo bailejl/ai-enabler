@@ -8,7 +8,6 @@ import {
   reduceImport,
 } from '../flow/importFlow.js'
 import { parseImport, unreadableImport } from '../flow/importFile.js'
-import { createStarterMemoryProject } from '../flow/project.js'
 import {
   projectFileName,
   serializeProjectFile,
@@ -90,8 +89,17 @@ const useImportFlow = ({ projectRef, applyReplacement, announce, returnFocusRef 
 
 // The one in-memory project (`{ project, nodes, edges }`) and the canvas drawn from it. Export,
 // the metrics and the canvas all read it; the canvas edits and import's replacement write it.
-export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
-  const [project, setProject] = useState(createStarterMemoryProject)
+// `initial` is the project as opened from the store. `saveProject` (from the store) saves the
+// project after every accepted change, the canvas edits' and import's; a save is not awaited, and
+// one that fails is announced as "Not saved. <message>".
+export const useProject = ({
+  initial,
+  saveProject,
+  announce,
+  importButtonRef,
+  canvasElementRef,
+}) => {
+  const [project, setProject] = useState(initial)
   // The newest project, written only where the project is set, so a handler never reads one it
   // captured at render time.
   const latestProject = useRef(project)
@@ -99,12 +107,20 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
     latestProject.current = next
     setProject(next)
   }, [])
+  const onAccepted = useCallback(
+    async (next) => {
+      const saved = await saveProject(next)
+      if (!saved.ok) announce(`Not saved. ${saved.problems[0].message}`)
+    },
+    [saveProject, announce],
+  )
   const canvasEdits = useCanvasEdits({
     initialProject: project,
     projectRef: latestProject,
     commitProject,
     canvasElementRef,
     announce,
+    onAccepted,
   })
   // `replaceProject` serves import alone, so it stays out of what the hook returns.
   const { replaceProject, ...editActions } = canvasEdits
@@ -114,9 +130,10 @@ export const useProject = ({ announce, importButtonRef, canvasElementRef }) => {
   const applyReplacement = useCallback(
     (replacement) => {
       replaceProject(replacement)
+      onAccepted(replacement)
       setFitRequestCount((count) => count + 1)
     },
-    [replaceProject],
+    [replaceProject, onAccepted],
   )
   useEffect(() => {
     if (fitRequestCount > 0) fitView()

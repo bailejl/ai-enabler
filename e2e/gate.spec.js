@@ -155,6 +155,7 @@ test.describe('the diagnostics gate passes', () => {
 test.describe('the diagnostics gate reports', () => {
   test('an unexpected record with its severity and fix line', async ({ context }) => {
     const { page, ledger } = await spareGatePage(context)
+    await openStarterProject(page)
 
     await chooseFile(page, asUpload(NOT_JSON))
     await expect.poll(() => ledger.messages.length).toBeGreaterThan(0)

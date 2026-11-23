@@ -1,15 +1,7 @@
 import { test, expect } from './fixtures.js'
 import { scan } from './axe.js'
 import { cards } from './canvas.js'
-import { databaseNames, readIndex, readStored } from './store.js'
-import {
-  fixtureRecord,
-  openAllHelpSections,
-  openStarterProject,
-  STARTER_FIXTURE,
-  STARTER_ID,
-  STARTER_STEP_COUNT,
-} from './views.js'
+import { openAllHelpSections, openStarterProject, STARTER_STEP_COUNT } from './views.js'
 
 const PROJECT_NAME = 'Untitled Project'
 const LONG_PROJECT_NAME_LENGTH = 100
@@ -53,29 +45,6 @@ test('a long project name truncates without hiding the brand', async ({ page }) 
   const isTruncated = await projectName.evaluate((e) => e.scrollWidth > e.clientWidth)
   expect(isTruncated).toBe(true)
   await expect(page.getByText('AI Enabler', { exact: true })).toBeVisible()
-})
-
-test('reloading after deleting Idea restores six steps and stores only the seeded project', async ({
-  page,
-}) => {
-  await openStarterProject(page)
-  const steps = cards(page)
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT)
-  await steps.filter({ hasText: 'Idea' }).click()
-  await page.keyboard.press('Backspace')
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT - 1)
-
-  await page.reload()
-
-  await expect(steps).toHaveCount(STARTER_STEP_COUNT)
-  const storage = await page.evaluate(() => ({
-    local: localStorage.length,
-    session: sessionStorage.length,
-  }))
-  expect(storage).toEqual({ local: 0, session: 0 })
-  await expect.poll(() => databaseNames(page)).toEqual(['ai-enabler'])
-  expect((await readIndex(page)).map(({ id }) => id)).toEqual([STARTER_ID])
-  expect(await readStored(page, STARTER_ID)).toBe(fixtureRecord(STARTER_FIXTURE).text)
 })
 
 test('the default view has no accessibility violations', async ({ page }) => {

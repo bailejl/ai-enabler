@@ -5,6 +5,8 @@
 
 import { format } from 'node:util'
 import { checkDiagnostics } from './flow/diagnostics/gate.js'
+import { initialEdges, initialNodes } from './flow/initialFlow.js'
+import { toMemoryProject } from './flow/projectFile.js'
 
 let entries = []
 let expected = []
@@ -31,3 +33,23 @@ export const finishCapture = () => checkDiagnostics({ entries, expected })
 /** The text of every console call captured so far in this test at `level` (`error`, `warn`, ...). */
 export const capturedConsoleCalls = (level) =>
   entries.filter((entry) => entry.level === level).map((entry) => entry.text)
+
+// The starter map, for tests that need a full project. The app itself starts from the store.
+
+export const DEFAULT_PROJECT_NAME = 'Untitled Project'
+
+export const createStarterProject = ({ newId = () => crypto.randomUUID() } = {}) => ({
+  id: newId(),
+  name: DEFAULT_PROJECT_NAME,
+})
+
+/**
+ * The starter map as an in-memory project (`{ project, nodes, edges }`), cut to the fields a
+ * project file carries: runtime fields such as `ariaLabel` are left to the canvas.
+ */
+export const createStarterMemoryProject = ({ newId } = {}) =>
+  toMemoryProject({
+    project: createStarterProject({ newId }),
+    nodes: initialNodes,
+    edges: initialEdges,
+  })

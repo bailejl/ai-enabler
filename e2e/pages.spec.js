@@ -10,7 +10,13 @@ import {
   waitForRecords,
   recordsIn,
 } from './console.js'
-import { asUpload, chooseFile, expectHash, expectStarterSteps } from './views.js'
+import {
+  asUpload,
+  chooseFile,
+  expectHash,
+  expectStarterSteps,
+  openStarterProject,
+} from './views.js'
 
 // Runs in the "pages" project, against the production build served under the Pages base.
 
@@ -35,7 +41,7 @@ test('every asset of the initial load is served under the Pages base', async ({ 
     if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`)
   })
 
-  await page.goto(`${PAGES_BASE}#/`)
+  await openStarterProject(page, { base: PAGES_BASE })
   // The cards render only after the script runs. The listeners above catch a failed or 4xx
   // stylesheet.
   await expectStarterSteps(page)
@@ -49,13 +55,13 @@ test('every asset of the initial load is served under the Pages base', async ({ 
 
 test('a bare base-path load is normalized and keeps the base path', async ({ page }) => {
   await page.goto(PAGES_BASE)
-  await expectStarterSteps(page)
+  await expect(page.getByRole('heading', { level: 1, name: 'AI Enabler' })).toBeVisible()
   expect(await currentPath(page)).toBe(PAGES_BASE)
   await expectHash(page, '#/')
 })
 
 test('a project deep link loads directly and after a refresh under the base', async ({ page }) => {
-  await page.goto(`${PAGES_BASE}#/projects/abc`)
+  await openStarterProject(page, { base: PAGES_BASE, id: 'abc' })
   await page.reload()
   await expectStarterSteps(page)
   expect(await currentPath(page)).toBe(PAGES_BASE)
@@ -69,7 +75,7 @@ test('a rejected import writes a FILE_NOT_JSON record with build "prod"', async 
 }) => {
   const { messages } = capture
   diagnostics.expect(['FILE_NOT_JSON'])
-  await page.goto(`${PAGES_BASE}#/`)
+  await openStarterProject(page, { base: PAGES_BASE })
   await expectStarterSteps(page)
 
   await chooseFile(page, asUpload('this is not json'))
@@ -95,7 +101,7 @@ const loadAndReadScripts = async (page, request) => {
     if (found.resourceType() === 'script') scriptUrls.add(found.url())
   })
 
-  await page.goto(`${PAGES_BASE}#/`)
+  await openStarterProject(page, { base: PAGES_BASE })
   await expectStarterSteps(page)
 
   expect(scriptUrls.size).toBeGreaterThan(0)
@@ -114,7 +120,7 @@ test('no served JavaScript asset contains the dev crash event name', async ({ pa
 
 test('the dev crash event does nothing in production', async ({ page, capture }) => {
   const { messages } = capture
-  await page.goto(`${PAGES_BASE}#/`)
+  await openStarterProject(page, { base: PAGES_BASE })
   await expectStarterSteps(page)
 
   await page.evaluate(
@@ -143,7 +149,7 @@ test('no served JavaScript asset contains the dev command event name or ready at
 
 test('the dev command event does nothing in production', async ({ page, capture }) => {
   const { messages } = capture
-  await page.goto(`${PAGES_BASE}#/`)
+  await openStarterProject(page, { base: PAGES_BASE })
   await expectStarterSteps(page)
 
   await page.evaluate(

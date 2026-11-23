@@ -6,9 +6,14 @@ import {
   MarkerType,
   MiniMap,
 } from '@xyflow/react'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import '@xyflow/react/dist/style.css'
-import Header from './shell/Header.jsx'
+import Header, { APP_NAME } from './shell/Header.jsx'
+import ProjectMissing from './shell/ProjectMissing.jsx'
+import { ROUTE } from './shell/routes.js'
+import { OPENING, useStoredProject } from './shell/useStoredProject.js'
+import { OPEN_OUTCOME } from './flow/projectLibrary.js'
+import { storeProblemsOf } from './flow/storeStatus.js'
 import Announcer from './shell/Announcer.jsx'
 import ConfirmDialog from './shell/ConfirmDialog.jsx'
 import DevCommandTrigger from './shell/DevCommandTrigger.jsx'
@@ -20,8 +25,9 @@ import { isValidConnection } from './flow/connections.js'
 import { IMPORT_CONFIRMING } from './flow/importFlow.js'
 import { STEP_TYPE } from './flow/step.js'
 import StepCard from './shell/StepCard.jsx'
-import { StoreProvider } from './shell/StoreProvider.jsx'
-import { tokens, toCssCustomProperties } from './shell/tokens.js'
+import StoreProblems from './shell/StoreProblems.jsx'
+import { StoreProvider, useStore } from './shell/StoreProvider.jsx'
+import { themeStyle, tokens } from './shell/tokens.js'
 import { useAnnouncer } from './shell/useAnnouncer.js'
 import { useProject } from './shell/useProject.js'
 import { useRoute } from './shell/useRoute.js'
@@ -30,13 +36,14 @@ import { useRoute } from './shell/useRoute.js'
 const nodeTypes = { [STEP_TYPE]: StepCard }
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: tokens.arrowhead } }
 const DELETE_KEYS = ['Delete', 'Backspace']
-const themeProperties = toCssCustomProperties(tokens)
+const themeProperties = themeStyle()
 const EDIT_PROBLEMS_LABEL = 'Edit problems'
-const EMPTY_MAP_MESSAGE =
-  'No steps on this map. Import a project, or reload to restore the starter map.'
+const EMPTY_MAP_MESSAGE = 'This map has no steps yet. Import a project file to fill it.'
 
-function Shell({ routeName }) {
+function Shell({ routeName, initial }) {
   const { message, announce } = useAnnouncer()
+  const { saveProject, storeStatus } = useStore()
+  const storeProblems = storeProblemsOf(storeStatus, initial.project.id)
   const importButtonRef = useRef(null)
   const canvasElementRef = useRef(null)
   const {
@@ -58,7 +65,7 @@ function Shell({ routeName }) {
     confirmImport,
     cancelImport,
     dismissImportError,
-  } = useProject({ announce, importButtonRef, canvasElementRef })
+  } = useProject({ initial, saveProject, announce, importButtonRef, canvasElementRef })
   const handleExport = useCallback(
     async () => announce(`Exported ${await exportProject()}`),
     [announce, exportProject],
@@ -75,6 +82,7 @@ function Shell({ routeName }) {
         importButtonRef={importButtonRef}
       />
       <ImportStatus state={importState} onDismiss={dismissImportError} />
+      <StoreProblems problems={storeProblems} />
       {editRejection && (
         <ProblemsPanel
           ref={editPanelRef}
@@ -125,13 +133,57 @@ function Shell({ routeName }) {
   )
 }
 
+// A status line with aria-busy while a page waits for the store.
+function Loading({ text, routeName }) {
+  useEffect(() => {
+    document.title = APP_NAME
+  }, [])
+  return (
+    <div className="page" style={themeProperties} data-route={routeName}>
+      <main className="page__body" aria-busy="true">
+        <p role="status">{text}</p>
+      </main>
+    </div>
+  )
+}
+
+// The page at a project link, keyed by id by its caller, so moving between projects never reuses
+// a canvas.
+function ProjectRoute({ id }) {
+  const outcome = useStoredProject(id)
+  if (outcome.type === OPENING.type)
+    return <Loading text="Opening project…" routeName={ROUTE.PROJECT} />
+  if (outcome.type !== OPEN_OUTCOME.found) return <ProjectMissing outcome={outcome} />
+  return (
+    <ReactFlowProvider>
+      <Shell routeName={ROUTE.PROJECT} initial={outcome.project} />
+    </ReactFlowProvider>
+  )
+}
+
+// Until the homepage lands: the home route's heading and nothing else. The heading takes focus.
+function HomeRoute() {
+  const headingRef = useRef(null)
+  useEffect(() => {
+    document.title = APP_NAME
+    headingRef.current?.focus()
+  }, [])
+  return (
+    <div className="page" style={themeProperties} data-route={ROUTE.HOME}>
+      <main className="page__body">
+        <h1 ref={headingRef} tabIndex={-1} className="page__heading">
+          {APP_NAME}
+        </h1>
+      </main>
+    </div>
+  )
+}
+
 export default function App() {
   const route = useRoute()
   return (
     <StoreProvider>
-      <ReactFlowProvider>
-        <Shell routeName={route.name} />
-      </ReactFlowProvider>
+      {route.name === ROUTE.PROJECT ? <ProjectRoute key={route.id} id={route.id} /> : <HomeRoute />}
     </StoreProvider>
   )
 }

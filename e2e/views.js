@@ -2,15 +2,16 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect } from '@playwright/test'
 import { STEP_TYPE } from '../src/flow/step.js'
+import { DEV_COMMAND_EVENT, DEV_COMMAND_READY_ATTRIBUTE } from '../src/shell/devCommand.js'
 import { cards } from './canvas.js'
 import { seedProjects } from './store.js'
+import { serializeProjectFile, withContentHash } from '../src/flow/projectFile.js'
 
 const FIXTURES_DIR = path.join(import.meta.dirname, 'fixtures')
 const HELP_SECTION_COUNT = 3
 
 export const STARTER_STEP_COUNT = 6
-export const EMPTY_MAP_MESSAGE =
-  'No steps on this map. Import a project, or reload to restore the starter map.'
+export const EMPTY_MAP_MESSAGE = 'This map has no steps yet. Import a project file to fill it.'
 
 export const fixturePath = (name) => path.join(FIXTURES_DIR, name)
 export const readFixture = (name) => JSON.parse(readFileSync(fixturePath(name), 'utf8'))
@@ -34,14 +35,33 @@ export const fixtureRecord = (fixture, modifiedAt = STARTER_MODIFIED_AT) => {
   return { id, name, modifiedAt, text }
 }
 
+/** A project file without its contentHash. */
+export const withoutHash = (file) =>
+  Object.fromEntries(Object.entries(file).filter(([key]) => key !== 'contentHash'))
+
+/** The starter fixture saved under project id `id`, its hash recomputed so it reads as unedited. */
+export const starterRecordAs = async (id) => {
+  const file = JSON.parse(fixtureRecord(STARTER_FIXTURE).text)
+  const rest = withoutHash(file)
+  const moved = await withContentHash({ ...rest, project: { ...rest.project, id } })
+  return {
+    id,
+    name: moved.project.name,
+    modifiedAt: STARTER_MODIFIED_AT,
+    text: serializeProjectFile(moved),
+  }
+}
+
 /**
- * Seeds the starter project and opens its link. `base` is the app's path: `/` on the dev server,
- * the Pages base on the preview.
+ * Seeds the starter project, under `id`, and opens its link. `base` is the app's path: `/` on the
+ * dev server, the Pages base on the preview.
  */
-export const openStarterProject = async (page, base = '/') => {
+export const openStarterProject = async (page, { base = '/', id = STARTER_ID } = {}) => {
   await page.goto(`${base}#/`)
-  await seedProjects(page, [fixtureRecord(STARTER_FIXTURE)])
-  await page.goto(`${base}#/projects/${STARTER_ID}`)
+  await seedProjects(page, [
+    id === STARTER_ID ? fixtureRecord(STARTER_FIXTURE) : await starterRecordAs(id),
+  ])
+  await page.goto(`${base}#/projects/${encodeURIComponent(id)}`)
 }
 
 export const openStarterView = async (page) => {
@@ -105,7 +125,17 @@ export const deleteAllSteps = async (page) => {
 export const waitForDevHook = (page, readyAttribute) =>
   page.locator(`html[${readyAttribute}]`).waitFor({ state: 'attached' })
 
-export const appShell = (page) => page.locator('.shell')
+// Sends `commands` as one canvas edit through the dev-only command event (dev server only).
+export const sendEdit = async (page, commands) => {
+  await waitForDevHook(page, DEV_COMMAND_READY_ATTRIBUTE)
+  await page.evaluate(
+    ([eventName, detail]) => window.dispatchEvent(new CustomEvent(eventName, { detail })),
+    [DEV_COMMAND_EVENT, { commands }],
+  )
+}
+
+// The page of the route shown: the project shell, the homepage or a page with no map.
+export const appShell = (page) => page.locator('[data-route]')
 const currentHash = (page) => page.evaluate(() => window.location.hash)
 // Polls, because the app rewrites a non-canonical hash in an effect after the first render.
 export const expectHash = (page, hash) => expect.poll(() => currentHash(page)).toBe(hash)

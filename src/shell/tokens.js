@@ -27,6 +27,9 @@ export const tokens = {
 
 const toKebabCase = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
 
+/** The theme as CSS custom properties, for the style of each page's root element. */
+export const themeStyle = () => toCssCustomProperties(tokens)
+
 export const toCssCustomProperties = (colorTokens) =>
   Object.fromEntries(
     Object.entries(colorTokens).map(([name, value]) => [`--${toKebabCase(name)}`, value]),

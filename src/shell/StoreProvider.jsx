@@ -1,6 +1,15 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from 'react'
 import { createProjectLibrary, observeLibrary } from '../flow/projectLibrary.js'
 import { createProjectStore } from '../flow/projectStore.js'
+import { INITIAL_STORE_STATUS, reduceStoreStatus, toStoreStatusEvent } from '../flow/storeStatus.js'
 import { report } from './diagnostics.js'
 import { openStoreAdapter, requestDurableStorage } from './storeAdapter.js'
 
@@ -8,7 +17,11 @@ export const STORE_STATUS = Object.freeze({ opening: 'opening', ready: 'ready' }
 
 const OPENING = Object.freeze({ status: STORE_STATUS.opening, library: null, persistent: true })
 
-const StoreContext = createContext(OPENING)
+const StoreContext = createContext({
+  ...OPENING,
+  storeStatus: INITIAL_STORE_STATUS,
+  saveProject: async () => ({ ok: true, problems: [] }),
+})
 
 // The library the app uses: each failed call reports its problems once, where the call is made,
 // and the first save that works asks for durable storage, once.
@@ -33,9 +46,14 @@ const openStoreOnce = () => {
   return ready.promise
 }
 
-/** The browser project store for the app: `{ status, library, persistent }`. */
+/**
+ * The browser project store for the app: `{ status, library, persistent, storeStatus,
+ * saveProject }`. `saveProject(memoryProject)` saves through the library and keeps
+ * `storeStatus` (see storeStatus.js); it resolves to the save's result and never rejects.
+ */
 export function StoreProvider({ children }) {
   const [store, setStore] = useState(OPENING)
+  const [storeStatus, dispatchStoreStatus] = useReducer(reduceStoreStatus, INITIAL_STORE_STATUS)
   useEffect(() => {
     const live = { current: true }
     openStoreOnce().then((opened) => {
@@ -45,7 +63,20 @@ export function StoreProvider({ children }) {
       live.current = false
     }
   }, [])
-  return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
+  const { library } = store
+  const saveProject = useCallback(
+    async (memoryProject) => {
+      const saved = await library.save(memoryProject)
+      dispatchStoreStatus(toStoreStatusEvent(memoryProject.project.id, saved))
+      return saved
+    },
+    [library],
+  )
+  const value = useMemo(
+    () => ({ ...store, storeStatus, saveProject }),
+    [store, storeStatus, saveProject],
+  )
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
 export const useStore = () => useContext(StoreContext)

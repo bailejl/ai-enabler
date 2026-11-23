@@ -39,6 +39,25 @@ export const createProjectLibrary = (store) => {
   return { open, save }
 }
 
+export const OPEN_OUTCOME = Object.freeze({
+  found: 'found',
+  missing: 'missing',
+  unopenable: 'unopenable',
+})
+
+/**
+ * What a project link shows for an `open` result: `{ type: 'found', project }`,
+ * `{ type: 'missing', problems }` for an id that is not stored, or `{ type: 'unopenable', name,
+ * problems }` for a stored file that cannot be opened or a store that cannot be read.
+ */
+export const toOpenOutcome = (opened) => {
+  if (opened.ok) return { type: OPEN_OUTCOME.found, project: opened.project }
+  if (opened.problems[0]?.code === 'STORE_PROJECT_NOT_FOUND') {
+    return { type: OPEN_OUTCOME.missing, problems: opened.problems }
+  }
+  return { type: OPEN_OUTCOME.unopenable, name: opened.name ?? null, problems: opened.problems }
+}
+
 /**
  * Wraps a library so each failed call hands its problems to `onProblems` once, where the call is
  * made, and the first save that works calls `onFirstSave`, once.

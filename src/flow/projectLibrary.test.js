@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createMemoryStoreAdapter } from './memoryStoreAdapter.js'
-import { createProjectLibrary, observeLibrary } from './projectLibrary.js'
+import {
+  OPEN_OUTCOME,
+  createProjectLibrary,
+  observeLibrary,
+  toOpenOutcome,
+} from './projectLibrary.js'
 import { createProjectStore } from './projectStore.js'
 import oldFile from './schema/fixtures/0.0.0.json?raw'
 
@@ -71,6 +76,45 @@ describe('project library open', () => {
   it('reports text that is not JSON as a file that cannot be opened', async () => {
     const { library } = await libraryWith([['x', 'Garbled', 'not json']])
     expect(codes(await library.open('x'))).toEqual(['STORE_FILE_INVALID', 'FILE_NOT_JSON'])
+  })
+})
+
+describe('toOpenOutcome', () => {
+  it('is found with the project for an open that worked', async () => {
+    const { library } = await libraryWith()
+    await library.save(memoryProject('p1', 'Checkout'))
+    expect(toOpenOutcome(await library.open('p1'))).toEqual({
+      type: OPEN_OUTCOME.found,
+      project: memoryProject('p1', 'Checkout'),
+    })
+  })
+
+  it('is missing for an id that is not stored', async () => {
+    const { library } = await libraryWith()
+    const outcome = toOpenOutcome(await library.open('nope'))
+    expect(outcome.type).toBe(OPEN_OUTCOME.missing)
+    expect(codes(outcome)).toEqual(['STORE_PROJECT_NOT_FOUND'])
+  })
+
+  it('is unopenable with the stored name for a file that cannot be opened', async () => {
+    const { library } = await libraryWith([['x', 'Garbled', 'not json']])
+    const outcome = toOpenOutcome(await library.open('x'))
+    expect(outcome).toMatchObject({ type: OPEN_OUTCOME.unopenable, name: 'Garbled' })
+    expect(codes(outcome)).toEqual(['STORE_FILE_INVALID', 'FILE_NOT_JSON'])
+  })
+
+  it('is unopenable with no name when the store cannot be read', async () => {
+    const adapter = createMemoryStoreAdapter()
+    const failing = {
+      ...adapter,
+      getFile: async () => {
+        throw new Error('gone')
+      },
+    }
+    const library = createProjectLibrary(createProjectStore(failing))
+    const outcome = toOpenOutcome(await library.open('p1'))
+    expect(outcome).toMatchObject({ type: OPEN_OUTCOME.unopenable, name: null })
+    expect(codes(outcome)).toEqual(['STORE_UNAVAILABLE'])
   })
 })
 

@@ -40,9 +40,10 @@ body,
 .shell {
   display: grid;
   grid-template-columns: var(--menu-width) minmax(0, 1fr);
-  grid-template-rows: var(--header-height) auto auto auto minmax(0, 1fr);
+  grid-template-rows: var(--header-height) auto auto auto auto minmax(0, 1fr);
   grid-template-areas:
     'header header'
+    'store store'
     'status status'
     'edits edits'
     'menu metrics'
@@ -50,6 +51,32 @@ body,
   height: 100%;
   background: var(--page-background);
   font-family: system-ui, sans-serif;
+}
+
+/* A page with no map: a project link that shows none, or the homepage. */
+.page {
+  min-height: 100%;
+  background: var(--page-background);
+  color: var(--tile-text);
+  font-family: system-ui, sans-serif;
+}
+
+.page__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--header-gap);
+  max-width: 48rem;
+  padding: var(--status-padding);
+}
+
+.page__heading {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.page__heading:focus {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* React Flow's stylesheet removes the outline from nodes and edges (specificity 0,3,0). */
@@ -157,6 +184,10 @@ body,
 
 .edit-status {
   grid-area: edits;
+}
+
+.store-status {
+  grid-area: store;
 }
 
 .import-status,
@@ -298,12 +329,13 @@ body,
 @media (max-width: 639px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--header-height) auto auto auto auto minmax(
+    grid-template-rows: var(--header-height) auto auto auto auto auto minmax(
         var(--canvas-min-height),
         1fr
       );
     grid-template-areas:
       'header'
+      'store'
       'status'
       'edits'
       'menu'

@@ -10,7 +10,7 @@ import {
 } from './projectFile.js'
 import { validateProjectFile } from './schema/validate.js'
 import { CURRENT_SCHEMA_VERSION } from './schema/version.js'
-import { createStarterProject } from './project.js'
+import { createStarterProject } from '../testHelpers.js'
 import { initialNodes, initialEdges } from './initialFlow.js'
 
 const markedFixtureText = import.meta.glob('./schema/fixtures/0.1.0-marked.json', {
