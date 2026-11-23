@@ -103,12 +103,18 @@ function Shell({ routeName, initial }) {
       {importState.type === IMPORT_CONFIRMING && (
         <ConfirmDialog
           message={importState.message}
-          currentName={importState.currentName}
-          incomingName={importState.incomingName}
-          notices={importState.notices}
+          confirmText="Replace map"
           onConfirm={confirmImport}
           onCancel={cancelImport}
-        />
+        >
+          <p>
+            Current project: <strong>{importState.currentName}</strong>. Incoming project:{' '}
+            <strong>{importState.incomingName}</strong>.
+          </p>
+          {importState.notices.map((notice) => (
+            <p key={notice}>{notice}</p>
+          ))}
+        </ConfirmDialog>
       )}
       {import.meta.env.DEV && <DevCommandTrigger onCommands={applyEdit} />}
       <HelpMenu />
@@ -171,14 +177,22 @@ function ProjectRoute({ id }) {
 }
 
 function HomeRoute() {
-  const { state, setSort, openCreate, cancelCreate, create } = useHomepage()
+  const { message, announce } = useAnnouncer()
+  const home = useHomepage({ announce })
   return (
     <HomePage
-      state={state}
-      onSortChange={setSort}
-      onOpenCreate={openCreate}
-      onCancelCreate={cancelCreate}
-      onCreate={create}
+      state={home.state}
+      message={message}
+      onSortChange={home.setSort}
+      onOpenCreate={home.openCreate}
+      onOpenRename={home.openRename}
+      onOpenDelete={home.openDelete}
+      onCancelDialog={home.cancelDialog}
+      onCreate={home.create}
+      onRename={home.rename}
+      onDuplicate={home.duplicate}
+      onConfirmDelete={home.confirmDelete}
+      onExport={home.exportProject}
     />
   )
 }

@@ -1028,11 +1028,11 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 5
 
-- [ ] Slice 5: Card actions: rename, duplicate, delete, export
-  - [ ] Step 5.1: Card menu and rename
-  - [ ] Step 5.2: Duplicate
-  - [ ] Step 5.3: Delete with confirm and focus
-  - [ ] Step 5.4: Export from a card and unopenable menus
+- [x] Slice 5: Card actions: rename, duplicate, delete, export
+  - [x] Step 5.1: Card menu and rename
+  - [x] Step 5.2: Duplicate
+  - [x] Step 5.3: Delete with confirm and focus
+  - [x] Step 5.4: Export from a card and unopenable menus
 
 #### Wave 6
 

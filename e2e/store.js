@@ -77,21 +77,23 @@ export const databaseNames = (page) =>
 
 /**
  * For `page.addInitScript(abortFileWrites, filesStore)`: from then on the browser aborts a
- * transaction once its file text has been put, after the index entry, so the write fails halfway
- * and asynchronously. Setting `window.allowFileWrites = true` lets writes through again.
+ * transaction once its file text has been put or deleted, so the write fails halfway and
+ * asynchronously. Setting `window.allowFileWrites = true` lets writes through again.
  */
 export const abortFileWrites = (filesStore) => {
-  const original = IDBObjectStore.prototype.put
-  IDBObjectStore.prototype.put = function (...args) {
-    // A prototype patch learns the store the call was made on only from `this`.
-    // eslint-disable-next-line no-restricted-syntax
-    const store = this
-    const request = original.apply(store, args)
-    if (store.name === filesStore && !window.allowFileWrites) {
-      request.addEventListener('success', () => store.transaction.abort())
+  ;['put', 'delete'].forEach((method) => {
+    const original = IDBObjectStore.prototype[method]
+    IDBObjectStore.prototype[method] = function (...args) {
+      // A prototype patch learns the store the call was made on only from `this`.
+      // eslint-disable-next-line no-restricted-syntax
+      const store = this
+      const request = original.apply(store, args)
+      if (store.name === filesStore && !window.allowFileWrites) {
+        request.addEventListener('success', () => store.transaction.abort())
+      }
+      return request
     }
-    return request
-  }
+  })
 }
 
 export const FILES_STORE = STORE_LAYOUT.filesStore

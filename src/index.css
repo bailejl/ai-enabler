@@ -551,3 +551,26 @@ body,
   white-space: nowrap;
   border: 0;
 }
+
+.card-menu {
+  position: relative;
+  align-self: flex-start;
+}
+
+.card-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card-menu__list[hidden] {
+  display: none;
+}
+
+.card-menu__item {
+  width: 100%;
+  text-align: start;
+}

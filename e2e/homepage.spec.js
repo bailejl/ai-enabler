@@ -1,13 +1,65 @@
 import { test, expect } from './fixtures.js'
+import { problem } from '../src/flow/diagnostics/problem.js'
+import { withContentHash } from '../src/flow/projectFile.js'
 import { scan } from './axe.js'
-import { FILES_STORE, abortFileWrites, readIndex, seedProjects } from './store.js'
-import { openStarterProject, starterRecordAs } from './views.js'
+import { flushConsole, recordsIn } from './console.js'
+import { FILES_STORE, abortFileWrites, readIndex, readStored, seedProjects } from './store.js'
+import {
+  EXPORT_BUTTON_NAME,
+  exportProjectFile,
+  openStarterProject,
+  readDownloadedJson,
+  starterRecordAs,
+  withoutHash,
+} from './views.js'
 
 test.use({ timezoneId: 'UTC' })
 
 const projectsRegion = (page) => page.getByRole('region', { name: 'Projects' })
-const cardItems = (page) => projectsRegion(page).getByRole('listitem')
+// The cards, not the items of an open card menu.
+const cardItems = (page) => projectsRegion(page).locator('.projects__list > li')
 const EMPTY_TEXT = 'No projects yet. Create one or import a project file.'
+const announcer = (page) => page.locator('[aria-live="polite"]')
+const storageProblems = (page) => page.getByRole('region', { name: 'Storage problems' })
+const menuButton = (page, name) => page.getByRole('button', { name: `More actions for ${name}` })
+const cardLink = (page, name) => page.getByRole('link', { name: `Open ${name}`, exact: true })
+const cardFor = (page, name) => cardItems(page).filter({ has: cardLink(page, name) })
+const cardNames = (page) => cardItems(page).getByRole('link')
+// Opens the card's menu and chooses `action`.
+const chooseAction = async (page, name, action) => {
+  await menuButton(page, name).click()
+  await cardFor(page, name).getByRole('button', { name: action, exact: true }).click()
+}
+const allowWrites = (page, allowed) =>
+  page.evaluate((value) => {
+    window.allowFileWrites = value
+  }, allowed)
+// The text of a download.
+const downloadedText = async (download) => {
+  const chunks = []
+  for await (const chunk of await download.createReadStream()) chunks.push(chunk)
+  return Buffer.concat(chunks).toString('utf8')
+}
+// A stored project whose file has a step with no position, so it cannot be opened.
+const BROKEN_FILE = {
+  schemaVersion: '0.1.0',
+  exportedAt: '2026-11-22T10:00:00.000Z',
+  project: { id: 'broken', name: 'Broken' },
+  nodes: [{ id: 's1', type: 'step', data: { label: 'Plan' } }],
+  edges: [],
+}
+const BROKEN_TEXT = `${JSON.stringify(BROKEN_FILE, null, 2)}\n`
+const BROKEN_RECORD = {
+  id: 'broken',
+  name: 'Broken',
+  modifiedAt: '2026-11-22T10:00:00.000Z',
+  text: BROKEN_TEXT,
+}
+const seedBroken = async (page) => {
+  await page.goto('/#/')
+  await seedProjects(page, [BROKEN_RECORD])
+  await page.reload()
+}
 
 // Seeds the starter saved as each `[id, name, modifiedAt]`, then opens the homepage.
 const openHomeWith = async (page, projects) => {
@@ -30,10 +82,12 @@ test('the homepage lists saved projects newest first, with their modified dates'
   ])
   await expect(page).toHaveTitle('AI Enabler')
   await expect(page.getByRole('heading', { level: 1, name: 'AI Enabler' })).toBeFocused()
-  await expect(cardItems(page)).toHaveText([
-    'BModified 22 Nov 2026, 10:00',
-    'AModified 21 Nov 2026, 09:00',
+  await expect(cardItems(page).getByRole('link')).toHaveText(['B', 'A'])
+  await expect(cardItems(page).locator('time')).toHaveText([
+    '22 Nov 2026, 10:00',
+    '21 Nov 2026, 09:00',
   ])
+  await expect(cardItems(page).first()).toContainText('Modified 22 Nov 2026, 10:00')
   await expect(cardItems(page).first().locator('time')).toHaveAttribute(
     'datetime',
     '2026-11-22T10:00:00.000Z',
@@ -213,5 +267,225 @@ test.describe('homepage accessibility', () => {
     await page.getByRole('button', { name: 'New project' }).click()
     await expect(page.getByRole('dialog', { name: 'New project' })).toBeVisible()
     expect(await scan(page)).toEqual([])
+  })
+
+  test('with a card menu open, and with the delete confirm open, there are no violations', async ({
+    page,
+    diagnostics,
+  }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, THREE)
+    await menuButton(page, 'Alpha').click()
+    await expect(cardFor(page, 'Alpha').getByRole('button', { name: 'Delete' })).toBeVisible()
+    expect(await scan(page)).toEqual([])
+    await cardFor(page, 'Alpha').getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    expect(await scan(page)).toEqual([])
+  })
+})
+
+test.describe('card actions', () => {
+  const CHECKOUT = [['p1', 'Checkout', '2026-11-22T10:00:00.000Z']]
+  // A, B and C, listed in that order (newest first).
+  const ABC = [
+    ['a', 'A', '2026-11-22T10:00:00.000Z'],
+    ['b', 'B', '2026-11-21T10:00:00.000Z'],
+    ['c', 'C', '2026-11-20T10:00:00.000Z'],
+  ]
+  const renameDialog = (page) => page.getByRole('dialog', { name: 'Rename project' })
+  const renameTo = async (page, from, to) => {
+    await chooseAction(page, from, 'Rename')
+    await renameDialog(page).getByLabel('Project name').fill(to)
+    await renameDialog(page).getByRole('button', { name: 'Save' }).click()
+  }
+  const deleteDialog = (page, name) =>
+    page.getByRole('dialog', { name: `Delete ${name}? This can't be undone.` })
+  const deleteAndConfirm = async (page, name) => {
+    await chooseAction(page, name, 'Delete')
+    await deleteDialog(page, name).getByRole('button', { name: 'Delete' }).click()
+  }
+
+  test('the card menu works by keyboard', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    const button = menuButton(page, 'Checkout')
+    await button.focus()
+    await page.keyboard.press('Enter')
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    await page.keyboard.press('Escape')
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    await expect(button).toBeFocused()
+    await page.keyboard.press('Enter')
+    for (const label of ['Rename', 'Duplicate', 'Export', 'Delete']) {
+      await page.keyboard.press('Tab')
+      await expect(page.getByRole('button', { name: label, exact: true })).toBeFocused()
+    }
+    await page.keyboard.press('Tab')
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('renaming from a card', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await chooseAction(page, 'Checkout', 'Rename')
+    await expect(renameDialog(page).getByLabel('Project name')).toHaveValue('Checkout')
+    await renameDialog(page).getByLabel('Project name').fill('Payments')
+    await renameDialog(page).getByRole('button', { name: 'Save' }).click()
+    await expect(cardNames(page)).toHaveText(['Payments'])
+    await expect(menuButton(page, 'Payments')).toBeFocused()
+    await cardLink(page, 'Payments').click()
+    await expect(page.getByRole('banner')).toContainText('Payments')
+  })
+
+  test('cancelling a rename changes nothing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await chooseAction(page, 'Checkout', 'Rename')
+    await renameDialog(page).getByRole('button', { name: 'Cancel' }).click()
+    await expect(renameDialog(page)).toHaveCount(0)
+    await expect(cardNames(page)).toHaveText(['Checkout'])
+    await expect(menuButton(page, 'Checkout')).toBeFocused()
+  })
+
+  test('renaming to a blank name is rejected', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND', 'FILE_PROJECT_NAME_EMPTY'])
+    await openHomeWith(page, CHECKOUT)
+    await renameTo(page, 'Checkout', '')
+    await expect(renameDialog(page)).toContainText(problem('FILE_PROJECT_NAME_EMPTY').message)
+    await expect(cardNames(page)).toHaveText(['Checkout'])
+  })
+
+  test('duplicating keeps the user on the homepage', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    await chooseAction(page, 'Checkout', 'Duplicate')
+    await expect(cardLink(page, 'Checkout (copy)')).toBeFocused()
+    await expect(announcer(page)).toHaveText('Duplicated Checkout')
+    await expect(page).toHaveURL(/#\/$/)
+    const copyId = (await readIndex(page)).find(({ name }) => name === 'Checkout (copy)').id
+    const source = JSON.parse(await readStored(page, 'p1'))
+    const copy = JSON.parse(await readStored(page, copyId))
+    const comparable = (file) => ({ ...withoutHash(file), project: null, exportedAt: null })
+    expect(comparable(copy)).toEqual(comparable(source))
+    expect(copy.project).toEqual({ id: copyId, name: 'Checkout (copy)' })
+    expect(copy.nodes).toHaveLength(6)
+    expect(copy.edges).toHaveLength(5)
+    // Its own hash, so the copy reads as unedited, not "changed outside AI Enabler".
+    expect((await withContentHash(withoutHash(copy))).contentHash).toBe(copy.contentHash)
+  })
+
+  test('duplicating a copy appends again', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, [['p1', 'Checkout (copy)', '2026-11-22T10:00:00.000Z']])
+    await chooseAction(page, 'Checkout (copy)', 'Duplicate')
+    await expect(cardLink(page, 'Checkout (copy) (copy)')).toBeVisible()
+  })
+
+  test('deleting asks first and moves focus to the next card', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, ABC)
+    await deleteAndConfirm(page, 'B')
+    await expect(cardNames(page)).toHaveText(['A', 'C'])
+    await expect(announcer(page)).toHaveText('Deleted B')
+    await expect(cardLink(page, 'C')).toBeFocused()
+  })
+
+  test('deleting the last card moves focus to the previous one', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, ABC.slice(0, 2))
+    await deleteAndConfirm(page, 'B')
+    await expect(cardLink(page, 'A')).toBeFocused()
+  })
+
+  test('deleting the only project moves focus to New project', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, ABC.slice(0, 1))
+    await deleteAndConfirm(page, 'A')
+    await expect(projectsRegion(page)).toContainText(EMPTY_TEXT)
+    await expect(page.getByRole('button', { name: 'New project' })).toBeFocused()
+  })
+
+  test('cancelling delete changes nothing', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, ABC.slice(0, 1))
+    await chooseAction(page, 'A', 'Delete')
+    await deleteDialog(page, 'A').getByRole('button', { name: 'Cancel' }).click()
+    await expect(deleteDialog(page, 'A')).toHaveCount(0)
+    await expect(cardNames(page)).toHaveText(['A'])
+    await expect(menuButton(page, 'A')).toBeFocused()
+    expect((await readIndex(page)).map(({ id }) => id)).toEqual(['a'])
+  })
+
+  const REFUSED = [
+    ['delete', (page) => deleteAndConfirm(page, 'A')],
+    ['duplicate', (page) => chooseAction(page, 'A', 'Duplicate')],
+    ['rename to "A2"', (page) => renameTo(page, 'A', 'A2')],
+  ]
+  for (const [action, run] of REFUSED) {
+    test(`a card action the browser refuses changes nothing: ${action}`, async ({
+      page,
+      capture,
+      diagnostics,
+    }) => {
+      diagnostics.expect(['STORE_WRITE_FAILED'])
+      await page.addInitScript(abortFileWrites, FILES_STORE)
+      await page.goto('/#/')
+      await allowWrites(page, true)
+      await seedProjects(page, [
+        await starterRecordAs('a', { name: 'A', modifiedAt: '2026-11-22T10:00:00.000Z' }),
+        await starterRecordAs('b', { name: 'B', modifiedAt: '2026-11-21T10:00:00.000Z' }),
+      ])
+      await page.reload()
+      await expect(cardNames(page)).toHaveText(['A', 'B'])
+      await run(page)
+      await expect(storageProblems(page)).toContainText(problem('STORE_WRITE_FAILED').message)
+      await expect(cardNames(page)).toHaveText(['A', 'B'])
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(announcer(page)).toHaveText('')
+      await flushConsole(page)
+      const failures = recordsIn(capture.messages).filter(
+        ({ record }) => record.code === 'STORE_WRITE_FAILED',
+      )
+      expect(failures).toHaveLength(1)
+    })
+  }
+
+  test('a project that cannot be opened offers only repair actions', async ({ page }) => {
+    await seedBroken(page)
+    await menuButton(page, 'Broken').click()
+    await expect(cardFor(page, 'Broken').getByRole('listitem')).toHaveText(['Export', 'Delete'])
+  })
+
+  test('a project that cannot be opened can still be deleted', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await seedBroken(page)
+    await deleteAndConfirm(page, 'Broken')
+    await expect(cardItems(page)).toHaveCount(0)
+    await page.goto('/#/projects/broken')
+    await expect(page.getByRole('heading', { level: 1, name: 'Project not found' })).toBeVisible()
+  })
+
+  test('exporting from a card matches exporting from the map', async ({ page, diagnostics }) => {
+    diagnostics.expect(['STORE_PROJECT_NOT_FOUND'])
+    await openHomeWith(page, CHECKOUT)
+    const downloadPromise = page.waitForEvent('download')
+    await chooseAction(page, 'Checkout', 'Export')
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('checkout.ai-enabler.json')
+    await expect(announcer(page)).toHaveText('Exported checkout.ai-enabler.json')
+    await expect(menuButton(page, 'Checkout')).toBeFocused()
+    const fromCard = await readDownloadedJson(download)
+    await cardLink(page, 'Checkout').click()
+    await expect(page.getByRole('button', { name: EXPORT_BUTTON_NAME })).toBeVisible()
+    const fromMap = await exportProjectFile(page)
+    const comparable = (file) => ({ ...withoutHash(file), exportedAt: null })
+    expect(comparable(fromCard)).toEqual(comparable(fromMap))
+  })
+
+  test('exporting a project that cannot be opened downloads it unchanged', async ({ page }) => {
+    await seedBroken(page)
+    const downloadPromise = page.waitForEvent('download')
+    await chooseAction(page, 'Broken', 'Export')
+    expect(await downloadedText(await downloadPromise)).toBe(BROKEN_TEXT)
   })
 })

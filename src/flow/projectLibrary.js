@@ -1,15 +1,21 @@
 import { applyCommand } from './commands/index.js'
 import { problem } from './diagnostics/problem.js'
 import { parseImport } from './importFile.js'
-import { toMemoryProject } from './projectFile.js'
+import { projectFileName, toExportDownload, toMemoryProject } from './projectFile.js'
+
+const COPY_SUFFIX = ' (copy)'
 
 /**
  * The library rules over a project store (see projectStore.js). Every call returns
  * `{ ok, problems, ... }` and never throws.
  * @param {ReturnType<typeof import('./projectStore.js').createProjectStore>} store
- * @param {{ newId?: () => string }} [options] newId is injected so ids are deterministic in tests.
+ * @param {{ newId?: () => string, now?: () => Date }} [options] injected so ids and export times
+ *   are deterministic in tests.
  */
-export const createProjectLibrary = (store, { newId = () => crypto.randomUUID() } = {}) => {
+export const createProjectLibrary = (
+  store,
+  { newId = () => crypto.randomUUID(), now = () => new Date() } = {},
+) => {
   // The index entry for `id`, for the name a page shows when the file cannot be opened.
   const entryFor = async (id) => {
     const listed = await store.list()
@@ -38,8 +44,65 @@ export const createProjectLibrary = (store, { newId = () => crypto.randomUUID() 
   /** Saves the in-memory project; see projectStore's `save`. */
   const save = (memoryProject) => store.save(memoryProject)
 
-  /** Every saved project's index entry; see projectStore's `list`. */
-  const list = (options) => store.list(options)
+  /**
+   * Every saved project's index entry, sorted as projectStore's `list`, each with `openable`:
+   * false when its stored file fails to open (STORE_FILE_INVALID), so its card offers only repairs.
+   * A file that cannot be read now counts as openable, so a passing store failure hides nothing.
+   */
+  const list = async (options) => {
+    const listed = await store.list(options)
+    if (!listed.ok) return listed
+    const projects = await Promise.all(
+      listed.projects.map(async (entry) => {
+        const read = await store.read(entry.id)
+        const openable = !read.ok || (await parseImport(read.text)).ok
+        return { ...entry, openable }
+      }),
+    )
+    return { ...listed, projects }
+  }
+
+  // Opens `id` and, when it opens, runs `change(project)` and saves the project it returns.
+  // A file that cannot be opened, a change that is refused or a failed write saves nothing.
+  const withOpenedProject = async (id, change) => {
+    const opened = await open(id)
+    if (!opened.ok) return opened
+    const changed = change(opened.project)
+    if (!changed.ok) return { ok: false, problems: changed.problems }
+    const saved = await store.save(changed.project)
+    return saved.ok ? { ok: true, problems: [], project: changed.project } : saved
+  }
+
+  /** Renames a stored project through `rename_project` and saves it. */
+  const rename = (id, name) =>
+    withOpenedProject(id, (project) =>
+      applyCommand(project, { name: 'rename_project', args: { name } }, { newId }),
+    )
+
+  /** Saves a copy of a stored project named "<name> (copy)" with a new id. */
+  const duplicate = (id) =>
+    withOpenedProject(id, ({ project, nodes, edges }) => ({
+      ok: true,
+      project: { project: { id: newId(), name: `${project.name}${COPY_SUFFIX}` }, nodes, edges },
+    }))
+
+  /** Removes a stored project; see projectStore's `remove`. */
+  const remove = (id) => store.remove(id)
+
+  /**
+   * The file a card's Export downloads: `{ fileName, text }`. A project that opens is exported
+   * as the open map would export it; one that cannot be opened downloads its stored text unchanged.
+   */
+  const exportFile = async (id) => {
+    const read = await store.read(id)
+    if (!read.ok) return read
+    const opened = await open(id)
+    if (!opened.ok) {
+      const name = opened.name ?? ''
+      return { ok: true, problems: [], fileName: projectFileName(name), text: read.text }
+    }
+    return { ok: true, problems: [], ...(await toExportDownload(opened.project, now())) }
+  }
 
   /**
    * Creates an empty project named `name` through `create_project` and saves it. A name the
@@ -53,7 +116,7 @@ export const createProjectLibrary = (store, { newId = () => crypto.randomUUID() 
     return saved.ok ? { ok: true, problems: [], project: created.project } : saved
   }
 
-  return { open, save, list, create }
+  return { open, save, list, create, rename, duplicate, remove, exportFile }
 }
 
 export const OPEN_OUTCOME = Object.freeze({
@@ -100,5 +163,9 @@ export const observeLibrary = (library, { onProblems, onFirstSave }) => {
     list: async (options) => observed(await library.list(options)),
     create: async (name) => written(await library.create(name)),
     save: async (memoryProject) => written(await library.save(memoryProject)),
+    rename: async (id, name) => written(await library.rename(id, name)),
+    duplicate: async (id) => written(await library.duplicate(id)),
+    remove: async (id) => observed(await library.remove(id)),
+    exportFile: async (id) => observed(await library.exportFile(id)),
   }
 }

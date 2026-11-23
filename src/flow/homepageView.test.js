@@ -12,6 +12,7 @@ describe('toCardItems', () => {
       {
         id: 'b',
         name: 'B',
+        openable: true,
         modifiedAt: '2026-11-22T10:00:00.000Z',
         modifiedText: '22 Nov 2026, 10:00',
         href: '#/projects/b',
@@ -19,6 +20,7 @@ describe('toCardItems', () => {
       {
         id: 'a',
         name: 'A',
+        openable: true,
         modifiedAt: '2026-11-21T09:00:00.000Z',
         modifiedText: '21 Nov 2026, 09:00',
         href: '#/projects/a',
@@ -36,6 +38,11 @@ describe('toCardItems', () => {
       timeZone: 'UTC',
     })
     expect(item.modifiedText).toBe('not a time')
+  })
+
+  it('keeps an entry that cannot be opened marked so', () => {
+    const [item] = toCardItems([{ ...entries[0], openable: false }], { timeZone: 'UTC' })
+    expect(item.openable).toBe(false)
   })
 
   it('lists nothing for no entries', () => {

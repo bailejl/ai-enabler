@@ -6,6 +6,7 @@ import {
   observeLibrary,
   toOpenOutcome,
 } from './projectLibrary.js'
+import { toExportDownload } from './projectFile.js'
 import { createProjectStore } from './projectStore.js'
 import oldFile from './schema/fixtures/0.0.0.json?raw'
 
@@ -114,6 +115,154 @@ describe('project library create', () => {
     expect(created.ok).toBe(false)
     expect(codes(created)).toEqual(['STORE_WRITE_FAILED'])
     expect((await store.list()).projects).toEqual([])
+  })
+})
+
+const BROKEN = JSON.stringify({
+  schemaVersion: '0.1.0',
+  exportedAt: DAY_ONE,
+  project: { id: 'b', name: 'Broken' },
+  nodes: [{ id: 's1', type: 'step', data: { label: 'Plan' } }],
+  edges: [],
+})
+
+const refusingPut = (adapter) => ({
+  ...adapter,
+  put: async () => {
+    throw new Error('refused')
+  },
+  remove: async () => {
+    throw new Error('refused')
+  },
+})
+
+// A library over `adapter` whose ids count up from "id-1" and whose clock is fixed.
+const libraryOver = (adapter) => {
+  const store = createProjectStore(adapter)
+  const ids = { next: 0 }
+  const newId = () => {
+    ids.next += 1
+    return `id-${ids.next}`
+  }
+  const now = () => new Date(DAY_ONE)
+  return { store, library: createProjectLibrary(store, { newId, now }) }
+}
+
+describe('project library list', () => {
+  it('marks each entry openable or not', async () => {
+    const { library } = await libraryWith([['b', 'Broken', BROKEN]])
+    await library.save(memoryProject('p1', 'Checkout'))
+    const listed = await library.list({ sort: 'name' })
+    expect(listed.projects.map(({ id, openable }) => ({ id, openable }))).toEqual([
+      { id: 'b', openable: false },
+      { id: 'p1', openable: true },
+    ])
+  })
+})
+
+describe('project library rename', () => {
+  it('renames and saves the project, keeping its id and map', async () => {
+    const { library } = await libraryWith()
+    await library.save(memoryProject('p1', 'Checkout'))
+    const renamed = await library.rename('p1', 'Payments')
+    expect(renamed).toEqual({ ok: true, problems: [], project: memoryProject('p1', 'Payments') })
+    expect((await library.open('p1')).project).toEqual(memoryProject('p1', 'Payments'))
+    expect((await library.list()).projects.map(({ name }) => name)).toEqual(['Payments'])
+  })
+
+  it('rejects a blank name and keeps the old one', async () => {
+    const { library } = await libraryWith()
+    await library.save(memoryProject('p1', 'Checkout'))
+    expect(codes(await library.rename('p1', ' '))).toEqual(['FILE_PROJECT_NAME_EMPTY'])
+    expect((await library.open('p1')).project.project.name).toBe('Checkout')
+  })
+
+  it('refuses a file that cannot be opened', async () => {
+    const { library, store } = await libraryWith([['b', 'Broken', BROKEN]])
+    expect(codes(await library.rename('b', 'Fixed'))[0]).toBe('STORE_FILE_INVALID')
+    expect((await store.read('b')).text).toBe(BROKEN)
+  })
+
+  it('reports a failed write', async () => {
+    const adapter = createMemoryStoreAdapter()
+    await createProjectStore(adapter).save(memoryProject('p1', 'Checkout'))
+    const { library } = libraryOver(refusingPut(adapter))
+    expect(codes(await library.rename('p1', 'Payments'))).toEqual(['STORE_WRITE_FAILED'])
+    expect((await library.open('p1')).project.project.name).toBe('Checkout')
+  })
+})
+
+describe('project library duplicate', () => {
+  it('saves a copy named "<name> (copy)" with a new id and the same map', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    await library.save(memoryProject('p1', 'Checkout'))
+    const copied = await library.duplicate('p1')
+    const copy = { ...memoryProject('id-1', 'Checkout (copy)') }
+    expect(copied).toEqual({ ok: true, problems: [], project: copy })
+    expect((await library.open('id-1')).project).toEqual(copy)
+    expect((await library.open('p1')).project).toEqual(memoryProject('p1', 'Checkout'))
+  })
+
+  it('appends again for a copy of a copy', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    await library.save(memoryProject('p1', 'Checkout (copy)'))
+    expect((await library.duplicate('p1')).project.project.name).toBe('Checkout (copy) (copy)')
+  })
+
+  it('leaves no copy after a failed write', async () => {
+    const adapter = createMemoryStoreAdapter()
+    await createProjectStore(adapter).save(memoryProject('p1', 'Checkout'))
+    const { library } = libraryOver(refusingPut(adapter))
+    expect(codes(await library.duplicate('p1'))).toEqual(['STORE_WRITE_FAILED'])
+    expect((await library.list()).projects.map(({ id }) => id)).toEqual(['p1'])
+  })
+
+  it('refuses a file that cannot be opened', async () => {
+    const { library } = await libraryWith([['b', 'Broken', BROKEN]])
+    expect(codes(await library.duplicate('b'))[0]).toBe('STORE_FILE_INVALID')
+    expect((await library.list()).projects).toHaveLength(1)
+  })
+})
+
+describe('project library remove', () => {
+  it('removes a project, even one that cannot be opened', async () => {
+    const { library } = await libraryWith([['b', 'Broken', BROKEN]])
+    expect(await library.remove('b')).toEqual({ ok: true, problems: [] })
+    expect((await library.list()).projects).toEqual([])
+  })
+
+  it('reports a failed write and keeps the project', async () => {
+    const adapter = createMemoryStoreAdapter()
+    await createProjectStore(adapter).save(memoryProject('p1', 'Checkout'))
+    const { library } = libraryOver(refusingPut(adapter))
+    expect(codes(await library.remove('p1'))).toEqual(['STORE_WRITE_FAILED'])
+    expect((await library.list()).projects).toHaveLength(1)
+  })
+})
+
+describe('project library exportFile', () => {
+  it('exports an openable project as the open map would', async () => {
+    const { library } = libraryOver(createMemoryStoreAdapter())
+    await library.save(memoryProject('p1', 'Checkout'))
+    const exported = await library.exportFile('p1')
+    const expected = await toExportDownload(memoryProject('p1', 'Checkout'), new Date(DAY_ONE))
+    expect(exported).toEqual({ ok: true, problems: [], ...expected })
+    expect(exported.fileName).toBe('checkout.ai-enabler.json')
+  })
+
+  it('downloads the stored text of a file that cannot be opened, unchanged', async () => {
+    const { library } = await libraryWith([['b', 'Broken', BROKEN]])
+    expect(await library.exportFile('b')).toEqual({
+      ok: true,
+      problems: [],
+      fileName: 'broken.ai-enabler.json',
+      text: BROKEN,
+    })
+  })
+
+  it('reports an id that is not stored', async () => {
+    const { library } = await libraryWith()
+    expect(codes(await library.exportFile('nope'))).toEqual(['STORE_PROJECT_NOT_FOUND'])
   })
 })
 

@@ -1,7 +1,9 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
-import { DIALOG, isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
+import { DIALOG, FOCUS, isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
 import { toCardItems } from '../flow/homepageView.js'
 import { SORT } from '../flow/projectStore.js'
+import Announcer from './Announcer.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
 import { APP_NAME } from './Header.jsx'
 import ProjectCard from './ProjectCard.jsx'
 import ProjectNameDialog from './ProjectNameDialog.jsx'
@@ -16,31 +18,57 @@ const SORT_OPTIONS = [
   { value: SORT.name, label: 'Name' },
 ]
 
+// The element marked `data-focus="<target>:<id>"` inside `root`.
+const markedElement = (root, { target, id }) =>
+  [...(root?.querySelectorAll('[data-focus]') ?? [])].find(
+    (element) => element.dataset.focus === `${target}:${id}`,
+  )
+
 /**
- * The homepage: the saved projects as cards, with the sort. It renders what `useHomepage` gives
- * it. The heading takes focus when the page opens.
+ * The homepage: the saved projects as cards, with the sort and the card actions. It renders what
+ * `useHomepage` gives it. The heading takes focus when the page opens; after that, focus goes
+ * where the state's `focus` names.
  */
-export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCreate, onCreate }) {
+export default function HomePage({
+  state,
+  message,
+  onSortChange,
+  onOpenCreate,
+  onOpenRename,
+  onOpenDelete,
+  onCancelDialog,
+  onCreate,
+  onRename,
+  onDuplicate,
+  onConfirmDelete,
+  onExport,
+}) {
   const headingRef = useRef(null)
   const newProjectRef = useRef(null)
+  const bodyRef = useRef(null)
   const sortId = useId()
   useEffect(() => {
     document.title = APP_NAME
     headingRef.current?.focus()
   }, [])
-  const { list, sort, dialog } = state
-  // Once the create dialog has gone (and the browser has put focus back), focus is on New project.
-  const wasCreateOpen = useRef(false)
+  const { list, sort, dialog, actionProblems, focus } = state
   useEffect(() => {
-    const isCreateOpen = dialog?.type === DIALOG.create
-    if (wasCreateOpen.current && !isCreateOpen) newProjectRef.current?.focus()
-    wasCreateOpen.current = isCreateOpen
-  }, [dialog])
+    if (!focus) return
+    const element =
+      focus.target === FOCUS.newProject
+        ? newProjectRef.current
+        : markedElement(bodyRef.current, focus)
+    element?.focus()
+  }, [focus])
   const isLoading = list.status === LIST_STATUS.loading
   const cardItems = useMemo(() => toCardItems(list.projects), [list.projects])
+  const storeProblems = useMemo(
+    () => [...list.problems, ...actionProblems],
+    [list.problems, actionProblems],
+  )
   return (
     <div className="page" style={themeProperties} data-route={ROUTE.HOME}>
-      <main className="page__body">
+      <main ref={bodyRef} className="page__body">
         <h1 ref={headingRef} tabIndex={-1} className="page__heading">
           {APP_NAME}
         </h1>
@@ -49,7 +77,7 @@ export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCr
             New project
           </button>
         </div>
-        <StoreProblems problems={list.problems} />
+        <StoreProblems problems={storeProblems} />
         <section aria-label="Projects" aria-busy={isLoading} className="projects">
           <div className="projects__toolbar">
             <label htmlFor={sortId}>Sort by</label>
@@ -65,22 +93,48 @@ export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCr
             {isLoading ? 'Loading projects…' : ''}
             {isEmptyList(state) ? EMPTY_LIST_TEXT : ''}
           </p>
-          {list.projects.length > 0 && (
+          {cardItems.length > 0 && (
             <ul className="projects__list">
               {cardItems.map((item) => (
-                <ProjectCard key={item.id} item={item} />
+                <ProjectCard
+                  key={item.id}
+                  item={item}
+                  onRename={onOpenRename}
+                  onDuplicate={onDuplicate}
+                  onExport={onExport}
+                  onDelete={onOpenDelete}
+                />
               ))}
             </ul>
           )}
         </section>
       </main>
+      <Announcer message={message} />
       {dialog?.type === DIALOG.create && (
         <ProjectNameDialog
           title="New project"
           submitText="Create"
           problems={dialog.problems}
           onSubmit={onCreate}
-          onCancel={onCancelCreate}
+          onCancel={onCancelDialog}
+        />
+      )}
+      {dialog?.type === DIALOG.rename && (
+        <ProjectNameDialog
+          title="Rename project"
+          submitText="Save"
+          initialName={dialog.name}
+          problems={dialog.problems}
+          onSubmit={onRename}
+          onCancel={onCancelDialog}
+        />
+      )}
+      {dialog?.type === DIALOG.delete && (
+        <ConfirmDialog
+          message={`Delete ${dialog.name}? This can't be undone.`}
+          confirmText="Delete"
+          onConfirm={onConfirmDelete}
+          onCancel={onCancelDialog}
         />
       )}
     </div>

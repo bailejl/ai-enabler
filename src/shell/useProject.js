@@ -1,11 +1,6 @@
 import { useReactFlow } from '@xyflow/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  projectFileName,
-  serializeProjectFile,
-  toProjectFile,
-  withContentHash,
-} from '../flow/projectFile.js'
+import { toExportDownload } from '../flow/projectFile.js'
 import { downloadTextFile } from './download.js'
 import { useCanvasEdits } from './useCanvasEdits.js'
 import { useImportFlow } from './useImportFlow.js'
@@ -70,9 +65,8 @@ export const useProject = ({
   })
   // Returns the downloaded file name so the caller can announce it.
   const exportProject = useCallback(async () => {
-    const projectFile = toProjectFile({ ...latestProject.current, now: new Date() })
-    const fileName = projectFileName(latestProject.current.project.name)
-    downloadTextFile(fileName, serializeProjectFile(await withContentHash(projectFile)))
+    const { fileName, text } = await toExportDownload(latestProject.current, new Date())
+    downloadTextFile(fileName, text)
     return fileName
   }, [])
   return {
