@@ -30,9 +30,17 @@ export default function ProjectNameDialog({
     fieldRef.current.focus()
   }, [problems])
 
-  const handleSubmit = (event) => {
+  // A submit waits for the one before it, so a second Enter or click cannot save twice.
+  const submitting = useRef(false)
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    onSubmit(name)
+    if (submitting.current) return
+    submitting.current = true
+    try {
+      await onSubmit(name)
+    } finally {
+      submitting.current = false
+    }
   }
 
   // Esc is a cancel; the dialog stays open until the state closes it.

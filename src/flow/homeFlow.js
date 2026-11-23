@@ -51,6 +51,9 @@ const HANDLERS = {
  */
 export const reduceHome = (state, event) => HANDLERS[event.type]?.(state, event) ?? state
 
-/** True when the list has arrived and holds no project, so the empty state shows. */
+/**
+ * True when the list has arrived and holds no project, so the empty state shows. A list that
+ * could not be read is not empty: its problems show instead.
+ */
 export const isEmptyList = ({ list }) =>
-  list.status === LIST_STATUS.ready && list.projects.length === 0
+  list.status === LIST_STATUS.ready && list.projects.length === 0 && list.problems.length === 0

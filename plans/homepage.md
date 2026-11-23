@@ -1021,10 +1021,10 @@ Plan tier: complex (7 waves, complex steps). Reviewers: Acceptance, Design, UX, 
 
 #### Wave 4
 
-- [ ] Slice 4: Homepage list and create
-  - [ ] Step 4.1: List, sort, loading and empty state
-  - [ ] Step 4.2: Create dialog and empty-map hint
-  - [ ] Step 4.3: Brand link home and accessibility
+- [x] Slice 4: Homepage list and create
+  - [x] Step 4.1: List, sort, loading and empty state
+  - [x] Step 4.2: Create dialog and empty-map hint
+  - [x] Step 4.3: Brand link home and accessibility
 
 #### Wave 5
 

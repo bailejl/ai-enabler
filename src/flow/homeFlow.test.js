@@ -29,6 +29,7 @@ describe('reduceHome list', () => {
     const problems = [{ code: 'STORE_UNAVAILABLE' }]
     const state = run({ type: HOME_EVENT.listLoaded, projects: [], problems })
     expect(state.list.problems).toEqual(problems)
+    expect(isEmptyList(state)).toBe(false)
   })
 
   it('is empty once a list with no projects arrives', () => {

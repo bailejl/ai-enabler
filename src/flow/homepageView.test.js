@@ -31,6 +31,13 @@ describe('toCardItems', () => {
     expect(item.modifiedText).toBe('22 Nov 2026, 19:00')
   })
 
+  it('shows a time that does not parse as stored', () => {
+    const [item] = toCardItems([{ id: 'a', name: 'A', modifiedAt: 'not a time' }], {
+      timeZone: 'UTC',
+    })
+    expect(item.modifiedText).toBe('not a time')
+  })
+
   it('lists nothing for no entries', () => {
     expect(toCardItems([], { timeZone: 'UTC' })).toEqual([])
   })

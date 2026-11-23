@@ -138,6 +138,17 @@ test.describe('creating a project', () => {
     await expect(cardItems(page)).toHaveCount(0)
   })
 
+  test('a second click on Create while the first is saving makes one project', async ({ page }) => {
+    await page.goto('/#/')
+    await newProject(page).click()
+    await nameField(page).fill('Checkout')
+    await dialog(page).getByRole('button', { name: 'Create' }).click({ clickCount: 2 })
+    await expect(page).toHaveURL(/#\/projects\/[0-9a-f-]{36}$/)
+    await page.goto('/#/')
+    await expect(cardItems(page).getByRole('link')).toHaveText(['Checkout'])
+    expect(await readIndex(page)).toHaveLength(1)
+  })
+
   test('cancel saves nothing and returns focus to New project', async ({ page }) => {
     await page.goto('/#/')
     await newProject(page).click()

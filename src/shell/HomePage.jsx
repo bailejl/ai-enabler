@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef } from 'react'
 import { DIALOG, isEmptyList, LIST_STATUS } from '../flow/homeFlow.js'
 import { toCardItems } from '../flow/homepageView.js'
 import { SORT } from '../flow/projectStore.js'
@@ -37,6 +37,7 @@ export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCr
     wasCreateOpen.current = isCreateOpen
   }, [dialog])
   const isLoading = list.status === LIST_STATUS.loading
+  const cardItems = useMemo(() => toCardItems(list.projects), [list.projects])
   return (
     <div className="page" style={themeProperties} data-route={ROUTE.HOME}>
       <main className="page__body">
@@ -66,7 +67,7 @@ export default function HomePage({ state, onSortChange, onOpenCreate, onCancelCr
           </p>
           {list.projects.length > 0 && (
             <ul className="projects__list">
-              {toCardItems(list.projects).map((item) => (
+              {cardItems.map((item) => (
                 <ProjectCard key={item.id} item={item} />
               ))}
             </ul>

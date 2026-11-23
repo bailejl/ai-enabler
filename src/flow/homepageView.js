@@ -3,6 +3,12 @@
 const dateFormat = (timeZone) =>
   new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone })
 
+// A time that does not parse shows as stored, so one bad entry cannot blank the page.
+const formatTime = (format, iso) => {
+  const time = new Date(iso)
+  return Number.isNaN(time.getTime()) ? String(iso) : format.format(time)
+}
+
 /** The link to a project's page. */
 export const projectHref = (id) => `#/projects/${encodeURIComponent(id)}`
 
@@ -19,7 +25,7 @@ export const toCardItems = (entries, { timeZone } = {}) => {
     id,
     name,
     modifiedAt,
-    modifiedText: format.format(new Date(modifiedAt)),
+    modifiedText: formatTime(format, modifiedAt),
     href: projectHref(id),
   }))
 }
