@@ -79,6 +79,51 @@ body,
   outline-offset: var(--focus-ring-offset);
 }
 
+.projects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--header-gap);
+}
+
+.projects__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--header-gap);
+}
+
+.projects__status:empty {
+  display: none;
+}
+
+.projects__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--header-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Names wrap; the homepage never truncates them. */
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: var(--status-padding);
+  border: 1px solid var(--tile-text);
+  border-radius: 0.5rem;
+  background: var(--card-background);
+  color: var(--card-text);
+}
+
+.project-card__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
 /* React Flow's stylesheet removes the outline from nodes and edges (specificity 0,3,0). */
 .react-flow__node.selectable:focus-visible,
 .react-flow__edge:focus-visible {

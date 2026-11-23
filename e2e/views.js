@@ -39,15 +39,16 @@ export const fixtureRecord = (fixture, modifiedAt = STARTER_MODIFIED_AT) => {
 export const withoutHash = (file) =>
   Object.fromEntries(Object.entries(file).filter(([key]) => key !== 'contentHash'))
 
-/** The starter fixture saved under project id `id`, its hash recomputed so it reads as unedited. */
-export const starterRecordAs = async (id) => {
+/** The starter fixture saved as project `id` (and `name`, if given), its hash recomputed so it reads as unedited. */
+export const starterRecordAs = async (id, { name, modifiedAt = STARTER_MODIFIED_AT } = {}) => {
   const file = JSON.parse(fixtureRecord(STARTER_FIXTURE).text)
   const rest = withoutHash(file)
-  const moved = await withContentHash({ ...rest, project: { ...rest.project, id } })
+  const project = { id, name: name ?? rest.project.name }
+  const moved = await withContentHash({ ...rest, project })
   return {
     id,
     name: moved.project.name,
-    modifiedAt: STARTER_MODIFIED_AT,
+    modifiedAt,
     text: serializeProjectFile(moved),
   }
 }

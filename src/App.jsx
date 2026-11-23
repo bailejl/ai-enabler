@@ -9,7 +9,9 @@ import {
 import { useCallback, useEffect, useRef } from 'react'
 import '@xyflow/react/dist/style.css'
 import Header, { APP_NAME } from './shell/Header.jsx'
+import HomePage from './shell/HomePage.jsx'
 import ProjectMissing from './shell/ProjectMissing.jsx'
+import { useHomepage } from './shell/useHomepage.js'
 import { ROUTE } from './shell/routes.js'
 import { OPENING, useStoredProject } from './shell/useStoredProject.js'
 import { OPEN_OUTCOME } from './flow/projectLibrary.js'
@@ -161,22 +163,9 @@ function ProjectRoute({ id }) {
   )
 }
 
-// Until the homepage lands: the home route's heading and nothing else. The heading takes focus.
 function HomeRoute() {
-  const headingRef = useRef(null)
-  useEffect(() => {
-    document.title = APP_NAME
-    headingRef.current?.focus()
-  }, [])
-  return (
-    <div className="page" style={themeProperties} data-route={ROUTE.HOME}>
-      <main className="page__body">
-        <h1 ref={headingRef} tabIndex={-1} className="page__heading">
-          {APP_NAME}
-        </h1>
-      </main>
-    </div>
-  )
+  const { state, setSort } = useHomepage()
+  return <HomePage state={state} onSortChange={setSort} />
 }
 
 export default function App() {

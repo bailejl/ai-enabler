@@ -36,7 +36,10 @@ export const createProjectLibrary = (store) => {
   /** Saves the in-memory project; see projectStore's `save`. */
   const save = (memoryProject) => store.save(memoryProject)
 
-  return { open, save }
+  /** Every saved project's index entry; see projectStore's `list`. */
+  const list = (options) => store.list(options)
+
+  return { open, save, list }
 }
 
 export const OPEN_OUTCOME = Object.freeze({
@@ -72,6 +75,7 @@ export const observeLibrary = (library, { onProblems, onFirstSave }) => {
   }
   return {
     open: async (id) => observed(await library.open(id)),
+    list: async (options) => observed(await library.list(options)),
     save: async (memoryProject) => {
       const result = observed(await library.save(memoryProject))
       if (result.ok && !saved.once) {
